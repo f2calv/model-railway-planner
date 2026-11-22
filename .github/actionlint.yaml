@@ -1,0 +1,4 @@
+# Verified in successful hosted jobs; remove when actionlint recognises this label.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

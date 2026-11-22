@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Vite development", "type": "npm", "script": "dev", "problemMatcher": [] },
+    { "label": "Build", "type": "npm", "script": "build", "group": "build", "problemMatcher": [] },
+    {
+      "label": "Unit tests",
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
