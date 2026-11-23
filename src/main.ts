@@ -36,7 +36,7 @@ function element<T extends Element>(selector: string): T {
 element<HTMLDivElement>('#app').innerHTML = `
   <header class="app-header">
     <img src="${import.meta.env.BASE_URL}icon.svg" width="38" height="38" alt="" />
-    <div class="brand"><h1>Model Railway Planner</h1><span>Your track. Your next great layout.</span></div>
+    <div class="brand"><h1>Model Railway Planner</h1><span>Your track. Your next great layout. <span id="app-version"></span></span></div>
     <span class="privacy-badge">LOCAL & PRIVATE</span>
     <button id="theme" aria-pressed="false">Dark mode</button>
     <button id="export">Export backup</button>
@@ -112,6 +112,9 @@ element<HTMLDivElement>('#app').innerHTML = `
   <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Confirm</h2><p id="confirm-text"></p><div class="dialog-actions"><button value="cancel">Cancel</button><button value="confirm">Confirm</button></div></form></dialog>
   <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">Layout name</h2><label>Name<input id="layout-name" maxlength="120" required /></label><div class="dialog-actions"><button value="cancel" formnovalidate>Cancel</button><button value="confirm">Save</button></div></form></dialog>
 `;
+
+element<HTMLElement>('#app-version').textContent =
+  import.meta.env.VITE_APP_VERSION ?? 'development';
 
 const uuid = () => crypto.randomUUID();
 let state: PlannerState = emptyState(uuid());

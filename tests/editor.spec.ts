@@ -15,7 +15,7 @@ async function createIdea(page: Page): Promise<void> {
 test('inventory counts, snapping, dragging, separate ideas and persistence', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('./');
   await stock(page, 'R600', 2);
   const canvas = page.locator('#canvas');
   await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).click();
@@ -58,7 +58,7 @@ test('inventory counts, snapping, dragging, separate ideas and persistence', asy
 });
 
 test('rejects collisions and unsafe imports without changing data', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await stock(page, 'R600', 3);
   await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).click();
   await page.locator('#canvas').click({ position: { x: 200, y: 200 } });
@@ -79,7 +79,7 @@ test('rejects collisions and unsafe imports without changing data', async ({ pag
 test('local storage write failures reject edits and malformed reads preserve original bytes', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.evaluate(() => {
     Storage.prototype.setItem = () => {
       throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
@@ -100,14 +100,16 @@ test('local storage write failures reject edits and malformed reads preserve ori
   );
 });
 
-test('touch and keyboard alternatives work at mobile size', async ({ browser }) => {
+test('touch and keyboard alternatives work at mobile size', async ({ browser, baseURL }) => {
+  if (!baseURL) throw new Error('Browser tests require a configured application URL.');
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,
+    baseURL,
   });
   const page = await context.newPage();
-  await page.goto('http://127.0.0.1:4173/');
+  await page.goto('./');
   await stock(page, 'R600', 1);
   await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).tap();
   await page.locator('#canvas').tap({ position: { x: 100, y: 200 } });
@@ -125,7 +127,7 @@ test('touch and keyboard alternatives work at mobile size', async ({ browser }) 
 });
 
 test('production shell, manifest and icons support offline reload', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await stock(page, 'R600', 1);
   await expect
     .poll(() =>
@@ -144,6 +146,10 @@ test('production shell, manifest and icons support offline reload', async ({ pag
   };
   expect(manifest.icons.some((icon) => icon.sizes === '192x192')).toBe(true);
   expect(manifest.icons.some((icon) => icon.sizes === '512x512')).toBe(true);
+  const version = await page.request.get('version.json');
+  expect(version.ok()).toBe(true);
+  const versionInfo = (await version.json()) as { version: string };
+  await expect(page.locator('#app-version')).toHaveText(versionInfo.version);
   for (const icon of manifest.icons) expect((await page.request.get(icon.src)).ok()).toBe(true);
   await page.context().setOffline(true);
   await page.reload();
@@ -154,7 +160,7 @@ test('production shell, manifest and icons support offline reload', async ({ pag
 test('desktop palette dragging previews track across the menu and canvas before committing', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await stock(page, 'R600', 1);
   const choice = page.getByRole('button', { name: 'Place R600 Straight', exact: true });
   const box = await choice.boundingBox();
@@ -181,7 +187,7 @@ test('desktop palette dragging previews track across the menu and canvas before 
 test('unowned pieces form a per-idea shopping list that responds to inventory and removal', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await stock(page, 'R600', 1);
   await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).click();
   await page.locator('#canvas').click({ position: { x: 200, y: 200 } });
@@ -203,7 +209,7 @@ test('unowned pieces form a per-idea shopping list that responds to inventory an
 });
 
 test('grouped palette is compact and searchable; dark mode persists', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.locator('.catalog-group > summary')).toHaveText([
     'Straights (3)',
     'Curves (10)',
@@ -233,7 +239,7 @@ test('grouped palette is compact and searchable; dark mode persists', async ({ p
 test('hover identifies dimensions, unselected track uses a pointer and joins stay screen-sized', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('button', { name: 'Place R603 Long straight', exact: true }).click();
   await page.locator('#canvas').click({ position: { x: 130, y: 200 } });
   await page.getByRole('button', { name: 'Select / pan', exact: true }).click();
@@ -257,7 +263,7 @@ test('hover identifies dimensions, unselected track uses a pointer and joins sta
 });
 
 test('cancelled palette drags do not place or consume track', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   const choice = page.getByRole('button', { name: 'Place R600 Straight', exact: true });
   const box = await choice.boundingBox();
   const canvas = await page.locator('#canvas').boundingBox();
@@ -273,7 +279,7 @@ test('cancelled palette drags do not place or consume track', async ({ page }) =
 });
 
 test('joined baseboards persist and disconnected rectangles are rejected', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByRole('button', { name: 'Add rectangle', exact: true }).click();
   await page.getByRole('spinbutton', { name: 'X (mm)', exact: true }).last().fill('1800');
   await page.getByRole('spinbutton', { name: 'Width (mm)', exact: true }).fill('600');

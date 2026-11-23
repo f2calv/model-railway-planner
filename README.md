@@ -1,8 +1,38 @@
 # model-railway-planner
 
-A browser-only model railway track planner for trying layout ideas with owned track and a shopping
-list for the extra pieces you need.
-The first catalog targets Hornby OO (16.5 mm gauge); no account, backend or cloud database is required.
+A free, browser-only **model railway track planner** for designing **Hornby OO gauge layouts**.
+Drag and snap track pieces, try baseboard shapes, save alternative ideas and calculate a shopping
+list for the extra track you need. No account, backend or cloud database is required.
+
+The initial catalog targets Hornby OO (16.5 mm gauge). TypeScript, Vite and D3/SVG power the
+zoomable editor; the progressive web app supports offline use and installation where available.
+
+![Hornby OO double-loop layout in the track planner, with grouped curve inventory and four extra R607 pieces on the shopping list](docs/images/planner-overview.jpg)
+
+Example layout using synthetic inventory. Orange dashed track identifies the pieces still to buy.
+
+## System Context
+
+The planner runs in a standard browser and keeps inventory and saved ideas on the user's device.
+Static hosting distributes application code, not user layouts.
+
+```mermaid
+flowchart LR
+    user(["Railway modeller"]):::person
+    planner["Model Railway Planner<br/>Browser-only layout design"]:::system
+    pages["GitHub Pages<br/>Static application hosting"]:::external
+    backup[("User backup file<br/>Inventory and saved layouts")]:::store
+    user -->|"Place track and explore ideas"| planner
+    planner -->|"HTTPS application assets"| pages
+    planner -->|"Import and export JSON"| backup
+    classDef person fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef system fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
+    classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef store fill:#e5e7eb,stroke:#4b5563,color:#111827
+```
+
+See the [C4 architecture: containers, components and code map](docs/architecture.md#containers)
+for the implementation drilldown and placement/persistence sequence.
 
 ## Product Brief
 
@@ -23,8 +53,16 @@ This section preserves the original requirements and agreed direction:
 - Expand later to other manufacturers (for example Peco and Marklin) and scales O, N and TT.
 - Use GitHub Issues to track bugs and follow-up work; begin with iterative development.
 
-GitHub Pages publication is deliberately deferred until the editor is ready. No Pages deployment
-workflow or live site is enabled in this first implementation.
+## Online App and Releases
+
+The release pipeline builds and tests the production app at its GitHub Pages subpath, then deploys
+the same artifact on a successful `main` push. Application versions are calculated from Git history
+using GitVersion. The UI displays the build version, `version.json` provides it as JSON and Pages
+adds `deployment.json` with the exact deployed commit. Release tags use plain `X.Y.Z`, without
+floating aliases, and are created only after deployment succeeds.
+
+Pull requests run lint, version calculation and frontend format/lint/type/unit/browser checks.
+PRs, forks and manual dispatches cannot publish Pages or create release tags.
 
 ## Run Locally
 
@@ -133,9 +171,11 @@ Chromium offers an install option; iOS uses Safari's **Add to Home Screen**. Nat
 app-store distribution are not implemented. Updates are offered explicitly; app caches and user
 documents are kept separate.
 
-For a future project-subpath deployment, build with `VITE_BASE_PATH` set to the site's path with a
+For a project-subpath deployment, build with `VITE_BASE_PATH` set to the site's path with a
 trailing slash. Asset URLs, manifest and service-worker scope follow that base. Pages deployment
-will be added and verified later.
+uses `/model-railway-planner/`; browser tests use that same base rather than only testing `/`.
+Set `VITE_APP_VERSION` for an identifiable production build; local builds display `development`
+when it is absent.
 
 ## Development
 
@@ -169,7 +209,7 @@ frontend checks.
 - Expand the verified Hornby catalog, then add manufacturer/scale profiles and compatibility rules.
 - Add undo/redo, selection groups and print/export tools if user feedback calls for them.
 - Verify the Dev Container build and mobile installation on physical devices.
-- Add and verify GitHub Actions Pages publication only when approved.
+- Keep hosted CI, Pages publication and offline behavior verified as the catalog evolves.
 
 ## License
 

@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
 
@@ -26,46 +26,44 @@ jobs:
     with:
       tag-prefix: ''
       tag-and-release: false
+      move-major-tag: false
 
-  frontend:
-    runs-on: ubuntu-26.04
+  build:
+    needs: versioning
+    #Canary the new workflow before its first shared release; replace with @v1 after publication.
+    uses: f2calv/gha-workflows/.github/workflows/app-build-npm.yml@f2calv/2026-11-updates2
     permissions:
       contents: read
-    steps:
-      - name: actions/checkout
-        uses: actions/checkout@v6
+    with:
+      version: ${{ needs.versioning.outputs.version }}
+      base-path: /${{ github.event.repository.name }}/
+      browser-tests: true
+      artifact-name: planner
 
-      - name: actions/setup-node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: npm ci
-        run: npm ci
-
-      - name: npm run format:check
-        run: npm run format:check
-
-      - name: npm run lint
-        run: npm run lint
-
-      - name: npm test
-        run: npm test
-
-      - name: npm run build
-        run: npm run build
-
-      - name: npx playwright install --with-deps chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: npm run test:browser
-        run: npm run test:browser
+  pages:
+    needs: [lint, versioning, build]
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    uses: f2calv/gha-workflows/.github/workflows/pages-publish.yml@f2calv/2026-11-updates2
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    with:
+      artifact-name: planner
+      version: ${{ needs.versioning.outputs.version }}
+      publish: true
 
   release:
-    needs: [lint, versioning, frontend]
-    if: needs.versioning.outputs.release-exists == 'false'
+    needs: [lint, versioning, build, pages]
+    if: >-
+      always()
+      && github.event_name == 'push'
       && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      && needs.versioning.outputs.release-exists == 'false'
+      && needs.lint.result == 'success'
+      && needs.versioning.result == 'success'
+      && needs.build.result == 'success'
+      && needs.pages.result == 'success'
     uses: f2calv/gha-workflows/.github/workflows/gha-release-versioning.yml@v1
     permissions:
       contents: write

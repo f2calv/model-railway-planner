@@ -1,9 +1,24 @@
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const base = process.env['VITE_BASE_PATH'] ?? '/';
+const version = process.env['VITE_APP_VERSION'] ?? 'development';
+if (!base.startsWith('/') || !base.endsWith('/') || base.startsWith('//'))
+  throw new Error('VITE_BASE_PATH must be an absolute site path with a trailing slash.');
+
 export default defineConfig({
-  base: process.env['VITE_BASE_PATH'] ?? '/',
+  base,
   plugins: [
+    {
+      name: 'application-version',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: JSON.stringify({ version }),
+        });
+      },
+    },
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['icon.svg', 'apple-touch-icon-180x180.png'],
@@ -27,7 +42,7 @@ export default defineConfig({
           },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}', 'version.json'] },
     }),
   ],
   test: { include: ['src/**/*.test.ts'] },
