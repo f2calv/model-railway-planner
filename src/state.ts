@@ -4,7 +4,7 @@ import type { Layout, Piece, PlannerState } from './model';
 
 export function emptyState(id: string): PlannerState {
   return {
-    version: 1,
+    version: 2,
     inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])),
     layouts: [{ id, name: 'My first layout', pieces: [], boards: [] }],
     activeLayoutId: id,
@@ -45,22 +45,106 @@ export function missingPieceIds(state: PlannerState): Set<string> {
 }
 
 export function putPiece(state: PlannerState, piece: Piece): PlannerState {
-  definition(piece.trackId);
-  if (![piece.x, piece.y, piece.angle].every(Number.isFinite))
-    throw new Error('Position must be finite.');
+  return putPieces(state, [piece]);
+}
+
+export function putPieces(state: PlannerState, pieces: readonly Piece[]): PlannerState {
+  if (!pieces.length || new Set(pieces.map((piece) => piece.id)).size !== pieces.length)
+    throw new Error('Provide one or more pieces with unique identifiers.');
   const layout = activeLayout(state);
-  const existing = layout.pieces.find((p) => p.id === piece.id);
-  if (existing && existing.trackId !== piece.trackId)
-    throw new Error('Cannot change the type of an existing piece.');
-  const others = layout.pieces.filter((entry) => entry.id !== piece.id);
-  const problem = placementProblem(piece, others, layout.boards);
-  if (problem) throw new Error(problem.message);
+  const replacements = new Map(pieces.map((piece) => [piece.id, piece]));
+  for (const piece of pieces) {
+    definition(piece.trackId);
+    if (![piece.x, piece.y, piece.angle].every(Number.isFinite))
+      throw new Error('Position must be finite.');
+    const existing = layout.pieces.find((entry) => entry.id === piece.id);
+    if (existing && existing.trackId !== piece.trackId)
+      throw new Error('Cannot change the type of an existing piece.');
+    if (
+      existing?.locked &&
+      (existing.x !== piece.x ||
+        existing.y !== piece.y ||
+        existing.angle !== piece.angle ||
+        existing.flipped !== piece.flipped ||
+        existing.locked !== piece.locked)
+    )
+      throw new Error('Unlock the selected pieces before moving or deleting them.');
+  }
+  const next = {
+    ...layout,
+    pieces: [
+      ...layout.pieces.map((entry) => replacements.get(entry.id) ?? entry),
+      ...pieces.filter((piece) => !layout.pieces.some((entry) => entry.id === piece.id)),
+    ],
+  };
+  for (const piece of pieces) {
+    const problem = placementProblem(
+      piece,
+      next.pieces.filter((entry) => entry.id !== piece.id),
+      next.boards,
+    );
+    if (problem) throw new Error(problem.message);
+  }
+  return updateLayout(state, next);
+}
+
+function selection(state: PlannerState, ids: readonly string[]): Piece[] {
+  const selectedIds = new Set(ids);
+  if (!ids.length || selectedIds.size !== ids.length)
+    throw new Error('Select one or more distinct pieces.');
+  const pieces = activeLayout(state).pieces.filter((piece) => selectedIds.has(piece.id));
+  if (pieces.length !== ids.length) throw new Error('Some selected pieces no longer exist.');
+  return pieces;
+}
+
+export function transformPieces(
+  state: PlannerState,
+  ids: readonly string[],
+  transform: (piece: Piece) => Piece,
+): PlannerState {
+  const pieces = selection(state, ids);
+  if (pieces.some((piece) => piece.locked))
+    throw new Error('Unlock the selected pieces before moving or deleting them.');
+  return putPieces(
+    state,
+    pieces.map((piece) => {
+      const next = transform(piece);
+      if (next.id !== piece.id) throw new Error('Cannot change a piece identifier.');
+      return next;
+    }),
+  );
+}
+
+export function removePieces(state: PlannerState, ids: readonly string[]): PlannerState {
+  const pieces = selection(state, ids);
+  if (pieces.some((piece) => piece.locked))
+    throw new Error('Unlock the selected pieces before moving or deleting them.');
+  const selectedIds = new Set(ids);
+  const layout = activeLayout(state);
   return updateLayout(state, {
     ...layout,
-    pieces: existing
-      ? layout.pieces.map((entry) => (entry.id === piece.id ? piece : entry))
-      : [...layout.pieces, piece],
+    pieces: layout.pieces.filter((piece) => !selectedIds.has(piece.id)),
   });
+}
+
+export function setPieceLocks(
+  state: PlannerState,
+  ids: readonly string[],
+  locked: boolean,
+): PlannerState {
+  selection(state, ids);
+  const selectedIds = new Set(ids);
+  const layout = activeLayout(state);
+  return updateLayout(state, {
+    ...layout,
+    pieces: layout.pieces.map((piece) =>
+      selectedIds.has(piece.id) ? { ...piece, locked } : piece,
+    ),
+  });
+}
+
+export function resetInventory(state: PlannerState): PlannerState {
+  return { ...state, inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])) };
 }
 
 export function updateLayout(state: PlannerState, layout: Layout): PlannerState {
@@ -98,7 +182,7 @@ function number(value: unknown): number {
 export function parseState(json: string): PlannerState {
   if (json.length > 4_000_000) throw new Error('Backup exceeds the 4 MB import limit.');
   const data = record(JSON.parse(json));
-  if (data['version'] !== 1)
+  if (data['version'] !== 1 && data['version'] !== 2)
     throw new Error('Unsupported backup version. Your original data has not been changed.');
   const rawInventory = record(data['inventory']);
   const inventory: Record<string, number> = {};
@@ -128,6 +212,8 @@ export function parseState(json: string): PlannerState {
       const trackId = text(p['trackId']);
       definition(trackId);
       if (typeof p['flipped'] !== 'boolean') throw new Error('Invalid track orientation.');
+      if (p['locked'] !== undefined && typeof p['locked'] !== 'boolean')
+        throw new Error('Invalid piece lock in backup.');
       return {
         id: text(p['id']),
         trackId,
@@ -135,6 +221,7 @@ export function parseState(json: string): PlannerState {
         y: number(p['y']),
         angle: number(p['angle']),
         flipped: p['flipped'],
+        ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
       };
     });
     if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
@@ -154,7 +241,7 @@ export function parseState(json: string): PlannerState {
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
-    version: 1,
+    version: 2,
     inventory,
     layouts,
     activeLayoutId: text(data['activeLayoutId']),

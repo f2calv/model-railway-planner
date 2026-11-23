@@ -1,4 +1,5 @@
 import type { Route, TrackCategory, TrackDefinition } from './model';
+import { manufacturerProfile, scaleProfile } from './profiles';
 
 function track(
   code: string,
@@ -8,21 +9,19 @@ function track(
   category: TrackCategory,
   geometryNote?: string,
 ): TrackDefinition {
-  return {
-    id: `hornby-oo-${code.toLowerCase()}`,
+  return profileTrack(
+    'hornby-oo',
     code,
     name,
-    brand: 'Hornby',
-    scale: 'OO',
-    gaugeMm: 16.5,
-    centresMm: 67,
     routes,
-    source: `https://uk.hornby.com/products/${slug}-${code.toLowerCase()}`,
+    `https://uk.hornby.com/products/${slug}-${code.toLowerCase()}`,
     category,
-    ...(geometryNote ? { geometryNote } : {}),
-  };
+    geometryNote,
+  );
 }
 
+// TODO: Add R460/R462/R463/R464 furniture after verified widths and curved footprints are available.
+// Product lengths alone cannot support reliable placement or train-clearance checks.
 export const catalog: readonly TrackDefinition[] = [
   track('R600', 'Straight', [{ kind: 'straight', length: 168 }], 'straight-track', 'straights'),
   track(
@@ -33,6 +32,21 @@ export const catalog: readonly TrackDefinition[] = [
     'straights',
   ),
   track('R603', 'Long straight', [{ kind: 'straight', length: 670 }], 'long-straight', 'straights'),
+  track(
+    'R610',
+    'Quarter straight',
+    [{ kind: 'straight', length: 38 }],
+    'quarter-straight',
+    'straights',
+  ),
+  track(
+    'R618',
+    'Double isolating straight',
+    [{ kind: 'straight', length: 168 }],
+    'double-isolating-track',
+    'straights',
+  ),
+  track('R8206', 'Power track', [{ kind: 'straight', length: 168 }], 'power-track', 'straights'),
   ...[
     { code: 'R604', radius: 371, angle: 22.5, name: '1st radius', slug: 'curve-1st-radius' },
     {
@@ -81,16 +95,7 @@ export const catalog: readonly TrackDefinition[] = [
       slug: 'double-curve-4th-radius',
     },
   ].map(({ code, radius, angle, name, slug }) =>
-    track(
-      code,
-      name,
-      [{ kind: 'arc', radius, angle }],
-      slug,
-      'curves',
-      ['R607', 'R8261'].includes(code)
-        ? 'Nominal set-track radius; manufacturer prose conflates length and radius. Verify physically.'
-        : undefined,
-    ),
+    track(code, name, [{ kind: 'arc', radius, angle }], slug, 'curves'),
   ),
   track(
     'R8072',
@@ -186,7 +191,117 @@ export const catalog: readonly TrackDefinition[] = [
       '168 mm and 181 mm routes at 22.5 degrees, centred analytically; verify frog and connector geometry.',
     );
   }),
+  ...[
+    {
+      code: 'ST-200',
+      length: 168,
+      name: 'Straight',
+      slug: 'st200-peco-setrack-oo-ho-track-c100-standard-straight',
+    },
+    {
+      code: 'ST-201',
+      length: 335,
+      name: 'Double straight',
+      slug: 'st201-peco-setrack-oo-ho-track-c100-double-straight',
+    },
+    {
+      code: 'ST-202',
+      length: 79,
+      name: 'Short straight',
+      slug: 'st202-peco-setrack-oo-ho-track-c100-short-straight',
+    },
+    { code: 'ST-203', length: 41, name: 'Special short straight', slug: 'special-short-straight' },
+    {
+      code: 'ST-204',
+      length: 670,
+      name: 'Long straight',
+      slug: 'st204-peco-setrack-oo-ho-track-c100-long-straight',
+    },
+  ].map(({ code, length, name, slug }) =>
+    profileTrack(
+      'peco-setrack-oo',
+      code,
+      name,
+      [{ kind: 'straight', length }],
+      `https://peco-uk.com/products/${slug}`,
+      'straights',
+    ),
+  ),
+  profileTrack(
+    'peco-setrack-oo',
+    'ST-220',
+    '1st radius',
+    [{ kind: 'arc', radius: 371, angle: 22.5 }],
+    'https://peco-uk.com/products/standard-curve-1st-radius',
+    'curves',
+  ),
+  profileTrack(
+    'peco-setrack-oo',
+    'ST-221',
+    '1st radius double',
+    [{ kind: 'arc', radius: 371, angle: 45 }],
+    'https://peco-uk.com/products/st221-peco-setrack-oo-ho-track-c100-no-1-radius-double-curve',
+    'curves',
+  ),
+  ...[
+    { code: '36-600', length: 168, name: 'Straight' },
+    { code: '36-601', length: 335, name: 'Double straight' },
+    { code: '36-603', length: 670, name: 'Long straight' },
+    { code: '36-610', length: 38, name: 'Quarter straight' },
+  ].map(({ code, length, name }) =>
+    profileTrack(
+      'bachmann-oo',
+      code,
+      name,
+      [{ kind: 'straight', length }],
+      'https://www.bachmann.co.uk/category/model-railway/branchline/ootrack',
+      'straights',
+    ),
+  ),
+  ...[
+    { code: '36-606', radius: 438, angle: 22.5, name: '2nd radius' },
+    { code: '36-607', radius: 438, angle: 45, name: '2nd radius double' },
+    { code: '36-608', radius: 505, angle: 22.5, name: '3rd radius' },
+    { code: '36-609', radius: 505, angle: 45, name: '3rd radius double' },
+    { code: '36-643', radius: 438, angle: 11.25, name: '2nd radius half' },
+  ].map(({ code, radius, angle, name }) =>
+    profileTrack(
+      'bachmann-oo',
+      code,
+      name,
+      [{ kind: 'arc', radius, angle }],
+      'https://www.bachmann.co.uk/category/model-railway/branchline/ootrack',
+      'curves',
+    ),
+  ),
 ];
+
+function profileTrack(
+  profileId: string,
+  code: string,
+  name: string,
+  routes: Route[],
+  source: string,
+  category: TrackCategory,
+  geometryNote?: string,
+): TrackDefinition {
+  const profile = manufacturerProfile(profileId);
+  const scale = scaleProfile(profile.scaleProfileId);
+  return {
+    id: `${profileId}-${code.toLowerCase()}`,
+    profileId,
+    brand: profile.brand,
+    scale: scale.scale,
+    gaugeMm: scale.gaugeMm,
+    centresMm: scale.planningCentresMm,
+    code,
+    name,
+    routes,
+    source,
+    category,
+    ...(geometryNote ? { geometryNote } : {}),
+  };
+}
 
 export function trackSize(entry: TrackDefinition): string {
   const segmentSize = (route: Route): string => {

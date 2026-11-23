@@ -5,12 +5,13 @@ import { registerSW } from 'virtual:pwa-register';
 import { catalog, definition, trackSize } from './catalog';
 import {
   joinedBoards,
+  connected,
   normalize,
   pathData,
-  placementProblem,
   ports,
   samples,
   snapPiece,
+  snapGroup,
 } from './geometry';
 import {
   activeLayout,
@@ -20,12 +21,37 @@ import {
   missingPieceIds,
   parseState,
   putPiece,
+  putPieces,
+  transformPieces,
+  removePieces,
+  setPieceLocks,
+  resetInventory,
   setInventory,
   shoppingList,
   updateLayout,
 } from './state';
 import { loadState, saveState, storageKey } from './storage';
 import type { Piece, PlannerState, TrackCategory, Vec } from './model';
+import {
+  createHistory,
+  recordHistory,
+  redoHistory,
+  undoHistory,
+  recordActivity,
+  type Activity,
+  type History,
+} from './history';
+import {
+  defaultPreferences,
+  isLanguage,
+  loadPreferences,
+  savePreferences,
+  type Preferences,
+} from './preferences';
+import { playSound } from './sound';
+import { manufacturerProfiles } from './profiles';
+import { translate, translateUi } from './i18n';
+import { csvExport, drawingLayers, layoutBounds, pngExport, svgExport } from './exports';
 
 function element<T extends Element>(selector: string): T {
   const result = document.querySelector<T>(selector);
@@ -39,6 +65,7 @@ element<HTMLDivElement>('#app').innerHTML = `
     <div class="brand"><h1>Model Railway Planner</h1><span>Your track. Your next great layout. <span id="app-version"></span></span></div>
     <span class="privacy-badge">LOCAL & PRIVATE</span>
     <button id="theme" aria-pressed="false">Dark mode</button>
+    <label>Language<select id="language" aria-label="Language"><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="es">Español</option><option value="it">Italiano</option></select></label>
     <button id="export">Export backup</button>
     <button id="import">Import backup</button>
     <input id="import-file" type="file" accept=".json,application/json" hidden />
@@ -47,6 +74,8 @@ element<HTMLDivElement>('#app').innerHTML = `
     <label>Layout <select id="layouts" aria-label="Saved layouts"></select></label>
     <button id="new-layout">New idea</button><button id="duplicate-layout">Duplicate</button>
     <button id="rename-layout">Rename</button><button id="delete-layout">Delete layout</button>
+    <button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button>
+    <button id="print">Print / PDF</button><button id="export-svg">Export SVG</button><button id="export-png">Export PNG</button><button id="export-inventory-csv">Inventory CSV</button><button id="export-shopping-csv">Shopping list CSV</button>
     <span id="save-state" class="save-state">Autosave ready</span>
   </div>
   <main class="workspace">
@@ -54,8 +83,10 @@ element<HTMLDivElement>('#app').innerHTML = `
       <div class="panel-heading"><span class="eyebrow">YOUR COLLECTION</span><h2>Track inventory</h2></div>
       <p>Plan with any piece. Missing stock appears on this idea's shopping list.</p>
       <label class="search-label">Find a piece<input id="search" type="search" placeholder="Code or track type..." /></label>
-      <div class="catalog-heading"><span>HORNBY / OO</span><span>Owned / left</span></div>
+      <label>Manufacturer / scale<select id="catalog-profile" aria-label="Manufacturer / scale"><option value="">All OO manufacturers</option>${manufacturerProfiles.map((p) => `<option value="${p.id}">${p.brand} / OO</option>`).join('')}</select></label>
+      <div class="catalog-heading"><span>OO / 16.5 mm</span><span>Owned / left</span></div>
       <div id="catalog"></div>
+      <button id="reset-inventory">Reset entire inventory</button>
       <p class="subtle">Drag a piece onto the plan, or choose it and tap an empty spot. No sample stock is added.</p>
     </aside>
     <section class="editor" aria-label="Layout editor">
@@ -67,7 +98,7 @@ element<HTMLDivElement>('#app').innerHTML = `
         <button id="zoom-out" aria-label="Zoom out">-</button><output id="zoom-level">60%</output>
         <button id="zoom-in" aria-label="Zoom in">+</button><button id="fit">Fit plan</button>
       </div>
-      <svg id="canvas" role="group" tabindex="0" aria-label="Track plan. Tap to place; drag track to move; drag background to pan. Use controls for keyboard editing.">
+      <svg id="canvas" role="group" tabindex="0" aria-label="Track plan. Drag blank space to select; Space and drag to pan; Ctrl selects multiple pieces. Use controls for keyboard editing.">
         <defs>
           <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
             <path d="M100 0H0V100" fill="none" stroke="#d7ddd5" stroke-width="1"/>
@@ -75,7 +106,7 @@ element<HTMLDivElement>('#app').innerHTML = `
           </pattern>
         </defs>
         <g id="world"><rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="url(#grid)" />
-          <g id="boards"></g><g id="tracks"></g><g id="preview" pointer-events="none"></g>
+          <g id="boards"></g><g id="tracks"></g><g id="preview" pointer-events="none"></g><rect id="marquee" hidden pointer-events="none" />
         </g>
       </svg>
       <div id="empty-hint"><strong>A little space for big ideas.</strong><span>Choose a track piece, then drag or tap to place it.</span></div>
@@ -85,6 +116,8 @@ element<HTMLDivElement>('#app').innerHTML = `
       <span class="eyebrow">FINE TUNE</span><h2>Selected piece</h2>
       <label>Piece<select id="piece-select" aria-label="Select placed piece"><option value="">None</option></select></label>
       <p id="piece-description"></p>
+      <p id="selection-count"></p>
+      <div class="two-columns"><button id="select-all">Select all pieces</button><button id="lock-pieces" disabled>Lock selection</button><button id="unlock-pieces" disabled>Unlock selection</button></div>
       <div id="piece-controls">
         <div class="two-columns"><label>X (mm)<input id="piece-x" type="number" step="1" /></label><label>Y (mm)<input id="piece-y" type="number" step="1" /></label></div>
         <label>Angle (degrees)<input id="piece-angle" type="number" step="0.5" /></label>
@@ -102,15 +135,21 @@ element<HTMLDivElement>('#app').innerHTML = `
       <button id="unbounded">Use unbounded area</button>
       <hr /><h2>Planning checks</h2><div id="checks"></div>
       <p class="subtle">67 mm nominal Hornby track centres. Curves and turnout fans still need physical checks with your longest trains. This is not a clearance certificate.</p>
-      <details><summary>Controls & mobile</summary><p>Choose a piece, then tap to place. Drag placed track to move it. Scroll or pinch to zoom; drag blank space to pan. Select a placed piece from the list for exact coordinates. Arrow keys move 5 mm, Shift + arrows move 1 mm; R rotates, Delete removes, Escape cancels.</p><p>For offline installation, open a production build over HTTPS (or localhost). Use your browser's Install app / Add to Home Screen option. Browser support varies.</p></details>
+      <details><summary>Controls & mobile</summary><p>Tap to place track. Drag blank space to select enclosed pieces; Ctrl-click toggles selection. Drag selected pieces as a group. Space + drag pans; scroll or pinch zooms. On touch screens, drag blank space to pan. Arrows move 5 mm; Shift + arrows move 1 mm. R rotates; Delete removes; Escape cancels. Ctrl+A selects all; Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y redoes. Right-click a piece for lock actions, or use the buttons.</p><p>For offline installation, open a production build over HTTPS (or localhost). Use your browser's Install app / Add to Home Screen option. Browser support varies.</p></details>
       <button id="update-app" hidden>Update app</button>
+      <hr /><h2>Preferences</h2>
+      <label class="check-label"><input id="sounds" type="checkbox" /> Track sounds</label>
+      <label class="check-label"><input id="confirm-delete" type="checkbox" checked /> Confirm piece deletion</label>
+      <details id="activity"><summary>Activity & history (this session)</summary><p id="history-count"></p><h3>Undo history</h3><ol id="undo-history"></ol><h3>Local activity</h3><ol id="activity-list"></ol><p>History is session-only: 100 undo steps and 300 activity entries. Nothing is uploaded.</p></details>
     </aside>
   </main>
   <footer id="status" role="status" aria-label="Planner status" aria-live="polite">Welcome. Choose any track to start planning; enter your inventory whenever you're ready.</footer>
   <div id="track-tooltip" role="tooltip" hidden></div>
   <div id="palette-ghost" aria-hidden="true" hidden></div>
-  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Confirm</h2><p id="confirm-text"></p><div class="dialog-actions"><button value="cancel">Cancel</button><button value="confirm">Confirm</button></div></form></dialog>
+  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Confirm</h2><p id="confirm-text"></p><label id="skip-delete-label" class="check-label" hidden><input id="skip-delete" type="checkbox" /> Skip future piece-delete confirmations</label><div class="dialog-actions"><button value="cancel">Cancel</button><button value="confirm">Confirm</button></div></form></dialog>
   <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">Layout name</h2><label>Name<input id="layout-name" maxlength="120" required /></label><div class="dialog-actions"><button value="cancel" formnovalidate>Cancel</button><button value="confirm">Save</button></div></form></dialog>
+  <dialog id="piece-menu" aria-label="Selection actions"><h2>Selection actions</h2><button id="context-lock">Lock selection</button><button id="context-unlock">Unlock selection</button><button id="context-delete">Remove selection</button><form method="dialog"><button>Close</button></form></dialog>
+  <dialog id="error-dialog" aria-label="Unexpected problem"><h2>Unexpected problem</h2><p>Your last saved data is safe. Export a backup before reloading. No layout or activity data is sent with an error report.</p><p id="error-details"></p><a id="report-error" target="_blank" rel="noopener noreferrer">Review a GitHub issue report</a><form method="dialog"><button>Close</button></form></dialog>
 `;
 
 element<HTMLElement>('#app-version').textContent =
@@ -120,12 +159,21 @@ const uuid = () => crypto.randomUUID();
 let state: PlannerState = emptyState(uuid());
 let recovery = false;
 let selectedId = '';
+let selectedIds = new Set<string>();
+let preferences: Preferences = { ...defaultPreferences };
+let activity: readonly Activity[] = [];
 let toolId = '';
 let toolAngle = 0;
 let toolFlipped = false;
 let transform: ZoomTransform = zoomIdentity;
 let previewPiece: Piece | null = null;
-let drag: { pointerId: number; piece: Piece; start: Vec; moved: boolean } | null = null;
+let previewPieces: Piece[] = [];
+let drag: { pointerId: number; pieces: Piece[]; start: Vec; moved: boolean } | null = null;
+let marquee: { pointerId: number; start: Vec; end: Vec; additive: boolean; moved: boolean } | null =
+  null;
+let spaceDown = false;
+const touches = new Set<number>();
+let multiTouch = false;
 let suppressClick = false;
 let paletteDrag: {
   pointerId: number;
@@ -142,6 +190,51 @@ function status(message: string, error = false): void {
   const target = element<HTMLElement>('#status');
   if (target.textContent !== message) target.textContent = message;
   target.classList.toggle('error', error);
+  translateUi(target, preferences.language);
+  if (error && activity.at(-1)?.message !== message) addActivity(message);
+}
+
+function addActivity(message: string): void {
+  activity = recordActivity(activity, { at: new Date(), message });
+  renderActivity();
+}
+
+function changeSummary(previous: PlannerState, next: PlannerState): string {
+  if (previous.activeLayoutId !== next.activeLayoutId) return 'Changed layout';
+  const before = activeLayout(previous).pieces;
+  const after = activeLayout(next).pieces;
+  const added = after.filter((p) => !before.some((old) => old.id === p.id));
+  const removed = before.filter((p) => !after.some((current) => current.id === p.id));
+  if (added.length) return `Added: ${added.map((p) => definition(p.trackId).code).join(', ')}`;
+  if (removed.length)
+    return `Removed: ${removed.map((p) => definition(p.trackId).code).join(', ')}`;
+  if (after.some((p) => before.find((old) => old.id === p.id)?.locked !== p.locked))
+    return 'Changed piece locks';
+  if (JSON.stringify(before) !== JSON.stringify(after))
+    return `Moved or transformed ${
+      after.filter((p) => {
+        const old = before.find((entry) => entry.id === p.id);
+        return (
+          old &&
+          (old.x !== p.x || old.y !== p.y || old.angle !== p.angle || old.flipped !== p.flipped)
+        );
+      }).length
+    } pieces`;
+  if (JSON.stringify(previous.inventory) !== JSON.stringify(next.inventory))
+    return 'Inventory updated';
+  return 'Layout updated';
+}
+
+function renderActivity(): void {
+  const root = element<HTMLElement>('#activity-list');
+  root.replaceChildren(
+    ...[...activity].reverse().map((entry) => {
+      const item = document.createElement('li');
+      item.textContent = `${entry.at.toLocaleTimeString(preferences.language)} / ${entry.message}`;
+      return item;
+    }),
+  );
+  translateUi(root, preferences.language);
 }
 
 try {
@@ -153,8 +246,51 @@ try {
     true,
   );
 }
+try {
+  preferences = loadPreferences(localStorage);
+} catch (error) {
+  status(error instanceof Error ? error.message : String(error), true);
+}
+let history = createHistory(state);
 
-function commit(next: PlannerState, message = 'Saved on this device.', replacing = false): boolean {
+function countJoins(pieces: readonly Piece[]): number {
+  let count = 0;
+  for (const [index, piece] of pieces.entries()) {
+    const endpoints = ports(piece);
+    for (const other of pieces.slice(index + 1)) {
+      const targets = ports(other);
+      count += endpoints.filter((endpoint) =>
+        targets.some((target) => connected(endpoint, target)),
+      ).length;
+    }
+  }
+  return count;
+}
+
+function playChangeSound(previous: PlannerState, next: PlannerState): void {
+  if (!preferences.sounds || previous.activeLayoutId !== next.activeLayoutId) return;
+  const before = activeLayout(previous).pieces;
+  const after = activeLayout(next).pieces;
+  const difference = countJoins(after) - countJoins(before);
+  let sound: 'delete' | 'snap' | 'disconnect' | null = null;
+  if (after.length < before.length) sound = 'delete';
+  else if (difference > 0) sound = 'snap';
+  else if (difference < 0) sound = 'disconnect';
+  if (sound)
+    void playSound(sound).catch((error: unknown) =>
+      status(
+        `Sound playback failed: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      ),
+    );
+}
+
+function commit(
+  next: PlannerState,
+  message?: string,
+  replacing = false,
+  restored?: History,
+): boolean {
   if (recovery && !replacing) {
     status(
       'Editing is locked. Export the original backup, then import a valid backup to recover.',
@@ -170,12 +306,19 @@ function commit(next: PlannerState, message = 'Saved on this device.', replacing
       true,
     );
     element<HTMLElement>('#save-state').textContent = 'Save failed';
+    translateUi(element<HTMLElement>('#save-state'), preferences.language);
     return false;
   }
+  const previous = state;
+  history =
+    restored ?? (replacing && recovery ? createHistory(next) : recordHistory(history, next));
   state = next;
   recovery = false;
   element<HTMLElement>('#save-state').textContent = 'Saved on this device';
-  status(message);
+  const summary = message ?? changeSummary(previous, next);
+  addActivity(summary);
+  status(message ?? `${summary}. Saved on this device.`);
+  playChangeSound(previous, next);
   render();
   return true;
 }
@@ -196,6 +339,15 @@ function selected(): Piece | undefined {
   return activeLayout(state).pieces.find((p) => p.id === selectedId);
 }
 
+function selection(): Piece[] {
+  return activeLayout(state).pieces.filter((piece) => selectedIds.has(piece.id));
+}
+
+function selectOnly(id: string): void {
+  selectedId = id;
+  selectedIds = new Set(id ? [id] : []);
+}
+
 function drawTrack(group: SVGGElement, piece: Piece, ghost = false, missing = false): void {
   const entry = definition(piece.trackId);
   group.setAttribute(
@@ -204,36 +356,50 @@ function drawTrack(group: SVGGElement, piece: Piece, ghost = false, missing = fa
   );
   group.setAttribute(
     'class',
-    `track${piece.id === selectedId ? ' selected' : ''}${ghost ? ' ghost' : ''}${missing ? ' missing-stock' : ''}`,
+    `track${selectedIds.has(piece.id) ? ' selected' : ''}${piece.locked ? ' locked' : ''}${drag?.pieces.some((p) => p.id === piece.id) && !ghost ? ' drag-source' : ''}${ghost ? ' ghost' : ''}${missing ? ' missing-stock' : ''}`,
   );
-  for (const route of entry.routes) {
-    const d = pathData(route);
-    for (const layer of ['track-bed', 'sleepers', 'rails', 'centre-line']) {
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d);
-      path.setAttribute('class', layer);
-      group.append(path);
-    }
-  }
+  const layers = entry.routes.flatMap((route, index) =>
+    drawingLayers(missing, piece.locked).map((layer) => ({
+      ...layer,
+      d: pathData(route),
+      key: `${index}-${layer.name}`,
+    })),
+  );
+  const drawing = select(group);
+  drawing
+    .selectAll<SVGPathElement, (typeof layers)[number]>('path.track-layer')
+    .data(layers, (layer) => layer.key)
+    .join('path')
+    .attr('d', (layer) => layer.d)
+    .attr('class', (layer) => `${layer.name} track-layer`)
+    .attr('fill', 'none')
+    .attr('stroke', (layer) => layer.stroke)
+    .attr('stroke-width', (layer) => layer.width)
+    .attr('stroke-dasharray', (layer) => layer.dash);
   const localPorts = ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false });
-  for (const port of localPorts) {
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', String(port.x));
-    circle.setAttribute('cy', String(port.y));
-    circle.setAttribute('r', '4');
-    circle.setAttribute('class', 'port');
-    group.append(circle);
-    const join = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    const radians = (port.angle * Math.PI) / 180;
-    const dx = 19 * Math.sin(radians);
-    const dy = 19 * Math.cos(radians);
-    join.setAttribute('x1', String(port.x - dx));
-    join.setAttribute('y1', String(port.y + dy));
-    join.setAttribute('x2', String(port.x + dx));
-    join.setAttribute('y2', String(port.y - dy));
-    join.setAttribute('class', 'track-join');
-    group.append(join);
-  }
+  drawing
+    .selectAll<SVGCircleElement, (typeof localPorts)[number]>('circle.port')
+    .data(localPorts)
+    .join('circle')
+    .attr('cx', (port) => port.x)
+    .attr('cy', (port) => port.y)
+    .attr('r', 4)
+    .attr('class', 'port');
+  drawing
+    .selectAll<SVGLineElement, (typeof localPorts)[number]>('line.track-join')
+    .data(localPorts)
+    .join('line')
+    .attr('x1', (port) => port.x - 19 * Math.sin((port.angle * Math.PI) / 180))
+    .attr('y1', (port) => port.y + 19 * Math.cos((port.angle * Math.PI) / 180))
+    .attr('x2', (port) => port.x + 19 * Math.sin((port.angle * Math.PI) / 180))
+    .attr('y2', (port) => port.y - 19 * Math.cos((port.angle * Math.PI) / 180))
+    .attr('class', 'track-join');
+  drawing
+    .selectAll<SVGPathElement, Piece>('path.padlock')
+    .data(piece.locked ? [piece] : [])
+    .join('path')
+    .attr('d', 'M9 -10V-15A5 5 0 0 1 19 -15V-10M7 -10H21V2H7Z')
+    .attr('class', 'padlock');
 }
 
 function miniature(piece: Piece): SVGSVGElement {
@@ -252,28 +418,35 @@ function miniature(piece: Piece): SVGSVGElement {
 }
 
 function preview(candidate: Piece | null): void {
-  previewPiece = candidate;
+  previewGroup(candidate ? [candidate] : []);
+}
+
+function previewGroup(candidates: Piece[]): void {
+  previewPieces = candidates;
+  previewPiece = candidates[0] ?? null;
   const root = element<SVGGElement>('#preview');
   root.replaceChildren();
-  if (!candidate) return;
-  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  drawTrack(
-    group,
-    candidate,
-    true,
-    activeLayout(state).pieces.some((p) => p.id === candidate.id)
-      ? missingPieceIds(state).has(candidate.id)
-      : available(state, candidate.trackId) === 0,
-  );
-  const layout = activeLayout(state);
-  const problem = placementProblem(
-    candidate,
-    layout.pieces.filter((p) => p.id !== candidate.id),
-    layout.boards,
-  );
-  group.classList.toggle('invalid', problem !== null);
-  root.append(group);
-  if (problem) status(problem.message, true);
+  if (!candidates.length) return;
+  let problem: string | null = null;
+  try {
+    putPieces(state, candidates);
+  } catch (error) {
+    problem = error instanceof Error ? error.message : String(error);
+  }
+  for (const candidate of candidates) {
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    drawTrack(
+      group,
+      candidate,
+      true,
+      activeLayout(state).pieces.some((p) => p.id === candidate.id)
+        ? missingPieceIds(state).has(candidate.id)
+        : available(state, candidate.trackId) === 0,
+    );
+    group.classList.toggle('invalid', problem !== null);
+    root.append(group);
+  }
+  if (problem) status(problem, true);
 }
 
 function modelPoint(client: Vec): Vec {
@@ -302,7 +475,7 @@ function trackTooltip(client: Vec): void {
   tooltip.hidden = true;
   if (!hovered) return;
   const entry = definition(hovered.trackId);
-  tooltip.textContent = `${entry.code} / ${entry.name}\n${trackSize(entry)}${missingPieceIds(state).has(hovered.id) ? '\nTo buy: not in your inventory' : ''}${entry.geometryNote ? `\nApproximation: ${entry.geometryNote}` : ''}`;
+  tooltip.textContent = `${entry.code} / ${translate(entry.name, preferences.language)}\n${translate(trackSize(entry), preferences.language)}${missingPieceIds(state).has(hovered.id) ? `\n${translate('To buy: not in your inventory', preferences.language)}` : ''}${entry.geometryNote ? `\n${translate('Approximate geometry. Verify actual connector positions physically.', preferences.language)}` : ''}${hovered.locked ? `\n${translate('Locked', preferences.language)}` : ''}`;
   tooltip.hidden = false;
   tooltip.style.left = `${Math.max(8, Math.min(client.x + 14, window.innerWidth - tooltip.offsetWidth - 8))}px`;
   tooltip.style.top = `${Math.max(8, Math.min(client.y + 14, window.innerHeight - tooltip.offsetHeight - 8))}px`;
@@ -326,7 +499,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
       return;
     }
     toolId = trackId;
-    selectedId = '';
+    selectOnly('');
     preview(null);
     render();
   });
@@ -402,6 +575,9 @@ function render(): void {
   const focused = document.activeElement;
   const focusedLabel = focused?.getAttribute('aria-label');
   const layout = activeLayout(state);
+  if (!selectedIds.has(selectedId)) selectOnly(selectedId);
+  selectedIds = new Set([...selectedIds].filter((id) => layout.pieces.some((p) => p.id === id)));
+  if (!selectedIds.has(selectedId)) selectedId = [...selectedIds][0] ?? '';
   const missing = missingPieceIds(state);
   const layoutSelect = element<HTMLSelectElement>('#layouts');
   layoutSelect.replaceChildren(...state.layouts.map((l) => new Option(l.name, l.id)));
@@ -419,7 +595,11 @@ function render(): void {
     const entries = catalog.filter(
       (entry) =>
         entry.category === category.id &&
-        `${entry.code} ${entry.name}`.toLowerCase().includes(query),
+        (!element<HTMLSelectElement>('#catalog-profile').value ||
+          entry.profileId === element<HTMLSelectElement>('#catalog-profile').value) &&
+        `${entry.brand} ${entry.code} ${entry.name} ${translate(entry.name, preferences.language)}`
+          .toLowerCase()
+          .includes(query),
     );
     if (!entries.length) continue;
     const section = document.createElement('details');
@@ -441,7 +621,7 @@ function render(): void {
       pick.className = 'track-choice';
       pick.disabled = recovery;
       pick.setAttribute('aria-label', `Place ${entry.code} ${entry.name}`);
-      pick.title = `${entry.code}: ${entry.name}. ${trackSize(entry)}${entry.geometryNote ? ` Approximation: ${entry.geometryNote}` : ''}`;
+      pick.title = `${entry.code}: ${translate(entry.name, preferences.language)}. ${translate(trackSize(entry), preferences.language)}${entry.geometryNote ? ` ${translate('Approximate geometry. Verify actual connector positions physically.', preferences.language)}` : ''}`;
       const icon = miniature({
         id: 'catalog',
         trackId: entry.id,
@@ -454,7 +634,7 @@ function render(): void {
       const code = document.createElement('strong');
       code.textContent = entry.code;
       const label = document.createElement('span');
-      label.textContent = entry.name;
+      label.textContent = `${entry.brand} / ${entry.name}`;
       text.append(code, label);
       pick.append(icon, text);
       bindPaletteDrag(pick, entry.id);
@@ -486,20 +666,28 @@ function render(): void {
     ...layout.pieces.map(
       (p, i) =>
         new Option(
-          `${i + 1}. ${definition(p.trackId).code}${missing.has(p.id) ? ' / to buy' : ''}`,
+          `${p.locked ? 'Locked ' : ''}${i + 1}. ${definition(p.trackId).code}${missing.has(p.id) ? ' / to buy' : ''}`,
           p.id,
         ),
     ),
   );
   pieceSelect.value = selectedId;
   const piece = selected();
+  const chosen = selection();
+  element<HTMLElement>('#piece-controls').hidden = !piece;
+  const locked = chosen.some((p) => p.locked);
+  element<HTMLElement>('#selection-count').textContent =
+    `${chosen.length} pieces selected${locked ? ' / includes locked pieces' : ''}`;
+  element<HTMLButtonElement>('#lock-pieces').disabled =
+    !chosen.length || chosen.every((p) => p.locked);
+  element<HTMLButtonElement>('#unlock-pieces').disabled = !locked;
   element<HTMLElement>('#piece-description').textContent = piece
-    ? `${definition(piece.trackId).name}: ${trackSize(definition(piece.trackId))}. ${definition(piece.trackId).geometryNote ?? ''}`
+    ? `${translate(definition(piece.trackId).name, preferences.language)}: ${translate(trackSize(definition(piece.trackId)), preferences.language)}. ${definition(piece.trackId).geometryNote ? translate('Approximate geometry. Verify actual connector positions physically.', preferences.language) : ''}`
     : 'Select a piece to see its type and dimensions.';
   for (const control of element<HTMLElement>('#piece-controls').querySelectorAll<
     HTMLInputElement | HTMLButtonElement
   >('input,button'))
-    control.disabled = !piece;
+    control.disabled = !piece || locked;
   element<HTMLInputElement>('#piece-x').value = piece
     ? String(Math.round(piece.x * 100) / 100)
     : '';
@@ -511,6 +699,8 @@ function render(): void {
     : '';
   element<HTMLButtonElement>('#flip').disabled =
     !piece ||
+    locked ||
+    chosen.length !== 1 ||
     definition(piece.trackId).routes.length !== 1 ||
     definition(piece.trackId).routes[0]?.kind !== 'arc';
   element<HTMLElement>('#tool-label').textContent = toolId
@@ -534,13 +724,12 @@ function render(): void {
     .each((piece, index, groups) => {
       const group = groups[index];
       if (!group) throw new Error('Missing SVG track element.');
-      group.replaceChildren();
       group.dataset['pieceId'] = piece.id;
       group.setAttribute('role', 'button');
       group.setAttribute('tabindex', '0');
       group.setAttribute(
         'aria-label',
-        `Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
+        `${piece.locked ? 'Locked ' : ''}Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
       );
       drawTrack(group, piece, false, missing.has(piece.id));
     });
@@ -580,9 +769,17 @@ function render(): void {
     issues.push(
       `Approximate geometry: ${approximateCodes.join(', ')}. Verify physically before buying or building.`,
     );
-  element<HTMLElement>('#checks').textContent = issues.length
-    ? issues.join(' ')
-    : 'No definite placement violations found.';
+  if (layout.pieces.some((p) => definition(p.trackId).brand !== 'Hornby'))
+    issues.push(
+      'This OO project uses a conservative Hornby 67 mm clearance target, not a universal manufacturer standard. Mixed-brand planning is geometric only; rail code and joiner fit need physical verification.',
+    );
+  element<HTMLElement>('#checks').replaceChildren(
+    ...(issues.length ? issues : ['No definite placement violations found.']).map((issue) => {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = translate(issue, preferences.language);
+      return paragraph;
+    }),
+  );
   element<HTMLElement>('#checks').className = issues.length ? 'check-warning' : 'check-ok';
   element<HTMLElement>('#piece-count').textContent = `${layout.pieces.length} pieces`;
   element<HTMLElement>('#empty-hint').hidden = layout.pieces.length > 0;
@@ -592,6 +789,26 @@ function render(): void {
     !toolId ||
     definition(toolId).routes.length !== 1 ||
     definition(toolId).routes[0]?.kind !== 'arc';
+  element<HTMLButtonElement>('#undo').disabled = recovery || history.past.length === 0;
+  element<HTMLButtonElement>('#redo').disabled = recovery || history.future.length === 0;
+  element<HTMLSelectElement>('#language').value = preferences.language;
+  element<HTMLInputElement>('#sounds').checked = preferences.sounds;
+  element<HTMLInputElement>('#confirm-delete').checked = preferences.confirmDelete;
+  element<HTMLElement>('#history-count').textContent =
+    `${history.past.length} undo steps / ${history.future.length} redo steps`;
+  element<HTMLElement>('#undo-history').replaceChildren(
+    ...history.past
+      .map((previous, i) => {
+        const next = history.past[i + 1] ?? history.current;
+        const item = document.createElement('li');
+        item.textContent = changeSummary(previous, next);
+        return item;
+      })
+      .reverse(),
+  );
+  renderActivity();
+  document.documentElement.lang = preferences.language;
+  translateUi(element<HTMLElement>('#app'), preferences.language);
   if (focusedLabel && focused && !focused.isConnected) {
     [...document.querySelectorAll<HTMLElement>('[aria-label]')]
       .find((node) => node.getAttribute('aria-label') === focusedLabel)
@@ -602,9 +819,18 @@ function render(): void {
 const zoomer = zoom<SVGSVGElement, unknown>()
   .scaleExtent([0.08, 4])
   .filter((event: Event) => {
-    if (event.type === 'wheel') return true;
-    const target = event.target;
-    return !toolId && !drag && (!(target instanceof Element) || !target.closest('.track'));
+    if (event.type === 'wheel') return !drag && !marquee;
+    if (event.type.startsWith('touch')) {
+      const target = event.target;
+      return (
+        touches.size > 1 ||
+        (!toolId &&
+          !drag &&
+          !marquee &&
+          (!(target instanceof Element) || !target.closest('.track')))
+      );
+    }
+    return spaceDown && !drag && !marquee && (!(event instanceof MouseEvent) || event.button === 0);
   })
   .on('zoom', (event: { transform: ZoomTransform }) => {
     transform = event.transform;
@@ -617,41 +843,114 @@ svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
 function place(candidate: Piece): void {
   action(() => {
     if (commit(putPiece(state, candidate))) {
-      selectedId = candidate.id;
+      selectOnly(candidate.id);
       preview(null);
       render();
     } else preview(null);
   });
 }
 
+function beginMultiTouch(event: PointerEvent): boolean {
+  if (event.pointerType !== 'touch') return false;
+  touches.add(event.pointerId);
+  if (touches.size < 2) return false;
+  multiTouch = true;
+  cancelGesture();
+  suppressClick = true;
+  render();
+  return true;
+}
+
+function toggleSelection(id: string): void {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  selectedId = [...selectedIds][0] ?? '';
+}
+
 svg.addEventListener('pointerdown', (event) => {
-  if (toolId) return;
+  suppressClick = false;
+  if (beginMultiTouch(event)) return;
+  if (drag || marquee) return;
+  if (toolId || spaceDown || event.button !== 0) return;
   const target =
     event.target instanceof Element ? event.target.closest<SVGGElement>('[data-piece-id]') : null;
   const id = target?.dataset['pieceId'];
   const piece = activeLayout(state).pieces.find((p) => p.id === id);
-  if (!piece || event.button !== 0) return;
   event.stopPropagation();
+  if (!piece) {
+    if (event.pointerType === 'touch') return;
+    const start = modelPoint({ x: event.clientX, y: event.clientY });
+    marquee = {
+      pointerId: event.pointerId,
+      start,
+      end: start,
+      additive: event.ctrlKey || event.metaKey,
+      moved: false,
+    };
+    svg.setPointerCapture(event.pointerId);
+    return;
+  }
+  if (event.ctrlKey || event.metaKey) {
+    suppressClick = true;
+    toggleSelection(piece.id);
+    selectedId = selectedIds.has(piece.id) ? piece.id : ([...selectedIds][0] ?? '');
+    render();
+    return;
+  }
+  if (!selectedIds.has(piece.id)) selectOnly(piece.id);
   selectedId = piece.id;
   toolId = '';
+  if (selection().some((p) => p.locked)) {
+    render();
+    status('Unlock the selected pieces before moving or deleting them.', true);
+    return;
+  }
   drag = {
     pointerId: event.pointerId,
-    piece,
+    pieces: selection(),
     start: modelPoint({ x: event.clientX, y: event.clientY }),
     moved: false,
   };
   svg.setPointerCapture(event.pointerId);
   render();
 });
+function snappedGroup(candidates: Piece[]): Piece[] {
+  if (candidates.length === 1 && candidates[0]) return [snapped(candidates[0])];
+  if (!element<HTMLInputElement>('#snap').checked) return candidates;
+  const ids = new Set(candidates.map((piece) => piece.id));
+  return snapGroup(
+    candidates,
+    activeLayout(state).pieces.filter((piece) => !ids.has(piece.id)),
+    Math.min(45, 22 / transform.k),
+  );
+}
+
+function previewMarquee(position: Vec): void {
+  if (!marquee) return;
+  marquee.end = position;
+  if (Math.hypot(position.x - marquee.start.x, position.y - marquee.start.y) * transform.k >= 3)
+    marquee.moved = true;
+  const box = element<SVGRectElement>('#marquee');
+  box.removeAttribute('hidden');
+  box.setAttribute('x', String(Math.min(position.x, marquee.start.x)));
+  box.setAttribute('y', String(Math.min(position.y, marquee.start.y)));
+  box.setAttribute('width', String(Math.abs(position.x - marquee.start.x)));
+  box.setAttribute('height', String(Math.abs(position.y - marquee.start.y)));
+}
+
 svg.addEventListener('pointermove', (event) => {
+  if (multiTouch || spaceDown) return;
   trackTooltip({ x: event.clientX, y: event.clientY });
   const position = modelPoint({ x: event.clientX, y: event.clientY });
-  if (drag && event.pointerId === drag.pointerId) {
+  if (event.pointerId === marquee?.pointerId) {
+    previewMarquee(position);
+  } else if (drag?.pointerId === event.pointerId) {
     const dx = position.x - drag.start.x;
     const dy = position.y - drag.start.y;
     if (Math.hypot(dx, dy) * transform.k < 3 && !drag.moved) return;
     drag.moved = true;
-    preview(snapped({ ...drag.piece, x: drag.piece.x + dx, y: drag.piece.y + dy }));
+    const candidates = drag.pieces.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+    previewGroup(snappedGroup(candidates));
   } else if (toolId) {
     preview(
       snapped({
@@ -664,30 +963,69 @@ svg.addEventListener('pointermove', (event) => {
     );
   }
 });
+function finishMarquee(pointerId: number): void {
+  if (marquee?.pointerId !== pointerId) return;
+  const current = marquee;
+  marquee = null;
+  element<SVGRectElement>('#marquee').setAttribute('hidden', '');
+  if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId);
+  if (!current.additive) selectOnly('');
+  if (current.moved) {
+    const minX = Math.min(current.start.x, current.end.x);
+    const maxX = Math.max(current.start.x, current.end.x);
+    const minY = Math.min(current.start.y, current.end.y);
+    const maxY = Math.max(current.start.y, current.end.y);
+    for (const p of activeLayout(state).pieces) {
+      if (
+        samples(p)
+          .flat()
+          .every(
+            (point) =>
+              point.x - 15 >= minX &&
+              point.x + 15 <= maxX &&
+              point.y - 15 >= minY &&
+              point.y + 15 <= maxY,
+          )
+      )
+        selectedIds.add(p.id);
+    }
+    selectedId = [...selectedIds][0] ?? '';
+  }
+  suppressClick = current.moved || current.additive;
+  render();
+}
+
 svg.addEventListener('pointerup', (event) => {
+  touches.delete(event.pointerId);
+  if (!touches.size) multiTouch = false;
+  if (marquee?.pointerId === event.pointerId) {
+    finishMarquee(event.pointerId);
+    return;
+  }
   if (!drag || event.pointerId !== drag.pointerId) return;
   const moved = drag.moved;
   drag = null;
   if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
-  if (moved && previewPiece) place(previewPiece);
+  if (moved && previewPieces.length) action(() => commit(putPieces(state, previewPieces)));
   preview(null);
   render();
-  suppressClick = moved;
+  // Capture can retarget a stationary track click to the blank SVG.
+  suppressClick = true;
 });
-svg.addEventListener('pointercancel', () => {
-  drag = null;
-  preview(null);
+svg.addEventListener('pointercancel', (event) => {
+  touches.delete(event.pointerId);
+  if (!touches.size) multiTouch = false;
+  cancelGesture();
   render();
 });
 svg.addEventListener('lostpointercapture', () => {
-  if (!drag) return;
-  drag = null;
-  preview(null);
+  if (!drag && !marquee) return;
+  cancelGesture();
   render();
 });
 svg.addEventListener('pointerleave', () => {
   element<HTMLElement>('#track-tooltip').hidden = true;
-  if (!drag) preview(null);
+  if (!drag && !marquee) preview(null);
 });
 svg.addEventListener('click', (event) => {
   if (suppressClick) {
@@ -696,7 +1034,7 @@ svg.addEventListener('click', (event) => {
   }
   if (!toolId && event.target instanceof Element && event.target.closest('.track')) return;
   if (!toolId) {
-    selectedId = '';
+    selectOnly('');
     render();
     return;
   }
@@ -714,37 +1052,46 @@ svg.addEventListener('click', (event) => {
 function transformSelected(change: (p: Piece) => Piece): void {
   const piece = selected();
   if (!piece) throw new Error('Select a placed piece first.');
-  commit(putPiece(state, change(piece)));
+  const next = change(piece);
+  const delta = normalize(next.angle - piece.angle);
+  const radians = (delta * Math.PI) / 180;
+  commit(
+    transformPieces(state, [...selectedIds], (p) => {
+      const dx = p.x - piece.x;
+      const dy = p.y - piece.y;
+      return {
+        ...p,
+        x: next.x + dx * Math.cos(radians) - dy * Math.sin(radians),
+        y: next.y + dx * Math.sin(radians) + dy * Math.cos(radians),
+        angle: normalize(p.angle + delta),
+        flipped: p.id === piece.id ? next.flipped : p.flipped,
+      };
+    }),
+  );
 }
 
-document.addEventListener('keydown', (event) => {
-  if (
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLSelectElement ||
-    event.target instanceof HTMLTextAreaElement ||
-    element<HTMLDialogElement>('#confirm-dialog').open ||
-    element<HTMLDialogElement>('#name-dialog').open
-  )
-    return;
-  if (event.key === 'Escape') {
-    clearPaletteDrag();
-    drag = null;
-    toolId = '';
-    preview(null);
-    render();
-    return;
-  }
-  if (
-    event.target instanceof Element &&
-    event.target.closest('[data-piece-id]') &&
-    (event.key === 'Enter' || event.key === ' ')
-  ) {
-    event.preventDefault();
-    selectedId = event.target.closest<SVGGElement>('[data-piece-id]')?.dataset['pieceId'] ?? '';
-    toolId = '';
-    render();
-    return;
-  }
+function cancelGesture(): void {
+  const pointerId = drag?.pointerId ?? marquee?.pointerId;
+  drag = null;
+  marquee = null;
+  if (pointerId !== undefined && svg.hasPointerCapture(pointerId))
+    svg.releasePointerCapture(pointerId);
+  element<SVGRectElement>('#marquee').setAttribute('hidden', '');
+  preview(null);
+}
+
+function handleSelectionKey(event: KeyboardEvent): void {
+  const id =
+    event.target instanceof Element
+      ? (event.target.closest<SVGGElement>('[data-piece-id]')?.dataset['pieceId'] ?? '')
+      : '';
+  if (event.ctrlKey || event.metaKey) toggleSelection(id);
+  else selectOnly(id);
+  toolId = '';
+  render();
+}
+
+function handlePieceKey(event: KeyboardEvent): void {
   if (toolId && event.key.toLowerCase() === 'r') {
     toolAngle = normalize(toolAngle + 22.5);
     render();
@@ -761,45 +1108,239 @@ document.addEventListener('keydown', (event) => {
   const move = moves[event.key];
   if (move) {
     event.preventDefault();
-    action(() => transformSelected((p) => ({ ...p, x: p.x + move.x, y: p.y + move.y })));
+    action(() =>
+      transformSelected((piece) => ({ ...piece, x: piece.x + move.x, y: piece.y + move.y })),
+    );
   }
   if (event.key.toLowerCase() === 'r')
-    action(() => transformSelected((p) => ({ ...p, angle: normalize(p.angle + 22.5) })));
+    action(() =>
+      transformSelected((piece) => ({ ...piece, angle: normalize(piece.angle + 22.5) })),
+    );
   if (event.key === 'Delete' || event.key === 'Backspace') {
     event.preventDefault();
-    removePiece();
+    action(removePiece);
   }
+}
+
+document.addEventListener('keydown', (event) => {
+  if (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLSelectElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    document.querySelector('dialog[open]')
+  )
+    return;
+  if (event.key === 'Escape') {
+    clearPaletteDrag();
+    cancelGesture();
+    toolId = '';
+    preview(null);
+    render();
+    return;
+  }
+  if (
+    event.target instanceof Element &&
+    event.target.closest('[data-piece-id]') &&
+    event.key === 'Enter'
+  ) {
+    event.preventDefault();
+    handleSelectionKey(event);
+    return;
+  }
+  if (event.code === 'Space') {
+    if (drag || marquee) {
+      event.preventDefault();
+      return;
+    }
+    spaceDown = true;
+    event.preventDefault();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+    event.preventDefault();
+    selectedIds = new Set(activeLayout(state).pieces.map((p) => p.id));
+    selectedId = [...selectedIds][0] ?? '';
+    toolId = '';
+    render();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) {
+    event.preventDefault();
+    action(() => restoreHistory(event.key.toLowerCase() === 'y' || event.shiftKey));
+    return;
+  }
+  handlePieceKey(event);
+});
+document.addEventListener('keyup', (event) => {
+  if (event.code === 'Space') spaceDown = false;
+});
+window.addEventListener('blur', () => {
+  touches.clear();
+  multiTouch = false;
+  spaceDown = false;
+  clearPaletteDrag();
+  cancelGesture();
+  render();
 });
 
 function removePiece(): void {
-  const layout = activeLayout(state);
-  if (
-    commit(
-      updateLayout(state, { ...layout, pieces: layout.pieces.filter((p) => p.id !== selectedId) }),
-    )
-  ) {
-    selectedId = '';
+  const ids = [...selectedIds];
+  removePieces(state, ids);
+  const layoutId = state.activeLayoutId;
+  const revision = state;
+  const remove = () => {
+    if (state !== revision || state.activeLayoutId !== layoutId)
+      throw new Error('The layout changed. Select the pieces again before deleting.');
+    if (element<HTMLInputElement>('#skip-delete').checked && preferences.confirmDelete)
+      updatePreferences({ ...preferences, confirmDelete: false });
+    if (commit(removePieces(state, ids))) selectOnly('');
+    render();
+  };
+  if (preferences.confirmDelete)
+    confirm(
+      'Remove selected pieces?',
+      `Remove ${ids.length} selected pieces? Your inventory quantities are unchanged. Undo is available during this session.`,
+      remove,
+      true,
+    );
+  else remove();
+}
+
+function updatePreferences(next: Preferences): void {
+  try {
+    savePreferences(localStorage, next);
+    preferences = next;
+  } finally {
     render();
   }
 }
 
+function restoreHistory(redo: boolean): void {
+  clearPaletteDrag();
+  cancelGesture();
+  const next = redo ? redoHistory(history) : undoHistory(history);
+  if (commit(next.current, redo ? 'Redid last change.' : 'Undid last change.', false, next)) {
+    selectOnly('');
+    toolId = '';
+    render();
+  }
+}
+
+button('#undo', () => restoreHistory(false));
+button('#redo', () => restoreHistory(true));
+button('#select-all', () => {
+  selectedIds = new Set(activeLayout(state).pieces.map((p) => p.id));
+  selectedId = [...selectedIds][0] ?? '';
+  toolId = '';
+  render();
+});
+button('#lock-pieces', () => commit(setPieceLocks(state, [...selectedIds], true)));
+button('#unlock-pieces', () => commit(setPieceLocks(state, [...selectedIds], false)));
+button('#context-lock', () => {
+  element<HTMLDialogElement>('#piece-menu').close();
+  commit(setPieceLocks(state, [...selectedIds], true));
+});
+button('#context-unlock', () => {
+  element<HTMLDialogElement>('#piece-menu').close();
+  commit(setPieceLocks(state, [...selectedIds], false));
+});
+button('#context-delete', () => {
+  element<HTMLDialogElement>('#piece-menu').close();
+  removePiece();
+});
+svg.addEventListener('contextmenu', (event) => {
+  const id =
+    event.target instanceof Element
+      ? event.target.closest<SVGGElement>('[data-piece-id]')?.dataset['pieceId']
+      : undefined;
+  if (!id) return;
+  event.preventDefault();
+  cancelGesture();
+  toolId = '';
+  if (!selectedIds.has(id)) selectOnly(id);
+  render();
+  element<HTMLButtonElement>('#context-lock').disabled = selection().every((p) => p.locked);
+  element<HTMLButtonElement>('#context-unlock').disabled = !selection().some((p) => p.locked);
+  element<HTMLButtonElement>('#context-delete').disabled = selection().some((p) => p.locked);
+  element<HTMLDialogElement>('#piece-menu').showModal();
+});
+button('#reset-inventory', () =>
+  confirm(
+    'Reset entire inventory?',
+    'Set every owned quantity to zero? Layouts and their shopping lists are retained. Undo is available during this session.',
+    () => commit(resetInventory(state)),
+  ),
+);
+element<HTMLSelectElement>('#language').addEventListener('change', () =>
+  action(() => {
+    const language = element<HTMLSelectElement>('#language').value;
+    if (!isLanguage(language)) throw new Error('Unknown language.');
+    updatePreferences({ ...preferences, language });
+  }),
+);
+element<HTMLInputElement>('#sounds').addEventListener('change', () =>
+  action(() =>
+    updatePreferences({ ...preferences, sounds: element<HTMLInputElement>('#sounds').checked }),
+  ),
+);
+element<HTMLInputElement>('#confirm-delete').addEventListener('change', () =>
+  action(() =>
+    updatePreferences({
+      ...preferences,
+      confirmDelete: element<HTMLInputElement>('#confirm-delete').checked,
+    }),
+  ),
+);
+
+function unexpected(error: unknown): void {
+  clearPaletteDrag();
+  cancelGesture();
+  const type =
+    error instanceof Error &&
+    [
+      'Error',
+      'TypeError',
+      'RangeError',
+      'SyntaxError',
+      'ReferenceError',
+      'SecurityError',
+      'QuotaExceededError',
+    ].includes(error.name)
+      ? error.name
+      : 'Error';
+  const version = import.meta.env.VITE_APP_VERSION ?? 'development';
+  element<HTMLElement>('#error-details').textContent = `${type} / application ${version}`;
+  const report = new URL('https://github.com/f2calv/model-railway-planner/issues/new');
+  report.searchParams.set('title', `Unexpected ${type} in planner ${version}`);
+  report.searchParams.set(
+    'body',
+    `Application version: ${version}\nError category: ${type}\n\nSteps to reproduce:\n\nExpected result:\n\nActual result:\n\nPlease review this report before submitting. Do not include personal layouts, inventory or browser activity unless you explicitly want to share them.`,
+  );
+  element<HTMLAnchorElement>('#report-error').href = report.href;
+  status('Unexpected error. Export a backup before reloading.', true);
+  const dialog = element<HTMLDialogElement>('#error-dialog');
+  if (!dialog.open) dialog.showModal();
+}
+window.addEventListener('error', (event) => {
+  event.preventDefault();
+  unexpected(event.error);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  event.preventDefault();
+  unexpected(event.reason);
+});
+
 function fit(): void {
   const layout = activeLayout(state);
-  const points = [
-    ...layout.pieces.flatMap((p) => samples(p).flat()),
-    ...layout.boards.flatMap((b) => [
-      { x: b.x, y: b.y },
-      { x: b.x + b.width, y: b.y + b.height },
-    ]),
-  ];
-  if (!points.length) {
+  const bounds = layoutBounds(layout);
+  if (!bounds) {
     svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
     return;
   }
-  const minX = Math.min(...points.map((p) => p.x)) - 60;
-  const minY = Math.min(...points.map((p) => p.y)) - 60;
-  const maxX = Math.max(...points.map((p) => p.x)) + 60;
-  const maxY = Math.max(...points.map((p) => p.y)) + 60;
+  const minX = bounds.x - 20;
+  const minY = bounds.y - 20;
+  const maxX = bounds.x + bounds.width + 20;
+  const maxY = bounds.y + bounds.height + 20;
   const rect = svg.getBoundingClientRect();
   const k = Math.max(0.08, Math.min(4, rect.width / (maxX - minX), rect.height / (maxY - minY)));
   svgSelection.call(
@@ -815,7 +1356,7 @@ button('#zoom-out', () => svgSelection.call(zoomer.scaleBy, 1 / 1.3));
 button('#fit', fit);
 button('#cancel-tool', () => {
   clearPaletteDrag();
-  drag = null;
+  cancelGesture();
   toolId = '';
   preview(null);
   render();
@@ -864,14 +1405,15 @@ button('#apply-position', () =>
   })),
 );
 element<HTMLInputElement>('#search').addEventListener('input', render);
+element<HTMLSelectElement>('#catalog-profile').addEventListener('change', render);
 element<HTMLSelectElement>('#piece-select').addEventListener('change', (event) => {
-  selectedId = (event.currentTarget as HTMLSelectElement).value;
+  selectOnly((event.currentTarget as HTMLSelectElement).value);
   toolId = '';
   render();
 });
 element<HTMLSelectElement>('#layouts').addEventListener('change', () => {
   if (commit({ ...state, activeLayoutId: element<HTMLSelectElement>('#layouts').value })) {
-    selectedId = '';
+    selectOnly('');
     toolId = '';
     preview(null);
     render();
@@ -879,10 +1421,12 @@ element<HTMLSelectElement>('#layouts').addEventListener('change', () => {
   }
 });
 
-function confirm(title: string, message: string, operation: () => void): void {
+function confirm(title: string, message: string, operation: () => void, deletion = false): void {
   const dialog = element<HTMLDialogElement>('#confirm-dialog');
   element<HTMLElement>('#confirm-title').textContent = title;
   element<HTMLElement>('#confirm-text').textContent = message;
+  element<HTMLElement>('#skip-delete-label').hidden = !deletion;
+  element<HTMLInputElement>('#skip-delete').checked = false;
   dialog.returnValue = 'cancel';
   dialog.addEventListener(
     'close',
@@ -891,6 +1435,7 @@ function confirm(title: string, message: string, operation: () => void): void {
     },
     { once: true },
   );
+  translateUi(dialog, preferences.language);
   dialog.showModal();
 }
 
@@ -908,6 +1453,7 @@ function askName(title: string, initial: string, operation: (name: string) => vo
     },
     { once: true },
   );
+  translateUi(dialog, preferences.language);
   dialog.showModal();
   input.select();
 }
@@ -920,7 +1466,7 @@ button('#new-layout', () =>
       layouts: [...state.layouts, { id, name, pieces: [], boards: [] }],
       activeLayoutId: id,
     });
-    selectedId = '';
+    selectOnly('');
     toolId = '';
     render();
     fit();
@@ -938,7 +1484,7 @@ button('#duplicate-layout', () =>
       ],
       activeLayoutId: id,
     });
-    selectedId = '';
+    selectOnly('');
     render();
   }),
 );
@@ -955,7 +1501,7 @@ button('#delete-layout', () =>
       const layouts = state.layouts.filter((l) => l.id !== state.activeLayoutId);
       if (!layouts[0]) throw new Error('Keep at least one layout.');
       commit({ ...state, layouts, activeLayoutId: layouts[0].id });
-      selectedId = '';
+      selectOnly('');
       render();
       fit();
     },
@@ -981,14 +1527,56 @@ button('#add-board', () => {
 });
 button('#unbounded', () => commit(updateLayout(state, { ...activeLayout(state), boards: [] })));
 
-function download(text: string, filename: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+function download(content: string | Blob, filename: string, type = 'application/json'): void {
+  const url = URL.createObjectURL(
+    typeof content === 'string' ? new Blob([content], { type }) : content,
+  );
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+button('#export-svg', () => download(svgExport(state), 'railway-layout.svg', 'image/svg+xml'));
+button('#export-inventory-csv', () =>
+  download(csvExport(state), 'railway-inventory.csv', 'text/csv;charset=utf-8'),
+);
+button('#export-shopping-csv', () =>
+  download(csvExport(state, true), 'railway-shopping-list.csv', 'text/csv;charset=utf-8'),
+);
+button('#export-png', () => {
+  const control = element<HTMLButtonElement>('#export-png');
+  control.disabled = true;
+  void pngExport(state)
+    .then((blob) => download(blob, 'railway-layout.png'))
+    .catch((error: unknown) =>
+      status(`PNG export failed: ${error instanceof Error ? error.message : String(error)}`, true),
+    )
+    .finally(() => {
+      control.disabled = false;
+    });
+});
+button('#print', () => {
+  const content = svgExport(state);
+  const graphic = new DOMParser().parseFromString(content, 'image/svg+xml');
+  if (graphic.querySelector('parsererror'))
+    throw new Error('The print drawing could not be generated.');
+  document.querySelector('#print-view')?.remove();
+  const root = document.createElement('section');
+  root.id = 'print-view';
+  root.hidden = true;
+  const title = document.createElement('h1');
+  title.textContent = activeLayout(state).name;
+  const notice = document.createElement('p');
+  notice.textContent = translate(
+    'Printed overview; not a 1:1 construction template.',
+    preferences.language,
+  );
+  root.append(title, notice, document.importNode(graphic.documentElement, true));
+  document.body.append(root);
+  window.addEventListener('afterprint', () => root.remove(), { once: true });
+  window.print();
+});
 button('#export', () => {
   const text = recovery ? localStorage.getItem(storageKey) : JSON.stringify(state, null, 2);
   if (text === null)
@@ -1010,7 +1598,7 @@ element<HTMLInputElement>('#import-file').addEventListener('change', async () =>
       'This replaces all inventory and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.',
       () => {
         if (commit(next, 'Backup imported and saved on this device.', true)) {
-          selectedId = '';
+          selectOnly('');
           toolId = '';
           preview(null);
           render();
@@ -1040,18 +1628,21 @@ window.addEventListener('storage', (event) => {
 const updateSW = registerSW({
   onNeedRefresh() {
     element<HTMLButtonElement>('#update-app').hidden = false;
+    addActivity('App update available.');
   },
   onOfflineReady() {
-    status('App is cached for offline use. Your inventory stays on this device.');
+    const message = 'App is cached for offline use. Your inventory stays on this device.';
+    addActivity(message);
+    if (!element<HTMLElement>('#status').classList.contains('error')) status(message);
   },
   onRegisterError(error: Error) {
     status(`Offline installation is unavailable: ${error.message}`, true);
   },
 });
 button('#update-app', () => {
-  if (drag || paletteDrag || previewPiece || recovery)
-    throw new Error('Finish the current gesture and resolve any storage errors before updating.');
-  saveState(localStorage, state);
+  if (drag || marquee || paletteDrag || previewPiece)
+    throw new Error('Finish the current gesture before updating.');
+  if (!recovery) saveState(localStorage, state);
   void updateSW(true).catch((error: unknown) => status(`Update failed: ${String(error)}`, true));
 });
 

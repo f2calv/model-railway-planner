@@ -6,6 +6,10 @@ updates:
       default-days: 7
     schedule:
       interval: weekly
+    #TODO: Remove this hold when typescript-eslint supports and validates newer TypeScript versions.
+    ignore:
+      - dependency-name: typescript
+        versions: ['>=6.1.0'] #The current parser's peer range ends below 6.1.
   - package-ecosystem: github-actions
     directory: /
     cooldown:
