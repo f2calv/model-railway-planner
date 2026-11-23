@@ -116,24 +116,37 @@ export function snapPiece(
   candidate: Piece,
   others: readonly Piece[],
   threshold: number,
+  allowRotation = true,
+  moving: readonly Piece[] = [candidate],
 ): Snap | null {
   const ownPorts = ports(candidate);
   const targets = others.flatMap((other) =>
-    ports(other).filter(
-      (port) =>
-        !others.some((peer) => peer.id !== other.id && ports(peer).some((p) => connected(p, port))),
-    ),
+    !planningCompatible(definition(candidate.trackId), definition(other.trackId))
+      ? []
+      : ports(other).filter(
+          (port) =>
+            !others.some(
+              (peer) => peer.id !== other.id && ports(peer).some((p) => connected(p, port)),
+            ),
+        ),
   );
   const localPorts = ports({ ...candidate, x: 0, y: 0, angle: 0 });
   let best: Snap | null = null;
   let bestDistance = threshold;
   ownPorts.forEach((own, index) => {
+    if (
+      moving.some(
+        (peer) => peer.id !== candidate.id && ports(peer).some((port) => connected(own, port)),
+      )
+    )
+      return;
     const local = localPorts[index];
     if (!local) return;
     for (const target of targets) {
       const d = distance(own, target);
       if (d >= bestDistance) continue;
       const angle = normalize(target.angle + 180 - local.angle);
+      if (!allowRotation && angleDifference(angle, candidate.angle) > 0.1) continue;
       // localPorts already includes mirroring; rotate that offset without mirroring twice.
       const rotated = world(
         { ...candidate, x: 0, y: 0, angle, flipped: false },
@@ -147,6 +160,26 @@ export function snapPiece(
     }
   });
   return best;
+}
+
+export function snapGroup(
+  candidates: readonly Piece[],
+  others: readonly Piece[],
+  threshold: number,
+): Piece[] {
+  let offset = { x: 0, y: 0 };
+  let bestDistance = threshold;
+  for (const candidate of candidates) {
+    const result = snapPiece(candidate, others, bestDistance, false, candidates);
+    if (!result) continue;
+    offset = { x: result.piece.x - candidate.x, y: result.piece.y - candidate.y };
+    bestDistance = Math.hypot(offset.x, offset.y);
+  }
+  return candidates.map((piece) => ({
+    ...piece,
+    x: piece.x + offset.x,
+    y: piece.y + offset.y,
+  }));
 }
 
 function inBoard(p: Vec, boards: readonly Board[]): boolean {
@@ -216,6 +249,17 @@ export function placementProblem(
 
   const candidatePorts = ports(candidate);
   for (const port of candidatePorts) {
+    if (
+      others.some(
+        (other) =>
+          ports(other).some((p) => connected(port, p)) &&
+          !planningCompatible(definition(candidate.trackId), definition(other.trackId)),
+      )
+    )
+      return {
+        kind: 'connection',
+        message: 'These tracks have incompatible gauge, electrical system or rail code.',
+      };
     const matches = others.flatMap((p) => ports(p)).filter((p) => connected(port, p));
     if (matches.length > 1)
       return { kind: 'connection', message: 'That connector is already occupied.' };
@@ -287,3 +331,4 @@ export function placementProblem(
   }
   return null;
 }
+import { planningCompatible } from './profiles';

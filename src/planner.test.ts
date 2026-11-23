@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { definition } from './catalog';
-import { connected, joinedBoards, placementProblem, ports, routePose, snapPiece } from './geometry';
+import {
+  connected,
+  joinedBoards,
+  placementProblem,
+  ports,
+  routePose,
+  snapPiece,
+  snapGroup,
+} from './geometry';
 import {
   activeLayout,
   available,
@@ -11,9 +19,26 @@ import {
   setInventory,
   shoppingList,
   updateLayout,
+  putPieces,
+  transformPieces,
+  removePieces,
+  setPieceLocks,
+  resetInventory,
 } from './state';
+import {
+  createHistory,
+  recordHistory,
+  redoHistory,
+  undoHistory,
+  recordActivity,
+  type Activity,
+} from './history';
 import { loadState, saveState, storageKey } from './storage';
 import type { Piece, PlannerState } from './model';
+import { compatibleProfiles, manufacturerProfile } from './profiles';
+import { csvCell, csvExport, svgExport } from './exports';
+import { translate } from './i18n';
+import { loadPreferences } from './preferences';
 
 const straightId = 'hornby-oo-r600';
 const curveId = 'hornby-oo-r605';
@@ -26,6 +51,132 @@ const piece = (id: string, x = 0, y = 0, angle = 0, trackId = straightId): Piece
   flipped: false,
 });
 const stock = (id = straightId, count = 10) => setInventory(emptyState('first'), id, count);
+
+describe('group transactions and history', () => {
+  it('keeps the latest 300 local activity entries independently of document undo', () => {
+    let entries: readonly Activity[] = [];
+    for (let i = 0; i < 302; i++)
+      entries = recordActivity(entries, { at: new Date(0), message: String(i) });
+    expect(entries).toHaveLength(300);
+    expect(entries[0]?.message).toBe('2');
+    expect(entries.at(-1)?.message).toBe('301');
+  });
+  it('migrates legacy backups to a format older clients cannot overwrite while retaining their content', () => {
+    const initial = putPiece(stock(), piece('a'));
+    expect(parseState(JSON.stringify({ ...initial, version: 1 }))).toEqual(initial);
+    expect(initial.version).toBe(2);
+  });
+  it('moves a connected group atomically past its original positions and rejects a collision', () => {
+    const initial = putPieces(stock(), [piece('a'), piece('b', 168), piece('obstacle', 0, 300)]);
+    const moved = transformPieces(initial, ['a', 'b'], (p) => ({ ...p, x: p.x + 168 }));
+    expect(activeLayout(moved).pieces.map((p) => [p.id, p.x])).toEqual([
+      ['a', 168],
+      ['b', 336],
+      ['obstacle', 0],
+    ]);
+    expect(() => transformPieces(initial, ['a', 'b'], (p) => ({ ...p, y: 300 }))).toThrow(
+      /overlaps/,
+    );
+    expect(activeLayout(initial).pieces[0]?.y).toBe(0);
+  });
+
+  describe('catalog profiles, translations and interchange', () => {
+    it('joins verified mixed-brand geometry without treating unknown rail codes as certification', () => {
+      const hornby = piece('a');
+      const peco = piece('b', 170, 2, 0, 'peco-setrack-oo-st-200');
+      const result = snapPiece(peco, [hornby], 10);
+      if (!result) throw new Error('Expected compatible planning connectors.');
+      const end = ports(hornby)[1];
+      const start = ports(result.piece)[0];
+      if (!end || !start) throw new Error('Missing test connectors.');
+      expect(connected(end, start)).toBe(true);
+      const profile = manufacturerProfile('peco-setrack-oo');
+      expect(compatibleProfiles(profile, { ...profile, railCode: 75 })).toBe(false);
+      expect(compatibleProfiles(profile, { ...profile, electricalSystem: 'three-rail' })).toBe(
+        false,
+      );
+      expect(compatibleProfiles(profile, manufacturerProfile('bachmann-oo'))).toBe(true);
+    });
+
+    it('snaps a rigid group using only exposed connectors without changing its orientation or spacing', () => {
+      const candidates = [piece('a', 170, 2), piece('b', 338, 2)];
+      const snapped = snapGroup(candidates, [piece('anchor')], 10);
+      expect(snapped.map((p) => [p.x, p.y, p.angle])).toEqual([
+        [168, 0, 0],
+        [336, 0, 0],
+      ]);
+      const noRotation = snapGroup(candidates, [piece('anchor', 168, -168, 90)], 10);
+      expect(noRotation).toEqual(candidates);
+    });
+
+    it('exports safe standalone SVG and shopping CSV rather than browser previews or executable titles', () => {
+      const state = putPieces(stock(straightId, 1), [piece('a'), piece('b', 168)]);
+      const named = updateLayout(state, {
+        ...activeLayout(state),
+        name: 'Sketch <script>example</script>',
+      });
+      const svg = svgExport(named);
+      expect(svg).toContain('Sketch &lt;script&gt;example&lt;/script&gt;');
+      expect(svg).not.toContain('<script>');
+      expect(svg).toContain('width="416mm"');
+      const csv = csvExport(state, true);
+      expect(csv.trim().split('\r\n')).toHaveLength(2);
+      expect(csv).toContain('"Hornby","OO","R600","Straight","1","2","1"');
+      expect(csvCell(' =SUM(1,2)')).toBe('"\' =SUM(1,2)"');
+      expect(csvCell('a,"b"')).toBe('"a,""b"""');
+    });
+
+    it('translates dynamic quantities and geometry while rejecting malformed persisted preferences', () => {
+      expect(translate('Place R600 Straight', 'de')).toBe('R600 Gerade platzieren');
+      expect(translate('R438 mm / 22.5 degrees', 'fr')).toBe('R438 mm / 22.5 degrés');
+      expect(translate('Removed: R600. Saved on this device.', 'it')).toBe(
+        'Rimosso: R600. Salvato su questo dispositivo.',
+      );
+      expect(() =>
+        loadPreferences({
+          getItem: () => '{"version":1,"language":"de","sounds":"yes","confirmDelete":true}',
+        }),
+      ).toThrow(/preferences/);
+    });
+  });
+
+  it('protects every locked group member and round-trips locks without changing old backups', () => {
+    const initial = putPieces(stock(), [piece('a'), piece('b', 168)]);
+    expect(parseState(JSON.stringify(initial))).toEqual(initial);
+    const locked = setPieceLocks(initial, ['b'], true);
+    expect(parseState(JSON.stringify(locked))).toEqual(locked);
+    expect(() => transformPieces(locked, ['a', 'b'], (p) => ({ ...p, y: 100 }))).toThrow(/Unlock/);
+    expect(() => removePieces(locked, ['a', 'b'])).toThrow(/Unlock/);
+    expect(() => putPiece(locked, { ...piece('b', 168), locked: false })).toThrow(/Unlock/);
+    const unlocked = setPieceLocks(locked, ['b'], false);
+    expect(activeLayout(removePieces(unlocked, ['a', 'b'])).pieces).toHaveLength(0);
+    expect(() =>
+      parseState(JSON.stringify(locked).replace('"locked":true', '"locked":"yes"')),
+    ).toThrow(/lock/);
+  });
+
+  it('undoes a group deletion and inventory reset together, and discards redo after another edit', () => {
+    const initial = putPieces(stock(straightId, 1), [piece('a'), piece('b', 168)]);
+    let history = recordHistory(createHistory(initial), removePieces(initial, ['a', 'b']));
+    history = recordHistory(history, resetInventory(history.current));
+    history = undoHistory(undoHistory(history));
+    expect(history.current).toEqual(initial);
+    expect(shoppingList(history.current)).toEqual([{ trackId: straightId, quantity: 1 }]);
+    expect(activeLayout(redoHistory(history).current).pieces).toHaveLength(0);
+    history = recordHistory(history, setInventory(history.current, straightId, 4));
+    expect(history.future).toHaveLength(0);
+    expect(() => redoHistory(history)).toThrow(/Nothing to redo/);
+  });
+
+  it('retains exactly the newest 100 undo steps', () => {
+    let history = createHistory(stock(straightId, 0));
+    for (let quantity = 1; quantity <= 101; quantity++)
+      history = recordHistory(history, setInventory(history.current, straightId, quantity));
+    for (let i = 0; i < 100; i++) history = undoHistory(history);
+    expect(history.current.inventory[straightId]).toBe(1);
+    expect(() => undoHistory(history)).toThrow(/Nothing to undo/);
+  });
+});
 
 describe('real geometry and snapping', () => {
   it('uses analytic curved endpoints and mirrored tangent angles', () => {
@@ -233,7 +384,7 @@ describe('inventory and durable documents', () => {
   it('validates imported nested references, stock, IDs, numbers and versions', () => {
     const state = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify(state))).toEqual(state);
-    expect(() => parseState(JSON.stringify({ ...state, version: 2 }))).toThrow(/version/);
+    expect(() => parseState(JSON.stringify({ ...state, version: 3 }))).toThrow(/version/);
     const shortfall = parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }));
     expect(shoppingList(shortfall)).toEqual([{ trackId: straightId, quantity: 1 }]);
     expect(parseState(JSON.stringify({ ...state, inventory: {} })).layouts).toEqual(state.layouts);

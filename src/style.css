@@ -125,6 +125,9 @@ hr {
   color: white;
   border-color: #587568;
 }
+.app-header select {
+  color: var(--text);
+}
 .brand {
   margin-right: auto;
 }
@@ -339,6 +342,38 @@ hr {
 .track.selected:active {
   cursor: grabbing;
 }
+.track.locked,
+.track.locked.selected {
+  cursor: pointer;
+}
+.locked .track-bed {
+  stroke: #6874ab;
+}
+.padlock {
+  fill: #f7e7a4;
+  stroke: #243c35;
+  stroke-width: 2;
+  pointer-events: none;
+}
+.track.drag-source {
+  opacity: 0.25;
+}
+#marquee {
+  fill: #409b7333;
+  stroke: #409b73;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.check-label {
+  flex-direction: row;
+  align-items: center;
+}
+#activity-list,
+#undo-history {
+  padding-left: 22px;
+  max-height: 220px;
+  overflow: auto;
+}
 #grid path {
   stroke: var(--grid);
 }
@@ -350,13 +385,6 @@ hr {
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-}
-.missing-stock .track-bed {
-  stroke: #db843b;
-  stroke-dasharray: 8 4;
-}
-.missing-stock .centre-line {
-  stroke: #85521f;
 }
 .missing-stock.selected .track-bed {
   stroke: #f6a64f;
@@ -390,27 +418,6 @@ hr {
   border-bottom: 1px solid var(--line);
   padding: 6px 0;
   font-size: 12px;
-}
-.track-bed {
-  fill: none;
-  stroke: #81745d;
-  stroke-width: 30;
-}
-.sleepers {
-  fill: none;
-  stroke: #4e5045;
-  stroke-width: 30;
-  stroke-dasharray: 3 7;
-}
-.rails {
-  fill: none;
-  stroke: #c8c9bd;
-  stroke-width: 19.5;
-}
-.centre-line {
-  fill: none;
-  stroke: #354338;
-  stroke-width: 13.5;
 }
 .port {
   fill: #d8ad66;
@@ -568,5 +575,23 @@ dialog::backdrop {
   }
   button {
     min-height: 44px;
+  }
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+  body > * {
+    display: none !important;
+  }
+  #print-view {
+    display: block !important;
+  }
+  #print-view svg {
+    width: 100%;
+    height: auto;
+    max-height: 85vh;
   }
 }

@@ -21,6 +21,7 @@ export interface TrackDefinition {
   code: string;
   name: string;
   brand: string;
+  profileId: string;
   scale: string;
   gaugeMm: number;
   centresMm: number;
@@ -34,6 +35,7 @@ export interface Piece extends Pose {
   id: string;
   trackId: string;
   flipped: boolean;
+  locked?: boolean;
 }
 
 export interface Board extends Vec {
@@ -49,7 +51,7 @@ export interface Layout {
 }
 
 export interface PlannerState {
-  version: 1;
+  version: 2;
   inventory: Record<string, number>;
   layouts: Layout[];
   activeLayoutId: string;

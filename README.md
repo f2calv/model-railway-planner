@@ -4,12 +4,12 @@ A free, browser-only **model railway track planner** for designing **Hornby OO g
 Drag and snap track pieces, try baseboard shapes, save alternative ideas and calculate a shopping
 list for the extra track you need. No account, backend or cloud database is required.
 
-The initial catalog targets Hornby OO (16.5 mm gauge). TypeScript, Vite and D3/SVG power the
+The catalog targets Hornby, Peco Setrack and Bachmann OO (16.5 mm gauge). TypeScript, Vite and D3/SVG power the
 zoomable editor; the progressive web app supports offline use and installation where available.
 
 [Open the planner](https://f2calv.github.io/model-railway-planner/) or [run it locally](#run-locally).
 
-![Hornby OO double-loop layout in the track planner, with grouped curve inventory and four extra R607 pieces on the shopping list](docs/images/planner-overview.jpg)
+![Hornby OO double-loop layout in the track planner, with grouped curve inventory, editing controls and six extra R606 pieces on the shopping list](docs/images/planner-overview.jpg)
 
 Example layout using synthetic inventory. Orange dashed track identifies the pieces still to buy.
 
@@ -23,10 +23,12 @@ flowchart LR
     user(["Railway modeller"]):::person
     planner["Model Railway Planner<br/>Browser-only layout design"]:::system
     pages["GitHub Pages<br/>Static application hosting"]:::external
-    backup[("User backup file<br/>Inventory and saved layouts")]:::store
+    backup[("User files<br/>JSON plans and drawing exports")]:::store
+    issues["GitHub Issues<br/>Optional reviewed error report"]:::external
     user -->|"Place track and explore ideas"| planner
     planner -->|"HTTPS application assets"| pages
-    planner -->|"Import and export JSON"| backup
+    planner -->|"Import JSON and export files"| backup
+    planner -.->|"Open issue draft only on request"| issues
     classDef person fill:#ede9fe,stroke:#6d28d9,color:#2e1065
     classDef system fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
     classDef external fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -39,12 +41,16 @@ for the implementation drilldown and placement/persistence sequence.
 ## Features
 
 - Drag-and-drop track placement with connector snapping and track descriptions.
+- Marquee/Ctrl multi-selection, rigid group movement, lock/unlock and undo/redo.
 - Shared inventory, multiple layout ideas and shopping lists for pieces still to buy.
 - Unbounded canvas or baseboards formed from joined rectangles.
 - Pan and zoom, touch placement, keyboard controls and exact-coordinate editing.
 - Planning warnings for overlaps, baseboard boundaries and nominal parallel spacing.
 - Local autosave and JSON backup import/export, without accounts or cloud storage.
 - Dark mode and installable offline use where the browser supports it.
+- English, German, French, Spanish and Italian interfaces.
+- Optional track sounds, configurable delete confirmation and collapsible activity/history.
+- SVG/PNG drawings, inventory/shopping CSV and print/PDF overviews.
 
 ## Run Locally
 
@@ -61,7 +67,7 @@ plan, or drag it from the catalog with a moving track preview. Enter your quanti
 inventory** whenever you're ready. The compact catalog groups straights, curves, points and
 miscellaneous pieces in collapsible sections; search by code or name.
 
-Drag a placed piece to move it. Each idea uses the owned collection independently. Extra pieces
+Drag a placed piece to move it, or select several and move them together. Each idea uses the owned collection independently. Extra pieces
 remain placeable and appear as orange dashed track, with quantities under **Shopping list**.
 Increasing inventory or removing pieces updates the shortfall immediately. Where several identical
 pieces are placed, the earliest ones count as owned; moving one does not change this ordering.
@@ -76,9 +82,19 @@ after a successful browser-storage write. **Export backup** downloads all invent
 - Snap aligns both endpoint position and tangent. Occupied endpoints cannot accept extra pieces.
 - **Rotate new** and **Reverse new curve** orient new track. Points have distinct handed catalog
   entries; their handedness is not changed by the curve-reversal control.
-- Select a placed piece for exact X/Y/angle editing. Arrow keys move 5 mm; Shift + arrows move 1 mm.
-  `R` rotates 22.5 degrees; Delete removes; Escape cancels placement.
-- Empty background drag pans; wheel/pinch or the zoom controls zoom. **Fit plan** frames the layout.
+- Drag blank space to select fully enclosed pieces; Ctrl/Command-click toggles selection.
+  Ctrl/Command+A selects all. Groups move rigidly and snap at exposed, direction-compatible ends.
+- The inspector edits the selected piece or group around its anchor. Arrow keys move 5 mm;
+  Shift + arrows move 1 mm. `R` rotates 22.5 degrees; Delete removes; Escape cancels a gesture.
+- **Space + drag** pans on desktop; touch background drag pans. Wheel/pinch and zoom controls zoom.
+  A second finger cancels an in-progress track drag before pinch zooming. **Fit plan** frames the layout.
+- Right-click a piece/group for lock actions, or use **Lock selection** / **Unlock selection**.
+  Locked pieces show a padlock and different bed colour. Any locked member prevents group move/delete.
+- Delete asks for confirmation by default. Its skip checkbox and the **Confirm piece deletion** setting
+  persist on this device. Deleting an entire idea remains separately confirmed.
+- Ctrl/Command+Z undoes; Ctrl/Command+Shift+Z or Ctrl/Command+Y redoes. Up to 100 whole-document steps
+  are retained during this session, including inventory and layout changes. Selection and previews
+  are not history. Reload clears undo/redo and the activity pane's latest 300 entries.
 - Baseboard rectangles must overlap or share an edge, not merely touch at a corner.
 - Inventory reductions are allowed and recalculate the shopping list for each saved idea.
 - Hover over placed track for its code, name and dimensions; the selected-piece inspector provides
@@ -88,21 +104,30 @@ after a successful browser-storage write. **Export backup** downloads all invent
   They do not change physical track length, positions or snapping.
 - **Dark mode** switches the interface theme and saves the preference on this device. The initial
   theme follows the browser's system preference.
+- **Language**, optional **Track sounds** (off initially) and delete preferences persist separately
+  from the document. User layout names and product codes are never translated.
+- **Reset entire inventory** zeroes all quantities after confirmation, keeps layouts and is undoable.
+- **Print / PDF** creates a page-fit overview, not a calibrated 1:1 construction template.
+  SVG retains millimetre dimensions; PNG is capped at 4096 pixels per dimension. Inventory CSV covers
+  the shared collection; shopping CSV covers the active idea. CSV headings remain English for interchange.
 
 Clearance is a conservative planning aid, not a guarantee that trains can pass. The nominal
-Hornby set-track spacing is 67 mm centre-to-centre, derived from the 371/438/505 mm standard radii.
+Hornby set-track spacing is 67 mm centre-to-centre, supported by its official track geometry diagram.
+This is the project's OO planning envelope, not a universal Peco/Bachmann or other-scale standard.
 Parallel checks allow 0.5 mm for rounded catalog geometry. A 30 mm planning footprint is used for
 same-level overlap and board containment, with sampled curves (at most 5 mm between samples).
 Valid connector neighbourhoods and the local fan between standard point exits are exempt from
 parallel checks, not entire connected components. Points and curved stock overhang still require
 physical validation. Diamond crossings contain two independent routes and four connectors; their
 internal crossing is permitted, but unrelated track still cannot overlap them. Bridges, elevations,
-flexible track and custom catalog editing are not implemented.
+flexible track, platform furniture and custom catalog editing are not implemented.
 
 ## Track Catalogs
 
-The initial catalog contains 22 Hornby OO entries. See the [track catalog guide](docs/catalog.md)
-for supported pieces, dimensions, manufacturer sources and geometry limitations.
+The catalog contains 41 entries: 25 Hornby, seven Peco Setrack and nine Bachmann OO pieces.
+See the [track catalog guide](docs/catalog.md) for supported dimensions, manufacturer sources,
+geometric compatibility rules and deliberately deferred furniture. Mixed-brand snapping is a planning
+aid, not certification of rail heights, joiners or rolling-stock clearance.
 
 ## Storage and Offline Use
 
@@ -115,6 +140,14 @@ the original readable bytes for recovery. Failed writes reject the edit and disp
 Changes in another tab lock editing until reload. Imports validate schema, catalog references,
 finite coordinates, inventory quantities and unique IDs; placement problems are displayed for review.
 
+The current backup format is version 2 and imports version 1 documents. The existing storage key
+is retained to find older plans. Locks are included in backups; display/audio/delete preferences
+and session history are not. Close or update older app tabs before editing a migrated document.
+
+Unexpected errors open a visible dialog with a link to draft a GitHub issue. Only the public app
+version and a generic error category are prefilled: no layout, inventory, stack trace or activity
+is transmitted automatically. Review anything you add before submitting an issue.
+
 To try the installable/offline production build:
 
 ```text
@@ -126,10 +159,14 @@ Service workers run on localhost or HTTPS, not arbitrary HTTP network addresses.
 online load, the production shell is cached for offline use. Installation varies by browser:
 Chromium offers an install option; iOS uses Safari's **Add to Home Screen**. Native packaging and
 app-store distribution are not implemented. Updates are offered explicitly; app caches and user
-documents are kept separate.
+documents are kept separate. Failed saves block ordinary updates; recovery mode permits an explicit
+app update without rewriting damaged or newer-version data.
+
+The Dev Container image has been built and its non-root Node/npm tools verified. Physical Android
+installation and offline use still need device verification; browser emulation is not a substitute.
 
 For a project-subpath deployment, build with `VITE_BASE_PATH` set to the site's path with a
-trailing slash. Asset URLs, manifest and service-worker scope follow that base. Pages deployment
+trailing slash for both build and preview. Asset URLs, manifest and service-worker scope follow that base. Pages deployment
 uses `/model-railway-planner/`; browser tests use that same base rather than only testing `/`.
 Set `VITE_APP_VERSION` for an identifiable production build; local builds display `development`
 when it is absent.
@@ -146,10 +183,13 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Domain tests cover geometry, snapping, circuit closure, clearance, boards, inventory and storage.
+Domain tests cover geometry, compatibility, atomic group commands, locks, bounded history,
+localization, exports, boards, inventory and storage.
 Browser tests use the production build and cover editing, shopping lists, persistence, palette
 drag previews/cancellation, grouped search, dark mode, tooltips, visual joins, rejected operations,
-mobile alternatives and offline reload. Tests need no cloud credentials. Linux browser tests may require
+mobile alternatives, two-finger pinch cancellation, PNG size limits, print/PDF and offline reload.
+`test:browser` serves existing `dist` output: rebuild after source changes and keep the same
+`VITE_BASE_PATH` for the test command. Tests need no cloud credentials. Linux browser tests may require
 `npx playwright install --with-deps chromium`.
 
 The Vite starter's newer TypeScript version was adjusted to TypeScript 6 to match the lint parser's
