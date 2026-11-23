@@ -12,7 +12,7 @@ async function createIdea(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 }
 
-test('inventory limits, snapping, dragging, separate ideas and persistence', async ({ page }) => {
+test('inventory counts, snapping, dragging, separate ideas and persistence', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
@@ -24,7 +24,7 @@ test('inventory limits, snapping, dragging, separate ideas and persistence', asy
   await expect(page.locator('#tracks > g')).toHaveCount(2);
   await expect(
     page.getByRole('button', { name: 'Place R600 Straight', exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   const poses = await page
     .locator('#tracks > g')
     .evaluateAll((groups) => groups.map((g) => g.getAttribute('transform')));
@@ -151,16 +151,125 @@ test('production shell, manifest and icons support offline reload', async ({ pag
   await expect(page.getByRole('spinbutton', { name: 'Owned R600', exact: true })).toHaveValue('1');
 });
 
-test('desktop palette drag-and-drop consumes stock only after placement', async ({ page }) => {
+test('desktop palette dragging previews track across the menu and canvas before committing', async ({
+  page,
+}) => {
   await page.goto('/');
   await stock(page, 'R600', 1);
-  await page
-    .getByRole('button', { name: 'Place R600 Straight', exact: true })
-    .dragTo(page.locator('#canvas'), { targetPosition: { x: 200, y: 200 } });
+  const choice = page.getByRole('button', { name: 'Place R600 Straight', exact: true });
+  const box = await choice.boundingBox();
+  const canvas = await page.locator('#canvas').boundingBox();
+  if (!box || !canvas) throw new Error('Missing palette or canvas.');
+  await page.mouse.move(box.x + 10, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 45, box.y + box.height / 2, { steps: 4 });
+  await expect(page.locator('#palette-ghost')).toBeVisible();
+  await expect(page.locator('#tracks > g')).toHaveCount(0);
+  await page.mouse.move(canvas.x + 200, canvas.y + 200, { steps: 8 });
+  await expect(page.locator('#preview > g')).toHaveCount(1);
+  await expect(page.locator('#tracks > g')).toHaveCount(0);
+  await page.mouse.up();
   await expect(page.locator('#tracks > g')).toHaveCount(1);
   await expect(
     page.getByRole('button', { name: 'Place R600 Straight', exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  await expect(page.locator('#palette-ghost')).toBeHidden();
+  await expect(page.locator('#preview > g')).toHaveCount(0);
+  await expect(page.locator('#shopping-list')).toContainText('You own all');
+});
+
+test('unowned pieces form a per-idea shopping list that responds to inventory and removal', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await stock(page, 'R600', 1);
+  await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).click();
+  await page.locator('#canvas').click({ position: { x: 200, y: 200 } });
+  await page.locator('#canvas').click({ position: { x: 302, y: 200 } });
+  await page.locator('#canvas').click({ position: { x: 403, y: 200 } });
+  await expect(page.locator('#tracks > .missing-stock')).toHaveCount(2);
+  await expect(page.locator('#shopping-list')).toContainText('2 x R600');
+  await page.reload();
+  await expect(page.locator('#tracks > .missing-stock')).toHaveCount(2);
+  await stock(page, 'R600', 2);
+  await expect(page.locator('#tracks > .missing-stock')).toHaveCount(1);
+  await stock(page, 'R600', 0);
+  await expect(page.locator('#shopping-list')).toContainText('3 x R600');
+  await page.getByRole('combobox', { name: 'Select placed piece' }).selectOption({ index: 3 });
+  await page.getByRole('button', { name: 'Remove piece', exact: true }).click();
+  await expect(page.locator('#shopping-list')).toContainText('2 x R600');
+  await createIdea(page);
+  await expect(page.locator('#shopping-list')).toContainText('You own all');
+});
+
+test('grouped palette is compact and searchable; dark mode persists', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.catalog-group > summary')).toHaveText([
+    'Straights (3)',
+    'Curves (10)',
+    'Points (7)',
+    'Misc / crossings (2)',
+  ]);
+  const height = await page
+    .locator('.catalog-row')
+    .first()
+    .evaluate((row) => row.getBoundingClientRect().height);
+  expect(height).toBeLessThanOrEqual(48);
+  await page.getByText('Curves (10)', { exact: true }).click();
+  await stock(page, 'R600', 1);
+  await expect(page.locator('.catalog-group').nth(1)).not.toHaveAttribute('open');
+  await page.getByRole('searchbox').fill('R8262');
+  await expect(page.getByRole('button', { name: /Place R8262/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('button', { name: 'Dark mode', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
+
+test('hover identifies dimensions, unselected track uses a pointer and joins stay screen-sized', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Place R603 Long straight', exact: true }).click();
+  await page.locator('#canvas').click({ position: { x: 130, y: 200 } });
+  await page.getByRole('button', { name: 'Select / pan', exact: true }).click();
+  await page.locator('#canvas').click({ position: { x: 150, y: 350 } });
+  const track = page.locator('#tracks > g').first();
+  await track.hover();
+  await expect(page.getByRole('tooltip')).toContainText('670 mm');
+  await expect(track).toHaveCSS('cursor', 'pointer');
+  await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).click();
+  await track.hover();
+  await expect(page.getByRole('tooltip')).toContainText('R603');
+  await expect(page.locator('#preview > g')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Select / pan', exact: true }).click();
+  const join = track.locator('.track-join').first();
+  await expect(join).toHaveCSS('stroke-width', '1.5px');
+  await expect(join).toHaveCSS('vector-effect', 'non-scaling-stroke');
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect(join).toHaveCSS('stroke-width', '1.5px');
+  await page.getByRole('combobox', { name: 'Select placed piece' }).selectOption({ index: 1 });
+  await expect(track).toHaveCSS('cursor', 'grab');
+});
+
+test('cancelled palette drags do not place or consume track', async ({ page }) => {
+  await page.goto('/');
+  const choice = page.getByRole('button', { name: 'Place R600 Straight', exact: true });
+  const box = await choice.boundingBox();
+  const canvas = await page.locator('#canvas').boundingBox();
+  if (!box || !canvas) throw new Error('Missing palette or canvas.');
+  await page.mouse.move(box.x + 10, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + 200, canvas.y + 200, { steps: 8 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(page.locator('#tracks > g')).toHaveCount(0);
+  await expect(page.locator('#palette-ghost')).toBeHidden();
+  await expect(page.locator('#preview > g')).toHaveCount(0);
 });
 
 test('joined baseboards persist and disconnected rectangles are rejected', async ({ page }) => {

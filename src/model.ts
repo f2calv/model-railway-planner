@@ -7,8 +7,14 @@ export interface Pose extends Vec {
   angle: number;
 }
 
-export type Route =
+export type Segment =
   { kind: 'straight'; length: number } | { kind: 'arc'; radius: number; angle: number };
+
+export type Route = (Segment | { kind: 'compound'; segments: readonly Segment[] }) & {
+  start?: Pose;
+};
+
+export type TrackCategory = 'straights' | 'curves' | 'points' | 'misc';
 
 export interface TrackDefinition {
   id: string;
@@ -20,6 +26,8 @@ export interface TrackDefinition {
   centresMm: number;
   routes: readonly Route[];
   source: string;
+  category: TrackCategory;
+  geometryNote?: string;
 }
 
 export interface Piece extends Pose {

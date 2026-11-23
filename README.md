@@ -1,6 +1,7 @@
 # model-railway-planner
 
-A browser-only model railway track planner for trying layout ideas with the track you already own.
+A browser-only model railway track planner for trying layout ideas with owned track and a shopping
+list for the extra pieces you need.
 The first catalog targets Hornby OO (16.5 mm gauge); no account, backend or cloud database is required.
 
 ## Product Brief
@@ -8,7 +9,8 @@ The first catalog targets Hornby OO (16.5 mm gauge); no account, backend or clou
 This section preserves the original requirements and agreed direction:
 
 - Drag-and-drop track planning, with snapping between compatible connectors.
-- Inventory entered and saved locally; a layout cannot consume more pieces than you own.
+- Inventory entered and saved locally. Planning can exceed owned stock; each layout has a shopping
+  list of the extra pieces needed, shown as orange dashed track.
 - Multiple independently saved layout ideas, each drawing on the same inventory.
 - Unbounded planning space or a baseboard formed from joined rectangles.
 - Pan and zoom, touch placement and keyboard/exact-coordinate alternatives.
@@ -34,9 +36,15 @@ npm ci
 npm run dev
 ```
 
-Open the Vite URL printed in the terminal (normally port 5173). Add your quantities in **Track
-inventory**, choose a piece, and click or tap the plan. Desktop users can drag from the catalog.
-Drag a placed piece to move it. Stock is consumed only by the active idea; deleting track releases it.
+Open the Vite URL printed in the terminal (normally port 5173). Choose a piece and click or tap the
+plan, or drag it from the catalog with a moving track preview. Enter your quantities in **Track
+inventory** whenever you're ready. The compact catalog groups straights, curves, points and
+miscellaneous pieces in collapsible sections; search by code or name.
+
+Drag a placed piece to move it. Each idea uses the owned collection independently. Extra pieces
+remain placeable and appear as orange dashed track, with quantities under **Shopping list**.
+Increasing inventory or removing pieces updates the shortfall immediately. Where several identical
+pieces are placed, the earliest ones count as owned; moving one does not change this ordering.
 
 Use **New idea**, **Duplicate** and the layout selector to explore alternatives. Changes autosave
 after a successful browser-storage write. **Export backup** downloads all inventory and layouts;
@@ -52,7 +60,14 @@ after a successful browser-storage write. **Export backup** downloads all invent
   `R` rotates 22.5 degrees; Delete removes; Escape cancels placement.
 - Empty background drag pans; wheel/pinch or the zoom controls zoom. **Fit plan** frames the layout.
 - Baseboard rectangles must overlap or share an edge, not merely touch at a corner.
-- Stock reductions are rejected if any saved layout would exceed the new quantity.
+- Inventory reductions are allowed and recalculate the shopping list for each saved idea.
+- Hover over placed track for its code, name and dimensions; the selected-piece inspector provides
+  the same information without hover. Unselected track uses a pointer; selected track uses a grab
+  cursor.
+- Track joins have 1.5-pixel visual separator strokes at every connector, independent of zoom.
+  They do not change physical track length, positions or snapping.
+- **Dark mode** switches the interface theme and saves the preference on this device. The initial
+  theme follows the browser's system preference.
 
 Clearance is a conservative planning aid, not a guarantee that trains can pass. The nominal
 Hornby set-track spacing is 67 mm centre-to-centre, derived from the 371/438/505 mm standard radii.
@@ -60,26 +75,39 @@ Parallel checks allow 0.5 mm for rounded catalog geometry. A 30 mm planning foot
 same-level overlap and board containment, with sampled curves (at most 5 mm between samples).
 Valid connector neighbourhoods and the local fan between standard point exits are exempt from
 parallel checks, not entire connected components. Points and curved stock overhang still require
-physical validation. Crossings, bridges, elevations, flexible track and custom catalog editing are
-not implemented.
+physical validation. Diamond crossings contain two independent routes and four connectors; their
+internal crossing is permitted, but unrelated track still cannot overlap them. Bridges, elevations,
+flexible track and custom catalog editing are not implemented.
 
-## Initial Catalog
+## Hornby OO Catalog
 
-The catalog is a verified subset, not the complete Hornby range. Numeric dimensions and product
-codes are referenced from manufacturer descriptions; no product photographs or artwork are copied.
+The catalog includes 22 entries, including all seven standard-range point types and both diamond
+crossing hands. It is not the complete Hornby range. Numeric dimensions and product codes are
+referenced from product descriptions; no product photographs or artwork are copied.
 
-| Pieces        | Geometry                                                | Sources                                                                                                                                  |
-| ------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| R600 / R601   | 168 / 335 mm straight                                   | [R600](https://uk.hornby.com/products/straight-track-r600), [R601](https://uk.hornby.com/products/double-straight-r601)                  |
-| R604 / R605   | 371 mm radius; 22.5 / 45 degrees                        | [R604](https://uk.hornby.com/products/curve-1st-radius-r604), [R605](https://uk.hornby.com/products/double-curve-1st-radius-r605)        |
-| R606          | 438 mm radius; 22.5 degrees                             | [R606](https://uk.hornby.com/products/curve-2nd-radius-r606)                                                                             |
-| R608 / R609   | 505 mm radius; 22.5 / 45 degrees                        | [R608](https://uk.hornby.com/products/curve-3rd-radius-r608), [R609](https://uk.hornby.com/products/double-curve-3rd-radius-r609)        |
-| R8072 / R8073 | 168 mm straight plus 438 mm radius / 22.5 degree branch | [Left point](https://uk.hornby.com/products/left-hand-point-r8072), [Right point](https://uk.hornby.com/products/right-hand-point-r8073) |
+| Pieces        | Geometry                                                   | Sources                                                                                                                                                                  |
+| ------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R600 / R601   | 168 / 335 mm straight                                      | [R600](https://uk.hornby.com/products/straight-track-r600), [R601](https://uk.hornby.com/products/double-straight-r601)                                                  |
+| R603          | 670 mm straight                                            | [Long straight](https://uk.hornby.com/products/long-straight-r603)                                                                                                       |
+| R604 / R605   | 371 mm radius; 22.5 / 45 degrees                           | [R604](https://uk.hornby.com/products/curve-1st-radius-r604), [R605](https://uk.hornby.com/products/double-curve-1st-radius-r605)                                        |
+| R606          | 438 mm radius; 22.5 degrees                                | [R606](https://uk.hornby.com/products/curve-2nd-radius-r606)                                                                                                             |
+| R607 / R643   | Nominal 438 mm radius; 45 / 11.25 degrees                  | [R607](https://uk.hornby.com/products/double-curve-2nd-radius-r607), [R643](https://uk.hornby.com/products/half-curve-2nd-radius-r643)                                   |
+| R608 / R609   | 505 mm radius; 22.5 / 45 degrees                           | [R608](https://uk.hornby.com/products/curve-3rd-radius-r608), [R609](https://uk.hornby.com/products/double-curve-3rd-radius-r609)                                        |
+| R8072 / R8073 | 168 mm straight plus 438 mm radius / 22.5 degree branch    | [Left point](https://uk.hornby.com/products/left-hand-point-r8072), [Right point](https://uk.hornby.com/products/right-hand-point-r8073)                                 |
+| R8261 / R8262 | Nominal 572 mm radius; 22.5 / 45 degrees                   | [R8261](https://uk.hornby.com/products/curve-4th-radius-r8261), [R8262](https://uk.hornby.com/products/double-curve-4th-radius-r8262)                                    |
+| R628          | 852 mm radius; 11.25 degrees                               | [Large-radius half curve](https://uk.hornby.com/products/half-curve-33-large-radius-r628)                                                                                |
+| R8074 / R8075 | Approximate curved-point branches, not CAD geometry        | [Left curved point](https://uk.hornby.com/products/left-hand-curved-point-r8074), [Right curved point](https://uk.hornby.com/products/right-hand-curved-point-r8075)     |
+| R8076         | Idealised symmetric 852 mm / 11.25 degree Y branches       | [Y point](https://uk.hornby.com/products/y-point-r8076), [Dimensional comparison](https://www.railwayscenics.com/track_comparison_oo.php)                                |
+| R8077 / R8078 | 245 mm straight and idealised 852 mm / 11.25 degree branch | [Left express point](https://uk.hornby.com/products/left-hand-express-point-r8077), [Right express point](https://uk.hornby.com/products/right-hand-express-point-r8078) |
+| R614 / R615   | Idealised 168 / 181 mm diamond crossing; 22.5 degrees      | [Left crossing](https://uk.hornby.com/products/diamond-crossing-left-hand-r614), [Right crossing](https://uk.hornby.com/products/diamond-crossing-right-hand-r615)       |
 
-Sources checked 22 November 2026. Points use an idealised analytic branch from the shared origin;
-this is not a manufacturer CAD model. R607, short/long straights, fourth-radius curves and specialist
-pieces remain catalog follow-ups. Some manufacturer descriptions conflate arc length and radius;
-disputed dimensions must be resolved before adding those entries.
+Sources reviewed 22 November 2026. Some descriptions conflate curve length and radius. R607 and
+R8261 use nominal set-track radii and carry a warning. All points and diamond crossings are
+idealised, not manufacturer CAD models: check their real connector positions before buying or
+building. Curved points use an approximate 438 mm / 33.75 degree route and a 67 mm lead followed by
+a 438 mm / 22.5 degree route. Express points use an idealised straight lead before their branch.
+Geometry warnings appear in the palette tooltip, selected-piece description, hover tooltip and
+planning checks. Short straights, flexible track and further specialist pieces remain follow-ups.
 
 ## Storage and Offline Use
 
@@ -122,8 +150,9 @@ npm run test:browser
 ```
 
 Domain tests cover geometry, snapping, circuit closure, clearance, boards, inventory and storage.
-Browser tests use the production build and cover editing, persistence, rejected operations, mobile
-alternatives and offline reload. Tests need no cloud credentials. Linux browser tests may require
+Browser tests use the production build and cover editing, shopping lists, persistence, palette
+drag previews/cancellation, grouped search, dark mode, tooltips, visual joins, rejected operations,
+mobile alternatives and offline reload. Tests need no cloud credentials. Linux browser tests may require
 `npx playwright install --with-deps chromium`.
 
 The Vite starter's newer TypeScript version was adjusted to TypeScript 6 to match the lint parser's

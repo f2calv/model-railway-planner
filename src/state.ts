@@ -22,7 +22,26 @@ export function used(layout: Layout, trackId: string): number {
 }
 
 export function available(state: PlannerState, trackId: string): number {
-  return (state.inventory[trackId] ?? 0) - used(activeLayout(state), trackId);
+  return Math.max(0, (state.inventory[trackId] ?? 0) - used(activeLayout(state), trackId));
+}
+
+export function shoppingList(state: PlannerState): { trackId: string; quantity: number }[] {
+  const layout = activeLayout(state);
+  return catalog.flatMap((track) => {
+    const quantity = used(layout, track.id) - (state.inventory[track.id] ?? 0);
+    return quantity > 0 ? [{ trackId: track.id, quantity }] : [];
+  });
+}
+
+export function missingPieceIds(state: PlannerState): Set<string> {
+  const usedCounts = new Map<string, number>();
+  return new Set(
+    activeLayout(state).pieces.flatMap((piece) => {
+      const count = (usedCounts.get(piece.trackId) ?? 0) + 1;
+      usedCounts.set(piece.trackId, count);
+      return count > (state.inventory[piece.trackId] ?? 0) ? [piece.id] : [];
+    }),
+  );
 }
 
 export function putPiece(state: PlannerState, piece: Piece): PlannerState {
@@ -33,12 +52,15 @@ export function putPiece(state: PlannerState, piece: Piece): PlannerState {
   const existing = layout.pieces.find((p) => p.id === piece.id);
   if (existing && existing.trackId !== piece.trackId)
     throw new Error('Cannot change the type of an existing piece.');
-  if (!existing && available(state, piece.trackId) <= 0)
-    throw new Error('All owned pieces of this type are used in this layout.');
   const others = layout.pieces.filter((entry) => entry.id !== piece.id);
   const problem = placementProblem(piece, others, layout.boards);
   if (problem) throw new Error(problem.message);
-  return updateLayout(state, { ...layout, pieces: [...others, piece] });
+  return updateLayout(state, {
+    ...layout,
+    pieces: existing
+      ? layout.pieces.map((entry) => (entry.id === piece.id ? piece : entry))
+      : [...layout.pieces, piece],
+  });
 }
 
 export function updateLayout(state: PlannerState, layout: Layout): PlannerState {
@@ -52,8 +74,6 @@ export function setInventory(state: PlannerState, id: string, quantity: number):
   definition(id);
   if (!Number.isSafeInteger(quantity) || quantity < 0 || quantity > 9999)
     throw new Error('Inventory must be a whole number between 0 and 9999.');
-  if (state.layouts.some((layout) => used(layout, id) > quantity))
-    throw new Error('A saved layout uses more than this quantity. Remove its extra pieces first.');
   return { ...state, inventory: { ...state.inventory, [id]: quantity } };
 }
 
@@ -129,10 +149,6 @@ export function parseState(json: string): PlannerState {
     if (!joinedBoards(boards))
       throw new Error('Baseboard rectangles must share an edge or overlap.');
     const layout = { id: text(raw['id']), name: text(raw['name']), pieces, boards };
-    for (const entry of catalog) {
-      if (used(layout, entry.id) > (inventory[entry.id] ?? 0))
-        throw new Error('Backup layout exceeds owned inventory.');
-    }
     return layout;
   });
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)

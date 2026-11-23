@@ -2,7 +2,7 @@ import './style.css';
 import { select } from 'd3-selection';
 import { zoom, zoomIdentity, type ZoomTransform } from 'd3-zoom';
 import { registerSW } from 'virtual:pwa-register';
-import { catalog, definition } from './catalog';
+import { catalog, definition, trackSize } from './catalog';
 import {
   joinedBoards,
   normalize,
@@ -17,13 +17,15 @@ import {
   available,
   emptyState,
   layoutProblems,
+  missingPieceIds,
   parseState,
   putPiece,
   setInventory,
+  shoppingList,
   updateLayout,
 } from './state';
 import { loadState, saveState, storageKey } from './storage';
-import type { Piece, PlannerState, Vec } from './model';
+import type { Piece, PlannerState, TrackCategory, Vec } from './model';
 
 function element<T extends Element>(selector: string): T {
   const result = document.querySelector<T>(selector);
@@ -36,6 +38,7 @@ element<HTMLDivElement>('#app').innerHTML = `
     <img src="${import.meta.env.BASE_URL}icon.svg" width="38" height="38" alt="" />
     <div class="brand"><h1>Model Railway Planner</h1><span>Your track. Your next great layout.</span></div>
     <span class="privacy-badge">LOCAL & PRIVATE</span>
+    <button id="theme" aria-pressed="false">Dark mode</button>
     <button id="export">Export backup</button>
     <button id="import">Import backup</button>
     <input id="import-file" type="file" accept=".json,application/json" hidden />
@@ -49,7 +52,7 @@ element<HTMLDivElement>('#app').innerHTML = `
   <main class="workspace">
     <aside class="inventory-panel">
       <div class="panel-heading"><span class="eyebrow">YOUR COLLECTION</span><h2>Track inventory</h2></div>
-      <p>Enter what you own. Each idea uses your collection independently.</p>
+      <p>Plan with any piece. Missing stock appears on this idea's shopping list.</p>
       <label class="search-label">Find a piece<input id="search" type="search" placeholder="Code or track type..." /></label>
       <div class="catalog-heading"><span>HORNBY / OO</span><span>Owned / left</span></div>
       <div id="catalog"></div>
@@ -75,12 +78,13 @@ element<HTMLDivElement>('#app').innerHTML = `
           <g id="boards"></g><g id="tracks"></g><g id="preview" pointer-events="none"></g>
         </g>
       </svg>
-      <div id="empty-hint"><strong>A little space for big ideas.</strong><span>Add your inventory, then place your first piece.</span></div>
+      <div id="empty-hint"><strong>A little space for big ideas.</strong><span>Choose a track piece, then drag or tap to place it.</span></div>
       <div class="canvas-footer"><span>100 mm grid / all dimensions in mm</span><span id="piece-count">0 pieces</span></div>
     </section>
     <aside class="details-panel">
       <span class="eyebrow">FINE TUNE</span><h2>Selected piece</h2>
       <label>Piece<select id="piece-select" aria-label="Select placed piece"><option value="">None</option></select></label>
+      <p id="piece-description"></p>
       <div id="piece-controls">
         <div class="two-columns"><label>X (mm)<input id="piece-x" type="number" step="1" /></label><label>Y (mm)<input id="piece-y" type="number" step="1" /></label></div>
         <label>Angle (degrees)<input id="piece-angle" type="number" step="0.5" /></label>
@@ -88,6 +92,8 @@ element<HTMLDivElement>('#app').innerHTML = `
         <div class="two-columns"><button id="rotate-left">Rotate -22.5</button><button id="rotate-right">Rotate +22.5</button></div>
         <button id="flip">Reverse curve</button><button id="remove-piece">Remove piece</button>
       </div>
+      <hr /><h2>Shopping list</h2><p>Extra pieces needed for this layout only. Orange dashed track is not yet owned.</p>
+      <div id="shopping-list"></div>
       <hr /><span class="eyebrow">YOUR SPACE</span><h2>Baseboard</h2>
       <p>Unbounded until you add a rectangle. Join more rectangles for an L or U shape.</p>
       <div class="two-columns"><label>X (mm)<input id="board-x" type="number" value="0" /></label><label>Y (mm)<input id="board-y" type="number" value="0" /></label>
@@ -100,7 +106,9 @@ element<HTMLDivElement>('#app').innerHTML = `
       <button id="update-app" hidden>Update app</button>
     </aside>
   </main>
-  <footer id="status" role="status" aria-label="Planner status" aria-live="polite">Welcome. Start by adding the track you own.</footer>
+  <footer id="status" role="status" aria-label="Planner status" aria-live="polite">Welcome. Choose any track to start planning; enter your inventory whenever you're ready.</footer>
+  <div id="track-tooltip" role="tooltip" hidden></div>
+  <div id="palette-ghost" aria-hidden="true" hidden></div>
   <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Confirm</h2><p id="confirm-text"></p><div class="dialog-actions"><button value="cancel">Cancel</button><button value="confirm">Confirm</button></div></form></dialog>
   <dialog id="name-dialog"><form method="dialog"><h2 id="name-title">Layout name</h2><label>Name<input id="layout-name" maxlength="120" required /></label><div class="dialog-actions"><button value="cancel" formnovalidate>Cancel</button><button value="confirm">Save</button></div></form></dialog>
 `;
@@ -116,6 +124,14 @@ let transform: ZoomTransform = zoomIdentity;
 let previewPiece: Piece | null = null;
 let drag: { pointerId: number; piece: Piece; start: Vec; moved: boolean } | null = null;
 let suppressClick = false;
+let paletteDrag: {
+  pointerId: number;
+  source: HTMLButtonElement;
+  piece: Piece;
+  start: Vec;
+  moved: boolean;
+} | null = null;
+const openCategories = new Set<TrackCategory>(['straights', 'curves', 'points', 'misc']);
 const svg = element<SVGSVGElement>('#canvas');
 const svgSelection = select(svg);
 
@@ -177,7 +193,7 @@ function selected(): Piece | undefined {
   return activeLayout(state).pieces.find((p) => p.id === selectedId);
 }
 
-function drawTrack(group: SVGGElement, piece: Piece, ghost = false): void {
+function drawTrack(group: SVGGElement, piece: Piece, ghost = false, missing = false): void {
   const entry = definition(piece.trackId);
   group.setAttribute(
     'transform',
@@ -185,7 +201,7 @@ function drawTrack(group: SVGGElement, piece: Piece, ghost = false): void {
   );
   group.setAttribute(
     'class',
-    `track${piece.id === selectedId ? ' selected' : ''}${ghost ? ' ghost' : ''}`,
+    `track${piece.id === selectedId ? ' selected' : ''}${ghost ? ' ghost' : ''}${missing ? ' missing-stock' : ''}`,
   );
   for (const route of entry.routes) {
     const d = pathData(route);
@@ -204,7 +220,32 @@ function drawTrack(group: SVGGElement, piece: Piece, ghost = false): void {
     circle.setAttribute('r', '4');
     circle.setAttribute('class', 'port');
     group.append(circle);
+    const join = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const radians = (port.angle * Math.PI) / 180;
+    const dx = 19 * Math.sin(radians);
+    const dy = 19 * Math.cos(radians);
+    join.setAttribute('x1', String(port.x - dx));
+    join.setAttribute('y1', String(port.y + dy));
+    join.setAttribute('x2', String(port.x + dx));
+    join.setAttribute('y2', String(port.y - dy));
+    join.setAttribute('class', 'track-join');
+    group.append(join);
   }
+}
+
+function miniature(piece: Piece): SVGSVGElement {
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const points = samples(piece).flat();
+  const minX = Math.min(...points.map((p) => p.x)) - 20;
+  const minY = Math.min(...points.map((p) => p.y)) - 20;
+  const width = Math.max(...points.map((p) => p.x)) - minX + 20;
+  const height = Math.max(...points.map((p) => p.y)) - minY + 20;
+  icon.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+  icon.setAttribute('aria-hidden', 'true');
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  drawTrack(group, piece);
+  icon.append(group);
+  return icon;
 }
 
 function preview(candidate: Piece | null): void {
@@ -213,7 +254,14 @@ function preview(candidate: Piece | null): void {
   root.replaceChildren();
   if (!candidate) return;
   const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  drawTrack(group, candidate, true);
+  drawTrack(
+    group,
+    candidate,
+    true,
+    activeLayout(state).pieces.some((p) => p.id === candidate.id)
+      ? missingPieceIds(state).has(candidate.id)
+      : available(state, candidate.trackId) === 0,
+  );
   const layout = activeLayout(state);
   const problem = placementProblem(
     candidate,
@@ -226,9 +274,113 @@ function preview(candidate: Piece | null): void {
 }
 
 function modelPoint(client: Vec): Vec {
+  const matrix = element<SVGGElement>('#world').getScreenCTM();
+  if (!matrix) throw new Error('The track canvas is not ready. Try again once it is visible.');
+  const point = new DOMPoint(client.x, client.y).matrixTransform(matrix.inverse());
+  if (![point.x, point.y].every(Number.isFinite)) throw new Error('Invalid canvas transform.');
+  return { x: point.x, y: point.y };
+}
+
+function overCanvas(client: Vec): boolean {
   const rect = svg.getBoundingClientRect();
-  const [x, y] = transform.invert([client.x - rect.left, client.y - rect.top]);
-  return { x, y };
+  return (
+    client.x >= rect.left &&
+    client.x <= rect.right &&
+    client.y >= rect.top &&
+    client.y <= rect.bottom
+  );
+}
+
+function trackTooltip(client: Vec): void {
+  const tooltip = element<HTMLElement>('#track-tooltip');
+  const hit = document.elementFromPoint(client.x, client.y);
+  const id = hit?.closest<SVGGElement>('[data-piece-id]')?.dataset['pieceId'];
+  const hovered = activeLayout(state).pieces.find((p) => p.id === id);
+  tooltip.hidden = true;
+  if (!hovered) return;
+  const entry = definition(hovered.trackId);
+  tooltip.textContent = `${entry.code} / ${entry.name}\n${trackSize(entry)}${missingPieceIds(state).has(hovered.id) ? '\nTo buy: not in your inventory' : ''}${entry.geometryNote ? `\nApproximation: ${entry.geometryNote}` : ''}`;
+  tooltip.hidden = false;
+  tooltip.style.left = `${Math.max(8, Math.min(client.x + 14, window.innerWidth - tooltip.offsetWidth - 8))}px`;
+  tooltip.style.top = `${Math.max(8, Math.min(client.y + 14, window.innerHeight - tooltip.offsetHeight - 8))}px`;
+}
+
+function clearPaletteDrag(): void {
+  const current = paletteDrag;
+  paletteDrag = null;
+  if (current?.source.hasPointerCapture(current.pointerId))
+    current.source.releasePointerCapture(current.pointerId);
+  element<HTMLElement>('#palette-ghost').hidden = true;
+  element<HTMLElement>('#track-tooltip').hidden = true;
+  preview(null);
+}
+
+function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
+  let ignoreClick = false;
+  pick.addEventListener('click', () => {
+    if (ignoreClick) {
+      ignoreClick = false;
+      return;
+    }
+    toolId = trackId;
+    selectedId = '';
+    preview(null);
+    render();
+  });
+  pick.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    paletteDrag = {
+      pointerId: event.pointerId,
+      source: pick,
+      piece: { id: uuid(), trackId, x: 0, y: 0, angle: toolAngle, flipped: toolFlipped },
+      start: { x: event.clientX, y: event.clientY },
+      moved: false,
+    };
+    pick.setPointerCapture(event.pointerId);
+    element<HTMLElement>('#palette-ghost').replaceChildren(
+      miniature({
+        ...paletteDrag.piece,
+        angle: 0,
+      }),
+    );
+  });
+  pick.addEventListener('pointermove', (event) => {
+    if (!paletteDrag || paletteDrag.pointerId !== event.pointerId) return;
+    const client = { x: event.clientX, y: event.clientY };
+    if (
+      !paletteDrag.moved &&
+      Math.hypot(client.x - paletteDrag.start.x, client.y - paletteDrag.start.y) < 5
+    )
+      return;
+    paletteDrag.moved = true;
+    ignoreClick = true;
+    const ghost = element<HTMLElement>('#palette-ghost');
+    ghost.style.left = `${client.x + 12}px`;
+    ghost.style.top = `${client.y - 25}px`;
+    ghost.hidden = overCanvas(client);
+    if (overCanvas(client)) {
+      preview(snapped({ ...paletteDrag.piece, ...modelPoint(client) }));
+      trackTooltip(client);
+    } else {
+      preview(null);
+      element<HTMLElement>('#track-tooltip').hidden = true;
+    }
+  });
+  pick.addEventListener('pointerup', (event) => {
+    if (!paletteDrag || paletteDrag.pointerId !== event.pointerId) return;
+    const current = paletteDrag;
+    const client = { x: event.clientX, y: event.clientY };
+    clearPaletteDrag();
+    if (current.moved && overCanvas(client)) {
+      toolId = '';
+      place(snapped({ ...current.piece, ...modelPoint(client) }));
+    }
+  });
+  for (const eventName of ['pointercancel', 'lostpointercapture']) {
+    pick.addEventListener(eventName, () => {
+      if (paletteDrag?.source === pick) clearPaletteDrag();
+    });
+  }
 }
 
 function snapped(piece: Piece): Piece {
@@ -243,67 +395,104 @@ function snapped(piece: Piece): Piece {
 }
 
 function render(): void {
+  element<HTMLElement>('#track-tooltip').hidden = true;
   const focused = document.activeElement;
   const focusedLabel = focused?.getAttribute('aria-label');
   const layout = activeLayout(state);
+  const missing = missingPieceIds(state);
   const layoutSelect = element<HTMLSelectElement>('#layouts');
   layoutSelect.replaceChildren(...state.layouts.map((l) => new Option(l.name, l.id)));
   layoutSelect.value = state.activeLayoutId;
   const query = element<HTMLInputElement>('#search').value.toLowerCase();
   const catalogRoot = element<HTMLElement>('#catalog');
   catalogRoot.replaceChildren();
-  for (const entry of catalog) {
-    if (!`${entry.code} ${entry.name}`.toLowerCase().includes(query)) continue;
-    const row = document.createElement('div');
-    row.className = `catalog-row${entry.id === toolId ? ' active-tool' : ''}`;
-    const pick = document.createElement('button');
-    pick.className = 'track-choice';
-    pick.disabled = available(state, entry.id) <= 0;
-    pick.draggable = !pick.disabled;
-    pick.setAttribute('aria-label', `Place ${entry.code} ${entry.name}`);
-    const code = document.createElement('strong');
-    code.textContent = entry.code;
-    const label = document.createElement('span');
-    label.textContent = entry.name;
-    pick.append(code, label);
-    pick.addEventListener('click', () => {
-      toolId = entry.id;
-      selectedId = '';
-      render();
-    });
-    pick.addEventListener('dragstart', (event) => {
-      toolId = entry.id;
-      event.dataTransfer?.setData('text/plain', entry.id);
-      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
-    });
-    const quantity = document.createElement('input');
-    quantity.type = 'number';
-    quantity.min = '0';
-    quantity.max = '9999';
-    quantity.step = '1';
-    quantity.value = String(state.inventory[entry.id] ?? 0);
-    quantity.setAttribute('aria-label', `Owned ${entry.code}`);
-    quantity.addEventListener('change', () =>
-      action(() => {
-        if (!quantity.value.trim()) throw new Error('Enter an inventory quantity.');
-        const previous = state.inventory[entry.id] ?? 0;
-        if (!commit(setInventory(state, entry.id, quantity.valueAsNumber)))
-          quantity.value = String(previous);
-      }),
+  const categories: { id: TrackCategory; label: string }[] = [
+    { id: 'straights', label: 'Straights' },
+    { id: 'curves', label: 'Curves' },
+    { id: 'points', label: 'Points' },
+    { id: 'misc', label: 'Misc / crossings' },
+  ];
+  for (const category of categories) {
+    const entries = catalog.filter(
+      (entry) =>
+        entry.category === category.id &&
+        `${entry.code} ${entry.name}`.toLowerCase().includes(query),
     );
-    const count = document.createElement('span');
-    count.textContent = String(available(state, entry.id));
-    count.setAttribute('aria-label', `Remaining ${entry.code}`);
-    row.append(pick, quantity, count);
-    catalogRoot.append(row);
+    if (!entries.length) continue;
+    const section = document.createElement('details');
+    section.className = 'catalog-group';
+    section.open = !!query || openCategories.has(category.id);
+    const heading = document.createElement('summary');
+    heading.textContent = `${category.label} (${entries.length})`;
+    section.append(heading);
+    section.addEventListener('toggle', () => {
+      if (query || !section.isConnected) return;
+      if (section.open) openCategories.add(category.id);
+      else openCategories.delete(category.id);
+    });
+    catalogRoot.append(section);
+    for (const entry of entries) {
+      const row = document.createElement('div');
+      row.className = `catalog-row${entry.id === toolId ? ' active-tool' : ''}`;
+      const pick = document.createElement('button');
+      pick.className = 'track-choice';
+      pick.disabled = recovery;
+      pick.setAttribute('aria-label', `Place ${entry.code} ${entry.name}`);
+      pick.title = `${entry.code}: ${entry.name}. ${trackSize(entry)}${entry.geometryNote ? ` Approximation: ${entry.geometryNote}` : ''}`;
+      const icon = miniature({
+        id: 'catalog',
+        trackId: entry.id,
+        x: 0,
+        y: 0,
+        angle: 0,
+        flipped: false,
+      });
+      const text = document.createElement('span');
+      const code = document.createElement('strong');
+      code.textContent = entry.code;
+      const label = document.createElement('span');
+      label.textContent = entry.name;
+      text.append(code, label);
+      pick.append(icon, text);
+      bindPaletteDrag(pick, entry.id);
+      const quantity = document.createElement('input');
+      quantity.type = 'number';
+      quantity.min = '0';
+      quantity.max = '9999';
+      quantity.step = '1';
+      quantity.value = String(state.inventory[entry.id] ?? 0);
+      quantity.setAttribute('aria-label', `Owned ${entry.code}`);
+      quantity.addEventListener('change', () =>
+        action(() => {
+          if (!quantity.value.trim()) throw new Error('Enter an inventory quantity.');
+          const previous = state.inventory[entry.id] ?? 0;
+          if (!commit(setInventory(state, entry.id, quantity.valueAsNumber)))
+            quantity.value = String(previous);
+        }),
+      );
+      const count = document.createElement('span');
+      count.textContent = String(available(state, entry.id));
+      count.setAttribute('aria-label', `Remaining ${entry.code}`);
+      row.append(pick, quantity, count);
+      section.append(row);
+    }
   }
   const pieceSelect = element<HTMLSelectElement>('#piece-select');
   pieceSelect.replaceChildren(
     new Option('None', ''),
-    ...layout.pieces.map((p, i) => new Option(`${i + 1}. ${definition(p.trackId).code}`, p.id)),
+    ...layout.pieces.map(
+      (p, i) =>
+        new Option(
+          `${i + 1}. ${definition(p.trackId).code}${missing.has(p.id) ? ' / to buy' : ''}`,
+          p.id,
+        ),
+    ),
   );
   pieceSelect.value = selectedId;
   const piece = selected();
+  element<HTMLElement>('#piece-description').textContent = piece
+    ? `${definition(piece.trackId).name}: ${trackSize(definition(piece.trackId))}. ${definition(piece.trackId).geometryNote ?? ''}`
+    : 'Select a piece to see its type and dimensions.';
   for (const control of element<HTMLElement>('#piece-controls').querySelectorAll<
     HTMLInputElement | HTMLButtonElement
   >('input,button'))
@@ -324,6 +513,17 @@ function render(): void {
   element<HTMLElement>('#tool-label').textContent = toolId
     ? `Placing ${definition(toolId).code} / ${toolAngle} degrees${toolFlipped ? ' / reversed' : ''}`
     : 'Select a track piece to begin';
+  const shoppingRoot = element<HTMLElement>('#shopping-list');
+  const shopping = shoppingList(state);
+  shoppingRoot.replaceChildren();
+  if (!shopping.length) shoppingRoot.textContent = 'You own all the track needed for this idea.';
+  for (const item of shopping) {
+    const entry = definition(item.trackId);
+    const row = document.createElement('div');
+    row.className = 'shopping-row';
+    row.textContent = `${item.quantity} x ${entry.code} ${entry.name}`;
+    shoppingRoot.append(row);
+  }
   select(element<SVGGElement>('#tracks'))
     .selectAll<SVGGElement, Piece>('g.track')
     .data(layout.pieces, (piece) => piece.id)
@@ -337,9 +537,9 @@ function render(): void {
       group.setAttribute('tabindex', '0');
       group.setAttribute(
         'aria-label',
-        `Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm`,
+        `Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
       );
-      drawTrack(group, piece);
+      drawTrack(group, piece, false, missing.has(piece.id));
     });
   const boardsRoot = element<SVGGElement>('#boards');
   const boardList = element<HTMLElement>('#board-list');
@@ -366,6 +566,17 @@ function render(): void {
     boardList.append(remove);
   });
   const issues = layoutProblems(layout);
+  const approximateCodes = [
+    ...new Set(
+      layout.pieces
+        .filter((p) => definition(p.trackId).geometryNote)
+        .map((p) => definition(p.trackId).code),
+    ),
+  ];
+  if (approximateCodes.length)
+    issues.push(
+      `Approximate geometry: ${approximateCodes.join(', ')}. Verify physically before buying or building.`,
+    );
   element<HTMLElement>('#checks').textContent = issues.length
     ? issues.join(' ')
     : 'No definite placement violations found.';
@@ -404,7 +615,6 @@ function place(candidate: Piece): void {
   action(() => {
     if (commit(putPiece(state, candidate))) {
       selectedId = candidate.id;
-      if (available(state, candidate.trackId) <= 0) toolId = '';
       preview(null);
       render();
     } else preview(null);
@@ -431,6 +641,7 @@ svg.addEventListener('pointerdown', (event) => {
   render();
 });
 svg.addEventListener('pointermove', (event) => {
+  trackTooltip({ x: event.clientX, y: event.clientY });
   const position = modelPoint({ x: event.clientX, y: event.clientY });
   if (drag && event.pointerId === drag.pointerId) {
     const dx = position.x - drag.start.x;
@@ -454,6 +665,7 @@ svg.addEventListener('pointerup', (event) => {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const moved = drag.moved;
   drag = null;
+  if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
   if (moved && previewPiece) place(previewPiece);
   preview(null);
   render();
@@ -464,7 +676,14 @@ svg.addEventListener('pointercancel', () => {
   preview(null);
   render();
 });
+svg.addEventListener('lostpointercapture', () => {
+  if (!drag) return;
+  drag = null;
+  preview(null);
+  render();
+});
 svg.addEventListener('pointerleave', () => {
+  element<HTMLElement>('#track-tooltip').hidden = true;
   if (!drag) preview(null);
 });
 svg.addEventListener('click', (event) => {
@@ -488,23 +707,6 @@ svg.addEventListener('click', (event) => {
     }),
   );
 });
-svg.addEventListener('dragover', (event) => {
-  event.preventDefault();
-});
-svg.addEventListener('drop', (event) => {
-  event.preventDefault();
-  const id = event.dataTransfer?.getData('text/plain');
-  if (!id || !catalog.some((entry) => entry.id === id)) return;
-  place(
-    snapped({
-      id: uuid(),
-      trackId: id,
-      ...modelPoint({ x: event.clientX, y: event.clientY }),
-      angle: toolAngle,
-      flipped: toolFlipped,
-    }),
-  );
-});
 
 function transformSelected(change: (p: Piece) => Piece): void {
   const piece = selected();
@@ -522,6 +724,8 @@ document.addEventListener('keydown', (event) => {
   )
     return;
   if (event.key === 'Escape') {
+    clearPaletteDrag();
+    drag = null;
     toolId = '';
     preview(null);
     render();
@@ -607,9 +811,28 @@ button('#zoom-in', () => svgSelection.call(zoomer.scaleBy, 1.3));
 button('#zoom-out', () => svgSelection.call(zoomer.scaleBy, 1 / 1.3));
 button('#fit', fit);
 button('#cancel-tool', () => {
+  clearPaletteDrag();
+  drag = null;
   toolId = '';
   preview(null);
   render();
+});
+function applyTheme(dark: boolean): void {
+  document.documentElement.dataset['theme'] = dark ? 'dark' : 'light';
+  element<HTMLButtonElement>('#theme').setAttribute('aria-pressed', String(dark));
+}
+action(() => {
+  const stored = localStorage.getItem(`${storageKey}.theme`);
+  if (stored !== null && stored !== 'dark' && stored !== 'light')
+    throw new Error('Invalid saved theme preference. Choose Dark mode to reset it.');
+  applyTheme(
+    stored === null ? matchMedia('(prefers-color-scheme: dark)').matches : stored === 'dark',
+  );
+});
+button('#theme', () => {
+  const dark = document.documentElement.dataset['theme'] !== 'dark';
+  localStorage.setItem(`${storageKey}.theme`, dark ? 'dark' : 'light');
+  applyTheme(dark);
 });
 button('#tool-rotate', () => {
   toolAngle = normalize(toolAngle + 22.5);
@@ -823,7 +1046,7 @@ const updateSW = registerSW({
   },
 });
 button('#update-app', () => {
-  if (drag || previewPiece || recovery)
+  if (drag || paletteDrag || previewPiece || recovery)
     throw new Error('Finish the current gesture and resolve any storage errors before updating.');
   saveState(localStorage, state);
   void updateSW(true).catch((error: unknown) => status(`Update failed: ${String(error)}`, true));

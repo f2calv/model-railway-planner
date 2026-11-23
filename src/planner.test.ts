@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { definition } from './catalog';
 import { connected, joinedBoards, placementProblem, ports, routePose, snapPiece } from './geometry';
 import {
   activeLayout,
   available,
   emptyState,
   parseState,
+  missingPieceIds,
   putPiece,
   setInventory,
+  shoppingList,
   updateLayout,
 } from './state';
 import { loadState, saveState, storageKey } from './storage';
@@ -65,6 +68,44 @@ describe('real geometry and snapping', () => {
     expect(snapPiece(piece('c', 168, 0, 90), [anchor, attached], 10)).toBeNull();
   });
 
+  it('exposes four independent crossing connectors and snaps either route', () => {
+    const crossing = piece('crossing', 0, 0, 31, 'hornby-oo-r615');
+    const endpoints = ports(crossing);
+    expect(endpoints).toHaveLength(4);
+    for (const endpoint of endpoints) {
+      const candidate = piece('attached', endpoint.x + 1, endpoint.y + 1, endpoint.angle);
+      const result = snapPiece(candidate, [crossing], 5);
+      expect(result).not.toBeNull();
+      if (!result) throw new Error('Expected crossing snap.');
+      expect(ports(result.piece).some((port) => connected(port, endpoint))).toBe(true);
+    }
+  });
+
+  it('models compound point branches with continuous endpoint tangents', () => {
+    const entry = definition('hornby-oo-r8078');
+    const branch = entry.routes[1];
+    if (!branch) throw new Error('Missing branch.');
+    const end = routePose(branch, 1);
+    expect(end.x).toBeCloseTo(245, 8);
+    expect(end.angle).toBeCloseTo(11.25, 8);
+    const point = piece('point', 0, 0, 0, entry.id);
+    const endpoint = ports(point)[2];
+    if (!endpoint) throw new Error('Missing branch endpoint.');
+    const result = snapPiece(piece('next', endpoint.x + 2, endpoint.y), [point], 5);
+    expect(result?.piece.angle).toBeCloseTo(11.25);
+  });
+
+  it('closes a fourth-radius circuit using the nominal 572 mm radius', () => {
+    let next = piece('curve', 0, 0, 0, 'hornby-oo-r8262');
+    for (let i = 0; i < 8; i++) {
+      const endpoint = ports(next)[1];
+      if (!endpoint) throw new Error('Missing endpoint.');
+      next = { ...next, ...endpoint };
+    }
+    expect(next.x).toBeCloseTo(0, 8);
+    expect(next.y).toBeCloseTo(0, 8);
+  });
+
   it('closes a full eight-piece first-radius circuit without positional drift', () => {
     let state = stock(curveId, 8);
     let next = piece('curve-0', 0, 0, 0, curveId);
@@ -107,6 +148,19 @@ describe('clearance and baseboards', () => {
     expect(placementProblem(continuation, [point, straight], [])).toBeNull();
   });
 
+  it.each(['r8074', 'r8075', 'r8076', 'r8077', 'r8078', 'r614', 'r615'])(
+    'permits a continuation snapped to every connector of %s',
+    (code) => {
+      const special = piece('special', 300, 300, 19, `hornby-oo-${code}`);
+      for (const endpoint of ports(special)) {
+        const candidate = piece('continuation', endpoint.x + 1, endpoint.y + 1, endpoint.angle);
+        const snap = snapPiece(candidate, [special], 5);
+        if (!snap) throw new Error('Expected a connector snap.');
+        expect(placementProblem(snap.piece, [special], [])).toBeNull();
+      }
+    },
+  );
+
   it('uses the union of joined rectangles without treating their shared seam as an edge', () => {
     const boards = [
       { x: 0, y: 0, width: 200, height: 200 },
@@ -138,17 +192,29 @@ describe('inventory and durable documents', () => {
     expect(() => saveState(storage, { ...stock(), layouts: [] })).toThrow(/layouts/);
     expect(values.get(storageKey)).toBe(before);
   });
-  it('rejects over-allocation atomically and releases stock on deletion', () => {
+  it('allows missing stock and updates shopping quantities on deletion and purchase', () => {
     const before = putPiece(stock(straightId, 1), piece('a'));
     expect(available(before, straightId)).toBe(0);
-    expect(() => putPiece(before, piece('b', 168))).toThrow(/used/);
-    expect(activeLayout(before).pieces).toHaveLength(1);
+    const over = putPiece(before, piece('b', 168));
+    expect(shoppingList(over)).toEqual([{ trackId: straightId, quantity: 1 }]);
+    expect(missingPieceIds(over)).toEqual(new Set(['b']));
+    const moved = putPiece(over, piece('a', 0, 200));
+    expect(missingPieceIds(moved)).toEqual(new Set(['b']));
+    expect(shoppingList(setInventory(over, straightId, 2))).toEqual([]);
+    expect(
+      shoppingList(
+        updateLayout(over, {
+          ...activeLayout(over),
+          pieces: [piece('a')],
+        }),
+      ),
+    ).toEqual([]);
     expect(
       available(updateLayout(before, { ...activeLayout(before), pieces: [] }), straightId),
     ).toBe(1);
   });
 
-  it('uses stock independently per layout and prevents reductions below any saved idea', () => {
+  it('uses stock independently per layout and permits reductions below saved ideas', () => {
     const first = putPiece(stock(straightId, 1), piece('a'));
     const next: PlannerState = {
       ...first,
@@ -156,7 +222,11 @@ describe('inventory and durable documents', () => {
       activeLayoutId: 'second',
     };
     expect(available(next, straightId)).toBe(1);
-    expect(() => setInventory(next, straightId, 0)).toThrow(/saved layout/);
+    const reduced = setInventory(next, straightId, 0);
+    expect(shoppingList(reduced)).toEqual([]);
+    expect(shoppingList({ ...reduced, activeLayoutId: 'first' })).toEqual([
+      { trackId: straightId, quantity: 1 },
+    ]);
     expect(() => setInventory(next, straightId, 1.5)).toThrow(/whole number/);
   });
 
@@ -164,7 +234,10 @@ describe('inventory and durable documents', () => {
     const state = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify(state))).toEqual(state);
     expect(() => parseState(JSON.stringify({ ...state, version: 2 }))).toThrow(/version/);
-    expect(() => parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }))).toThrow(
+    const shortfall = parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }));
+    expect(shoppingList(shortfall)).toEqual([{ trackId: straightId, quantity: 1 }]);
+    expect(parseState(JSON.stringify({ ...state, inventory: {} })).layouts).toEqual(state.layouts);
+    expect(() => parseState(JSON.stringify({ ...state, inventory: { [straightId]: -1 } }))).toThrow(
       /inventory/,
     );
     expect(() =>

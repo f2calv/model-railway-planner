@@ -4,11 +4,40 @@
     -apple-system,
     'Segoe UI',
     sans-serif;
-  color: #243c35;
-  background: #f5f4ef;
+  color: var(--text);
+  background: var(--page);
   font-synthesis: none;
   --green: #163d34;
   --line: #dbe1d7;
+  --text: #243c35;
+  --page: #f5f4ef;
+  --surface: #fcfcf9;
+  --input: #fff;
+  --canvas: #f1f3ed;
+  --muted: #66746b;
+  --hover: #e9efe5;
+  --active: #e4eddf;
+  --success: #e8efe1;
+  --warning: #fae5da;
+  --error: #8c3425;
+  --grid: #d7ddd5;
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  --text: #e4ece8;
+  --page: #151d20;
+  --surface: #202b2d;
+  --input: #283638;
+  --canvas: #182326;
+  --line: #435653;
+  --muted: #b3c4bd;
+  --hover: #354a44;
+  --active: #304e42;
+  --success: #284239;
+  --warning: #4c382c;
+  --error: #ffc1a3;
+  --grid: #344348;
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -24,14 +53,14 @@ select {
 }
 button {
   border: 1px solid var(--line);
-  background: white;
+  background: var(--input);
   border-radius: 7px;
   padding: 8px 12px;
   cursor: pointer;
   min-height: 38px;
 }
 button:hover:not(:disabled) {
-  background: #e9efe5;
+  background: var(--hover);
   border-color: #8aab96;
 }
 button:disabled {
@@ -47,7 +76,7 @@ select {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 7px 8px;
-  background: white;
+  background: var(--input);
   width: 100%;
   min-width: 0;
 }
@@ -73,7 +102,7 @@ h2 {
 }
 p {
   font-size: 12px;
-  color: #66746b;
+  color: var(--muted);
 }
 hr {
   border: 0;
@@ -115,7 +144,7 @@ hr {
   gap: 8px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--line);
-  background: white;
+  background: var(--surface);
   flex-wrap: wrap;
 }
 .layout-bar label {
@@ -129,7 +158,7 @@ hr {
 }
 .save-state {
   margin-left: auto;
-  color: #68816b;
+  color: var(--muted);
   font-size: 12px;
 }
 .workspace {
@@ -141,7 +170,7 @@ hr {
 .inventory-panel,
 .details-panel {
   padding: 22px 18px;
-  background: #fcfcf9;
+  background: var(--surface);
   overflow-y: auto;
 }
 .inventory-panel {
@@ -153,35 +182,62 @@ hr {
 .eyebrow {
   font-size: 10px;
   letter-spacing: 1.7px;
-  color: #7b8b74;
+  color: var(--muted);
   font-weight: 700;
 }
 .search-label {
-  margin: 20px 0;
+  margin: 12px 0;
 }
 .catalog-heading {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: #7b8b74;
-  padding-bottom: 12px;
+  color: var(--muted);
+  padding-bottom: 4px;
 }
 .catalog-row {
   display: grid;
   grid-template-columns: 1fr 48px 22px;
   align-items: center;
   gap: 7px;
-  border-top: 1px solid #e6e9e0;
-  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  padding: 2px 0;
 }
 .track-choice {
   text-align: left;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   border: 0;
   background: transparent;
-  padding: 4px;
-  min-height: 50px;
+  padding: 2px 4px;
+  min-height: 40px;
+  touch-action: pan-y;
+  min-width: 0;
+}
+.track-choice > svg {
+  width: 32px;
+  height: 30px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.track-choice > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.track-choice > span > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catalog-group {
+  margin-top: 6px;
+}
+.catalog-group > summary {
+  padding: 7px 2px;
+  font-weight: 700;
+  color: var(--text);
 }
 .track-choice strong {
   font-size: 13px;
@@ -194,19 +250,19 @@ hr {
   padding: 7px 4px;
   text-align: center;
 }
-.catalog-row output {
+.catalog-row > span {
   text-align: center;
-  color: #798677;
+  color: var(--muted);
 }
 .active-tool {
-  background: #e4eddf;
+  background: var(--active);
 }
 .editor {
   position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f1f3ed;
+  background: var(--canvas);
 }
 .editor-toolbar {
   display: flex;
@@ -214,7 +270,7 @@ hr {
   gap: 6px;
   padding: 12px;
   border-bottom: 1px solid var(--line);
-  background: #fafbf7;
+  background: var(--surface);
   z-index: 1;
   flex-wrap: wrap;
 }
@@ -226,7 +282,7 @@ hr {
 #tool-label {
   margin-right: auto;
   font-size: 11px;
-  color: #6b7b67;
+  color: var(--muted);
 }
 #zoom-level {
   min-width: 35px;
@@ -244,8 +300,8 @@ hr {
   justify-content: space-between;
   padding: 8px 15px;
   font-size: 10px;
-  color: #7c8975;
-  background: #fafbf7;
+  color: var(--muted);
+  background: var(--surface);
   border-top: 1px solid var(--line);
 }
 #empty-hint {
@@ -257,7 +313,7 @@ hr {
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  color: #71816c;
+  color: var(--muted);
 }
 #empty-hint strong {
   font-size: 23px;
@@ -275,7 +331,65 @@ hr {
   stroke-width: 2;
 }
 .track {
+  cursor: pointer;
+}
+.track.selected {
   cursor: grab;
+}
+.track.selected:active {
+  cursor: grabbing;
+}
+#grid path {
+  stroke: var(--grid);
+}
+#grid circle {
+  fill: var(--grid);
+}
+.track-join {
+  stroke: var(--canvas);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.missing-stock .track-bed {
+  stroke: #db843b;
+  stroke-dasharray: 8 4;
+}
+.missing-stock .centre-line {
+  stroke: #85521f;
+}
+.missing-stock.selected .track-bed {
+  stroke: #f6a64f;
+}
+#track-tooltip,
+#palette-ghost {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 7px;
+  box-shadow: 0 4px 16px #0004;
+}
+#track-tooltip {
+  padding: 8px 12px;
+  white-space: pre-line;
+  max-width: min(330px, calc(100vw - 16px));
+  font-size: 12px;
+}
+#palette-ghost {
+  width: 150px;
+  height: 60px;
+  padding: 5px;
+}
+#palette-ghost svg {
+  width: 100%;
+  height: 100%;
+}
+.shopping-row {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0;
+  font-size: 12px;
 }
 .track-bed {
   fill: none;
@@ -330,17 +444,17 @@ hr {
 }
 .subtle {
   font-size: 11px;
-  color: #78836f;
+  color: var(--muted);
 }
 .check-ok,
 .check-warning {
   padding: 12px;
   border-radius: 6px;
   font-size: 12px;
-  background: #e8efe1;
+  background: var(--success);
 }
 .check-warning {
-  background: #fae5da;
+  background: var(--warning);
 }
 details {
   font-size: 12px;
@@ -352,20 +466,21 @@ summary {
 #status {
   padding: 10px 24px;
   min-height: 40px;
-  background: #e7eddf;
+  background: var(--success);
   border-top: 1px solid var(--line);
   font-size: 12px;
 }
 #status.error {
-  background: #fae2d6;
-  color: #8c3425;
+  background: var(--warning);
+  color: var(--error);
 }
 dialog {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 24px;
   max-width: min(450px, 90vw);
-  color: #243c35;
+  color: var(--text);
+  background: var(--surface);
 }
 dialog::backdrop {
   background: #163d3460;

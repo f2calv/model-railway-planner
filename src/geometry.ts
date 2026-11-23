@@ -1,12 +1,12 @@
 import { definition } from './catalog';
-import type { Board, Piece, Pose, Problem, Route, Vec } from './model';
+import type { Board, Piece, Pose, Problem, Route, Segment, Vec } from './model';
 
 const radians = (degrees: number) => (degrees * Math.PI) / 180;
 export const distance = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 export const normalize = (angle: number) => ((angle % 360) + 360) % 360;
 const angleDifference = (a: number, b: number) => Math.abs(((normalize(a - b) + 180) % 360) - 180);
 
-export function routePose(route: Route, t: number): Pose {
+function segmentPose(route: Segment, t: number): Pose {
   if (route.kind === 'straight') return { x: route.length * t, y: 0, angle: 0 };
   const angle = route.angle * t;
   return {
@@ -14,6 +14,41 @@ export function routePose(route: Route, t: number): Pose {
     y: Math.sign(angle) * route.radius * (1 - Math.cos(radians(angle))),
     angle,
   };
+}
+
+function at(origin: Pose, point: Pose): Pose {
+  const c = Math.cos(radians(origin.angle));
+  const s = Math.sin(radians(origin.angle));
+  return {
+    x: origin.x + point.x * c - point.y * s,
+    y: origin.y + point.x * s + point.y * c,
+    angle: origin.angle + point.angle,
+  };
+}
+
+function segmentLength(segment: Segment): number {
+  return segment.kind === 'straight'
+    ? segment.length
+    : segment.radius * radians(Math.abs(segment.angle));
+}
+
+export function routeLength(route: Route): number {
+  return route.kind === 'compound'
+    ? route.segments.reduce((sum, segment) => sum + segmentLength(segment), 0)
+    : segmentLength(route);
+}
+
+export function routePose(route: Route, t: number): Pose {
+  let origin = route.start ?? { x: 0, y: 0, angle: 0 };
+  if (route.kind !== 'compound') return at(origin, segmentPose(route, t));
+  let remaining = routeLength(route) * t;
+  for (const segment of route.segments) {
+    const length = segmentLength(segment);
+    if (remaining <= length) return at(origin, segmentPose(segment, remaining / length));
+    origin = at(origin, segmentPose(segment, 1));
+    remaining -= length;
+  }
+  return origin;
 }
 
 export function world(piece: Piece, point: Pose): Pose {
@@ -28,9 +63,21 @@ export function world(piece: Piece, point: Pose): Pose {
 }
 
 export function ports(piece: Piece): Pose[] {
+  const routes = definition(piece.trackId).routes;
+  const starts = routes.map((route) => {
+    const start = routePose(route, 0);
+    return world(piece, { ...start, angle: start.angle + 180 });
+  });
   return [
-    world(piece, { x: 0, y: 0, angle: 180 }),
-    ...definition(piece.trackId).routes.map((route) => world(piece, routePose(route, 1))),
+    ...starts.filter((port, index) =>
+      starts
+        .slice(0, index)
+        .every(
+          (earlier) =>
+            distance(port, earlier) >= 0.25 || angleDifference(port.angle, earlier.angle) >= 0.1,
+        ),
+    ),
+    ...routes.map((route) => world(piece, routePose(route, 1))),
   ];
 }
 
@@ -40,18 +87,24 @@ export function connected(a: Pose, b: Pose): boolean {
 
 export function samples(piece: Piece): Pose[][] {
   return definition(piece.trackId).routes.map((route) => {
-    const length =
-      route.kind === 'straight' ? route.length : route.radius * radians(Math.abs(route.angle));
+    const length = routeLength(route);
     const steps = Math.ceil(length / 5);
     return Array.from({ length: steps + 1 }, (_, i) => world(piece, routePose(route, i / steps)));
   });
 }
 
 export function pathData(route: Route): string {
-  const end = routePose(route, 1);
-  return route.kind === 'straight'
-    ? `M0,0 L${end.x},${end.y}`
-    : `M0,0 A${route.radius},${route.radius} 0 0 ${route.angle > 0 ? 1 : 0} ${end.x},${end.y}`;
+  let origin = route.start ?? { x: 0, y: 0, angle: 0 };
+  let path = `M${origin.x},${origin.y}`;
+  for (const segment of route.kind === 'compound' ? route.segments : [route]) {
+    const end = at(origin, segmentPose(segment, 1));
+    path +=
+      segment.kind === 'straight'
+        ? ` L${end.x},${end.y}`
+        : ` A${segment.radius},${segment.radius} 0 0 ${segment.angle > 0 ? 1 : 0} ${end.x},${end.y}`;
+    origin = end;
+  }
+  return path;
 }
 
 export interface Snap {
@@ -173,7 +226,7 @@ export function placementProblem(
     const commonPoint = others.find(
       (p) =>
         p.id !== other.id &&
-        definition(p.trackId).routes.length > 1 &&
+        definition(p.trackId).category === 'points' &&
         ports(p).some((port) => candidatePorts.some((a) => connected(a, port))) &&
         ports(p).some((port) => otherPorts.some((b) => connected(b, port))),
     );
@@ -213,8 +266,8 @@ export function placementProblem(
               Math.max(0, Math.min(projection(c), projection(d)));
             const parallel = (delta < 20 || delta > 160) && overlap > 0.1;
             const nearTurnout =
-              (definition(candidate.trackId).routes.length > 1 ||
-                definition(other.trackId).routes.length > 1) &&
+              (definition(candidate.trackId).category === 'points' ||
+                definition(other.trackId).category === 'points') &&
               joints.some(
                 (port) => distance(a, port) < separation * 3 && distance(c, port) < separation * 3,
               );
