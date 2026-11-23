@@ -105,7 +105,7 @@ sequenceDiagram
     State->>Geometry: Validate geometry and connectors
     alt Invalid placement
         State-->>Editor: Throw placement error
-        Editor-->>User: Show error; retain saved plan
+        Editor-->>User: Show error and retain saved plan
     else Valid placement
         State-->>Editor: Candidate snapshot
         Editor->>Storage: saveState(snapshot)
@@ -113,7 +113,7 @@ sequenceDiagram
         Storage->>Documents: setItem(complete snapshot)
         alt Write fails
             Documents-->>Editor: Storage error
-            Editor-->>User: Not saved; no edit applied
+            Editor-->>User: Not saved and no edit applied
         else Write succeeds
             Editor->>State: Derive shopping list and missing-piece IDs
             Editor-->>User: Render track, shortfalls and saved status
