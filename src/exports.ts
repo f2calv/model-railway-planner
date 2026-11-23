@@ -1,6 +1,6 @@
 import { definition } from './catalog';
 import { pathData, ports, samples } from './geometry';
-import type { Layout, PlannerState } from './model';
+import type { Layout, Piece, PlannerState } from './model';
 import { activeLayout, missingPieceIds, parseState, shoppingList } from './state';
 
 export function drawingLayers(missing = false, locked = false) {
@@ -75,6 +75,15 @@ function validatePixelSize(pixels?: { width: number; height: number }): void {
     throw new Error('PNG dimensions must be between 1 and 4096 pixels.');
 }
 
+function piecePaths(piece: Piece, missing: boolean): string[] {
+  return definition(piece.trackId).routes.flatMap((route) =>
+    drawingLayers(missing, piece.locked).map(
+      (layer) =>
+        `<path d="${pathData(route)}" fill="none" stroke="${layer.stroke}" stroke-width="${layer.width}" stroke-dasharray="${layer.dash}"/>`,
+    ),
+  );
+}
+
 export function svgExport(state: PlannerState, pixels?: { width: number; height: number }): string {
   const validated = parseState(JSON.stringify(state));
   const layout = activeLayout(validated);
@@ -91,12 +100,7 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
     content.push(
       `<g transform="translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})">`,
     );
-    for (const route of definition(piece.trackId).routes) {
-      for (const layer of drawingLayers(missing.has(piece.id), piece.locked))
-        content.push(
-          `<path d="${pathData(route)}" fill="none" stroke="${layer.stroke}" stroke-width="${layer.width}" stroke-dasharray="${layer.dash}"/>`,
-        );
-    }
+    content.push(...piecePaths(piece, missing.has(piece.id)));
     for (const port of ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false })) {
       const radians = (port.angle * Math.PI) / 180;
       const dx = 19 * Math.sin(radians),
