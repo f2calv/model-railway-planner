@@ -253,6 +253,38 @@ try {
 }
 let history = createHistory(state);
 
+function countJoins(pieces: readonly Piece[]): number {
+  let count = 0;
+  for (const [index, piece] of pieces.entries()) {
+    const endpoints = ports(piece);
+    for (const other of pieces.slice(index + 1)) {
+      const targets = ports(other);
+      count += endpoints.filter((endpoint) =>
+        targets.some((target) => connected(endpoint, target)),
+      ).length;
+    }
+  }
+  return count;
+}
+
+function playChangeSound(previous: PlannerState, next: PlannerState): void {
+  if (!preferences.sounds || previous.activeLayoutId !== next.activeLayoutId) return;
+  const before = activeLayout(previous).pieces;
+  const after = activeLayout(next).pieces;
+  const difference = countJoins(after) - countJoins(before);
+  let sound: 'delete' | 'snap' | 'disconnect' | null = null;
+  if (after.length < before.length) sound = 'delete';
+  else if (difference > 0) sound = 'snap';
+  else if (difference < 0) sound = 'disconnect';
+  if (sound)
+    void playSound(sound).catch((error: unknown) =>
+      status(
+        `Sound playback failed: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      ),
+    );
+}
+
 function commit(
   next: PlannerState,
   message?: string,
@@ -286,40 +318,7 @@ function commit(
   const summary = message ?? changeSummary(previous, next);
   addActivity(summary);
   status(message ?? `${summary}. Saved on this device.`);
-  if (preferences.sounds && previous.activeLayoutId === next.activeLayoutId) {
-    const before = activeLayout(previous).pieces;
-    const after = activeLayout(next).pieces;
-    const joins = (pieces: readonly Piece[]) =>
-      pieces.reduce(
-        (count, p, i) =>
-          count +
-          pieces
-            .slice(i + 1)
-            .reduce(
-              (n, other) =>
-                n + ports(p).filter((a) => ports(other).some((b) => connected(a, b))).length,
-              0,
-            ),
-        0,
-      );
-    const beforeJoins = joins(before);
-    const afterJoins = joins(after);
-    const sound =
-      after.length < before.length
-        ? 'delete'
-        : afterJoins > beforeJoins
-          ? 'snap'
-          : afterJoins < beforeJoins
-            ? 'disconnect'
-            : null;
-    if (sound)
-      void playSound(sound).catch((error: unknown) =>
-        status(
-          `Sound playback failed: ${error instanceof Error ? error.message : String(error)}`,
-          true,
-        ),
-      );
-  }
+  playChangeSound(previous, next);
   render();
   return true;
 }
@@ -851,18 +850,26 @@ function place(candidate: Piece): void {
   });
 }
 
+function beginMultiTouch(event: PointerEvent): boolean {
+  if (event.pointerType !== 'touch') return false;
+  touches.add(event.pointerId);
+  if (touches.size < 2) return false;
+  multiTouch = true;
+  cancelGesture();
+  suppressClick = true;
+  render();
+  return true;
+}
+
+function toggleSelection(id: string): void {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  selectedId = [...selectedIds][0] ?? '';
+}
+
 svg.addEventListener('pointerdown', (event) => {
   suppressClick = false;
-  if (event.pointerType === 'touch') {
-    touches.add(event.pointerId);
-    if (touches.size > 1) {
-      multiTouch = true;
-      cancelGesture();
-      suppressClick = true;
-      render();
-      return;
-    }
-  }
+  if (beginMultiTouch(event)) return;
   if (drag || marquee) return;
   if (toolId || spaceDown || event.button !== 0) return;
   const target =
@@ -885,8 +892,7 @@ svg.addEventListener('pointerdown', (event) => {
   }
   if (event.ctrlKey || event.metaKey) {
     suppressClick = true;
-    if (selectedIds.has(piece.id)) selectedIds.delete(piece.id);
-    else selectedIds.add(piece.id);
+    toggleSelection(piece.id);
     selectedId = selectedIds.has(piece.id) ? piece.id : ([...selectedIds][0] ?? '');
     render();
     return;
@@ -908,38 +914,43 @@ svg.addEventListener('pointerdown', (event) => {
   svg.setPointerCapture(event.pointerId);
   render();
 });
+function snappedGroup(candidates: Piece[]): Piece[] {
+  if (candidates.length === 1 && candidates[0]) return [snapped(candidates[0])];
+  if (!element<HTMLInputElement>('#snap').checked) return candidates;
+  const ids = new Set(candidates.map((piece) => piece.id));
+  return snapGroup(
+    candidates,
+    activeLayout(state).pieces.filter((piece) => !ids.has(piece.id)),
+    Math.min(45, 22 / transform.k),
+  );
+}
+
+function previewMarquee(position: Vec): void {
+  if (!marquee) return;
+  marquee.end = position;
+  if (Math.hypot(position.x - marquee.start.x, position.y - marquee.start.y) * transform.k >= 3)
+    marquee.moved = true;
+  const box = element<SVGRectElement>('#marquee');
+  box.removeAttribute('hidden');
+  box.setAttribute('x', String(Math.min(position.x, marquee.start.x)));
+  box.setAttribute('y', String(Math.min(position.y, marquee.start.y)));
+  box.setAttribute('width', String(Math.abs(position.x - marquee.start.x)));
+  box.setAttribute('height', String(Math.abs(position.y - marquee.start.y)));
+}
+
 svg.addEventListener('pointermove', (event) => {
   if (multiTouch || spaceDown) return;
   trackTooltip({ x: event.clientX, y: event.clientY });
   const position = modelPoint({ x: event.clientX, y: event.clientY });
-  if (marquee && event.pointerId === marquee.pointerId) {
-    marquee.end = position;
-    if (Math.hypot(position.x - marquee.start.x, position.y - marquee.start.y) * transform.k >= 3)
-      marquee.moved = true;
-    const box = element<SVGRectElement>('#marquee');
-    box.removeAttribute('hidden');
-    box.setAttribute('x', String(Math.min(position.x, marquee.start.x)));
-    box.setAttribute('y', String(Math.min(position.y, marquee.start.y)));
-    box.setAttribute('width', String(Math.abs(position.x - marquee.start.x)));
-    box.setAttribute('height', String(Math.abs(position.y - marquee.start.y)));
-  } else if (drag && event.pointerId === drag.pointerId) {
+  if (event.pointerId === marquee?.pointerId) {
+    previewMarquee(position);
+  } else if (drag?.pointerId === event.pointerId) {
     const dx = position.x - drag.start.x;
     const dy = position.y - drag.start.y;
     if (Math.hypot(dx, dy) * transform.k < 3 && !drag.moved) return;
     drag.moved = true;
     const candidates = drag.pieces.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
-    const ids = new Set(candidates.map((p) => p.id));
-    previewGroup(
-      candidates.length === 1 && candidates[0]
-        ? [snapped(candidates[0])]
-        : element<HTMLInputElement>('#snap').checked
-          ? snapGroup(
-              candidates,
-              activeLayout(state).pieces.filter((p) => !ids.has(p.id)),
-              Math.min(45, 22 / transform.k),
-            )
-          : candidates,
-    );
+    previewGroup(snappedGroup(candidates));
   } else if (toolId) {
     preview(
       snapped({
@@ -952,38 +963,43 @@ svg.addEventListener('pointermove', (event) => {
     );
   }
 });
+function finishMarquee(pointerId: number): void {
+  if (marquee?.pointerId !== pointerId) return;
+  const current = marquee;
+  marquee = null;
+  element<SVGRectElement>('#marquee').setAttribute('hidden', '');
+  if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId);
+  if (!current.additive) selectOnly('');
+  if (current.moved) {
+    const minX = Math.min(current.start.x, current.end.x);
+    const maxX = Math.max(current.start.x, current.end.x);
+    const minY = Math.min(current.start.y, current.end.y);
+    const maxY = Math.max(current.start.y, current.end.y);
+    for (const p of activeLayout(state).pieces) {
+      if (
+        samples(p)
+          .flat()
+          .every(
+            (point) =>
+              point.x - 15 >= minX &&
+              point.x + 15 <= maxX &&
+              point.y - 15 >= minY &&
+              point.y + 15 <= maxY,
+          )
+      )
+        selectedIds.add(p.id);
+    }
+    selectedId = [...selectedIds][0] ?? '';
+  }
+  suppressClick = current.moved || current.additive;
+  render();
+}
+
 svg.addEventListener('pointerup', (event) => {
   touches.delete(event.pointerId);
   if (!touches.size) multiTouch = false;
-  if (marquee && event.pointerId === marquee.pointerId) {
-    const current = marquee;
-    marquee = null;
-    element<SVGRectElement>('#marquee').setAttribute('hidden', '');
-    if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
-    if (!current.additive) selectOnly('');
-    if (current.moved) {
-      const minX = Math.min(current.start.x, current.end.x);
-      const maxX = Math.max(current.start.x, current.end.x);
-      const minY = Math.min(current.start.y, current.end.y);
-      const maxY = Math.max(current.start.y, current.end.y);
-      for (const p of activeLayout(state).pieces) {
-        if (
-          samples(p)
-            .flat()
-            .every(
-              (point) =>
-                point.x - 15 >= minX &&
-                point.x + 15 <= maxX &&
-                point.y - 15 >= minY &&
-                point.y + 15 <= maxY,
-            )
-        )
-          selectedIds.add(p.id);
-      }
-      selectedId = [...selectedIds][0] ?? '';
-    }
-    suppressClick = current.moved || current.additive;
-    render();
+  if (marquee?.pointerId === event.pointerId) {
+    finishMarquee(event.pointerId);
     return;
   }
   if (!drag || event.pointerId !== drag.pointerId) return;
@@ -1064,6 +1080,48 @@ function cancelGesture(): void {
   preview(null);
 }
 
+function handleSelectionKey(event: KeyboardEvent): void {
+  const id =
+    event.target instanceof Element
+      ? (event.target.closest<SVGGElement>('[data-piece-id]')?.dataset['pieceId'] ?? '')
+      : '';
+  if (event.ctrlKey || event.metaKey) toggleSelection(id);
+  else selectOnly(id);
+  toolId = '';
+  render();
+}
+
+function handlePieceKey(event: KeyboardEvent): void {
+  if (toolId && event.key.toLowerCase() === 'r') {
+    toolAngle = normalize(toolAngle + 22.5);
+    render();
+    return;
+  }
+  if (!selected()) return;
+  const step = event.shiftKey ? 1 : 5;
+  const moves: Record<string, Vec> = {
+    ArrowLeft: { x: -step, y: 0 },
+    ArrowRight: { x: step, y: 0 },
+    ArrowUp: { x: 0, y: -step },
+    ArrowDown: { x: 0, y: step },
+  };
+  const move = moves[event.key];
+  if (move) {
+    event.preventDefault();
+    action(() =>
+      transformSelected((piece) => ({ ...piece, x: piece.x + move.x, y: piece.y + move.y })),
+    );
+  }
+  if (event.key.toLowerCase() === 'r')
+    action(() =>
+      transformSelected((piece) => ({ ...piece, angle: normalize(piece.angle + 22.5) })),
+    );
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    event.preventDefault();
+    action(removePiece);
+  }
+}
+
 document.addEventListener('keydown', (event) => {
   if (
     event.target instanceof HTMLInputElement ||
@@ -1086,14 +1144,7 @@ document.addEventListener('keydown', (event) => {
     event.key === 'Enter'
   ) {
     event.preventDefault();
-    const id = event.target.closest<SVGGElement>('[data-piece-id]')?.dataset['pieceId'] ?? '';
-    if (event.ctrlKey || event.metaKey) {
-      if (selectedIds.has(id)) selectedIds.delete(id);
-      else selectedIds.add(id);
-      selectedId = [...selectedIds][0] ?? '';
-    } else selectOnly(id);
-    toolId = '';
-    render();
+    handleSelectionKey(event);
     return;
   }
   if (event.code === 'Space') {
@@ -1118,30 +1169,7 @@ document.addEventListener('keydown', (event) => {
     action(() => restoreHistory(event.key.toLowerCase() === 'y' || event.shiftKey));
     return;
   }
-  if (toolId && event.key.toLowerCase() === 'r') {
-    toolAngle = normalize(toolAngle + 22.5);
-    render();
-    return;
-  }
-  if (!selected()) return;
-  const step = event.shiftKey ? 1 : 5;
-  const moves: Record<string, Vec> = {
-    ArrowLeft: { x: -step, y: 0 },
-    ArrowRight: { x: step, y: 0 },
-    ArrowUp: { x: 0, y: -step },
-    ArrowDown: { x: 0, y: step },
-  };
-  const move = moves[event.key];
-  if (move) {
-    event.preventDefault();
-    action(() => transformSelected((p) => ({ ...p, x: p.x + move.x, y: p.y + move.y })));
-  }
-  if (event.key.toLowerCase() === 'r')
-    action(() => transformSelected((p) => ({ ...p, angle: normalize(p.angle + 22.5) })));
-  if (event.key === 'Delete' || event.key === 'Backspace') {
-    event.preventDefault();
-    action(removePiece);
-  }
+  handlePieceKey(event);
 });
 document.addEventListener('keyup', (event) => {
   if (event.code === 'Space') spaceDown = false;

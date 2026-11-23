@@ -4,10 +4,13 @@ import type { Layout, PlannerState } from './model';
 import { activeLayout, missingPieceIds, parseState, shoppingList } from './state';
 
 export function drawingLayers(missing = false, locked = false) {
+  let bed = '#81745d';
+  if (missing) bed = '#db843b';
+  else if (locked) bed = '#6874ab';
   return [
     {
       name: 'track-bed',
-      stroke: missing ? '#db843b' : locked ? '#6874ab' : '#81745d',
+      stroke: bed,
       width: 30,
       dash: missing ? '8 4' : '',
     },
@@ -52,18 +55,14 @@ function xml(text: string): string {
       );
   }
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
 }
 
-export function svgExport(state: PlannerState, pixels?: { width: number; height: number }): string {
-  const validated = parseState(JSON.stringify(state));
-  const layout = activeLayout(validated);
-  const bounds = layoutBounds(layout);
-  if (!bounds) throw new Error('Add track or a baseboard before exporting.');
+function validatePixelSize(pixels?: { width: number; height: number }): void {
   if (
     pixels &&
     (!Number.isInteger(pixels.width) ||
@@ -74,6 +73,14 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
       pixels.height > 4096)
   )
     throw new Error('PNG dimensions must be between 1 and 4096 pixels.');
+}
+
+export function svgExport(state: PlannerState, pixels?: { width: number; height: number }): string {
+  const validated = parseState(JSON.stringify(state));
+  const layout = activeLayout(validated);
+  const bounds = layoutBounds(layout);
+  if (!bounds) throw new Error('Add track or a baseboard before exporting.');
+  validatePixelSize(pixels);
   const missing = missingPieceIds(validated);
   const content: string[] = [];
   for (const board of layout.boards)
@@ -104,12 +111,14 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
       );
     content.push('</g>');
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pixels ? pixels.width : `${bounds.width}mm`}" height="${pixels ? pixels.height : `${bounds.height}mm`}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"><title>${xml(layout.name)}</title><desc>Model railway planning overview in millimetres. Verify track geometry, rail joiners and rolling-stock clearance physically.</desc><rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="#fff"/>${content.join('')}</svg>`;
+  const width = pixels ? pixels.width : `${bounds.width}mm`;
+  const height = pixels ? pixels.height : `${bounds.height}mm`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"><title>${xml(layout.name)}</title><desc>Model railway planning overview in millimetres. Verify track geometry, rail joiners and rolling-stock clearance physically.</desc><rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="#fff"/>${content.join('')}</svg>`;
 }
 
 export function csvCell(value: string): string {
-  const safe = /^[\s]*[=+\-@]/.test(value) || /^[\t\r\n]/.test(value) ? `'${value}` : value;
-  return `"${safe.replace(/"/g, '""')}"`;
+  const safe = /^\s*[=+\-@]/.test(value) || /^[\t\r\n]/.test(value) ? `'${value}` : value;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 export function csvExport(state: PlannerState, shoppingOnly = false): string {
