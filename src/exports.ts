@@ -1,7 +1,17 @@
-import { definition } from './catalog';
+import { catalog, definition } from './catalog';
 import { pathData, ports, samples } from './geometry';
 import type { Layout, Piece, PlannerState } from './model';
-import { activeLayout, missingPieceIds, parseState, shoppingList } from './state';
+import { activeLayout, missingPieceIds, parseState, shoppingList, used } from './state';
+
+export function accessoryMarks(piece: Piece): { id: string; d: string }[] {
+  const route = definition(piece.trackId).routes[0];
+  if (route?.kind !== 'straight') return [];
+  const centre = route.length / 2;
+  return (piece.accessories ?? []).map((id) => ({
+    id,
+    d: `M${centre - 8},-14V14M${centre + 8},-14V14M${centre - 8},0H${centre + 8}`,
+  }));
+}
 
 export function drawingLayers(missing = false, locked = false) {
   let bed = '#81745d';
@@ -91,6 +101,7 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
   if (!bounds) throw new Error('Add track or a baseboard before exporting.');
   validatePixelSize(pixels);
   const missing = missingPieceIds(validated);
+  const missingAccessories = missingPieceIds(validated, 'hornby-oo-r645');
   const content: string[] = [];
   for (const board of layout.boards)
     content.push(
@@ -101,6 +112,10 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
       `<g transform="translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})">`,
     );
     content.push(...piecePaths(piece, missing.has(piece.id)));
+    for (const mark of accessoryMarks(piece))
+      content.push(
+        `<path data-accessory="${xml(mark.id)}" d="${mark.d}" fill="none" stroke="${missingAccessories.has(piece.id) ? '#db843b' : '#167c99'}" stroke-width="4"/>`,
+      );
     for (const port of ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false })) {
       const radians = (port.angle * Math.PI) / 180;
       const dx = 19 * Math.sin(radians),
@@ -132,16 +147,16 @@ export function csvExport(state: PlannerState, shoppingOnly = false): string {
     shoppingList(validated).map((entry) => [entry.trackId, entry.quantity]),
   );
   const rows = [['Manufacturer', 'Scale', 'Code', 'Piece', 'Owned', 'In layout', 'To buy']];
-  for (const [id, quantity] of Object.entries(validated.inventory)) {
+  for (const entry of catalog) {
+    const id = entry.id;
     if (shoppingOnly && !shortfalls.has(id)) continue;
-    const entry = definition(id);
     rows.push([
       entry.brand,
       entry.scale,
       entry.code,
       entry.name,
-      String(quantity),
-      String(layout.pieces.filter((piece) => piece.trackId === id).length),
+      String(validated.inventory[id] ?? 0),
+      String(used(layout, id)),
       String(shortfalls.get(id) ?? 0),
     ]);
   }

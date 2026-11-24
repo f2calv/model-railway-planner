@@ -1,35 +1,39 @@
 # Track Catalogs
 
 Reference information for the planner's supported track catalogs, organised by manufacturer and
-scale. There are 41 entries across Hornby, Peco Setrack and Bachmann OO. Other scales require their
+scale. There are 44 entries across Hornby, Peco Setrack and Bachmann OO, including one accessory. Other scales require their
 own verified geometry and clearance profile, not merely a new display label.
 
 Return to the [planner README](../README.md) for installation and editing instructions.
 
 ## Hornby OO Catalog
 
-The Hornby catalog includes 25 entries: 16 dimension-supported simple straights/arcs and nine
-idealised points/crossings, including all seven standard-range point types and both diamond crossing
+The Hornby catalog includes 28 entries: 17 dimension-supported simple straights/arcs, one
+double-track level crossing, one attached accessory and nine
+idealised points/diamond crossings, including all seven standard-range point types and both diamond crossing
 hands. It is not the complete Hornby range. Numeric dimensions and product codes are
 referenced from product descriptions; no product photographs or artwork are copied.
 
-| Pieces        | Geometry                                                   | Sources                                                                                                                                                                  |
-| ------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| R600 / R601   | 168 / 335 mm straight                                      | [R600](https://uk.hornby.com/products/straight-track-r600), [R601](https://uk.hornby.com/products/double-straight-r601)                                                  |
-| R603          | 670 mm straight                                            | [Long straight](https://uk.hornby.com/products/long-straight-r603)                                                                                                       |
-| R610          | 38 mm quarter straight                                     | [Quarter straight](https://uk.hornby.com/products/quarter-straight-r610)                                                                                                 |
-| R618 / R8206  | 168 mm double-isolating / power straight                   | [Isolating track](https://uk.hornby.com/products/double-isolating-track-r618), [Power track](https://uk.hornby.com/products/power-track-r8206)                           |
-| R604 / R605   | 371 mm radius; 22.5 / 45 degrees                           | [R604](https://uk.hornby.com/products/curve-1st-radius-r604), [R605](https://uk.hornby.com/products/double-curve-1st-radius-r605)                                        |
-| R606          | 438 mm radius; 22.5 degrees                                | [R606](https://uk.hornby.com/products/curve-2nd-radius-r606)                                                                                                             |
-| R607 / R643   | Nominal 438 mm radius; 45 / 11.25 degrees                  | [R607](https://uk.hornby.com/products/double-curve-2nd-radius-r607), [R643](https://uk.hornby.com/products/half-curve-2nd-radius-r643)                                   |
-| R608 / R609   | 505 mm radius; 22.5 / 45 degrees                           | [R608](https://uk.hornby.com/products/curve-3rd-radius-r608), [R609](https://uk.hornby.com/products/double-curve-3rd-radius-r609)                                        |
-| R8072 / R8073 | 168 mm straight plus 438 mm radius / 22.5 degree branch    | [Left point](https://uk.hornby.com/products/left-hand-point-r8072), [Right point](https://uk.hornby.com/products/right-hand-point-r8073)                                 |
-| R8261 / R8262 | Nominal 572 mm radius; 22.5 / 45 degrees                   | [R8261](https://uk.hornby.com/products/curve-4th-radius-r8261), [R8262](https://uk.hornby.com/products/double-curve-4th-radius-r8262)                                    |
-| R628          | 852 mm radius; 11.25 degrees                               | [Large-radius half curve](https://uk.hornby.com/products/half-curve-33-large-radius-r628)                                                                                |
-| R8074 / R8075 | Approximate curved-point branches, not CAD geometry        | [Left curved point](https://uk.hornby.com/products/left-hand-curved-point-r8074), [Right curved point](https://uk.hornby.com/products/right-hand-curved-point-r8075)     |
-| R8076         | Idealised symmetric 852 mm / 11.25 degree Y branches       | [Y point](https://uk.hornby.com/products/y-point-r8076), [Dimensional comparison](https://www.railwayscenics.com/track_comparison_oo.php)                                |
-| R8077 / R8078 | 245 mm straight and idealised 852 mm / 11.25 degree branch | [Left express point](https://uk.hornby.com/products/left-hand-express-point-r8077), [Right express point](https://uk.hornby.com/products/right-hand-express-point-r8078) |
-| R614 / R615   | Idealised 168 / 181 mm diamond crossing; 22.5 degrees      | [Left crossing](https://uk.hornby.com/products/diamond-crossing-left-hand-r614), [Right crossing](https://uk.hornby.com/products/diamond-crossing-right-hand-r615)       |
+| Pieces        | Geometry                                                                         | Sources                                                                                                                                                                  |
+| ------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R600 / R601   | 168 / 335 mm straight                                                            | [R600](https://uk.hornby.com/products/straight-track-r600), [R601](https://uk.hornby.com/products/double-straight-r601)                                                  |
+| R603          | 670 mm straight                                                                  | [Long straight](https://uk.hornby.com/products/long-straight-r603)                                                                                                       |
+| R610          | 38 mm quarter straight                                                           | [Quarter straight](https://uk.hornby.com/products/quarter-straight-r610)                                                                                                 |
+| R618 / R8206  | 168 mm double-isolating / power straight                                         | [Isolating track](https://uk.hornby.com/products/double-isolating-track-r618), [Power track](https://uk.hornby.com/products/power-track-r8206)                           |
+| R8241         | 168 mm digital power straight                                                    | [Digital power track](https://uk.hornby.com/products/digital-power-track-r8241)                                                                                          |
+| R636          | Two independent 168 mm straights at standard 67 mm centres                       | [Double-track level crossing](https://uk.hornby.com/products/level-crossing-double-track-r636)                                                                           |
+| R645          | Trackless single-track level-crossing accessory, centred on an existing straight | [Single-track level crossing](https://uk.hornby.com/products/level-crossing-single-track-r645)                                                                           |
+| R604 / R605   | 371 mm radius; 22.5 / 45 degrees                                                 | [R604](https://uk.hornby.com/products/curve-1st-radius-r604), [R605](https://uk.hornby.com/products/double-curve-1st-radius-r605)                                        |
+| R606          | 438 mm radius; 22.5 degrees                                                      | [R606](https://uk.hornby.com/products/curve-2nd-radius-r606)                                                                                                             |
+| R607 / R643   | Nominal 438 mm radius; 45 / 11.25 degrees                                        | [R607](https://uk.hornby.com/products/double-curve-2nd-radius-r607), [R643](https://uk.hornby.com/products/half-curve-2nd-radius-r643)                                   |
+| R608 / R609   | 505 mm radius; 22.5 / 45 degrees                                                 | [R608](https://uk.hornby.com/products/curve-3rd-radius-r608), [R609](https://uk.hornby.com/products/double-curve-3rd-radius-r609)                                        |
+| R8072 / R8073 | 168 mm straight plus 438 mm radius / 22.5 degree branch                          | [Left point](https://uk.hornby.com/products/left-hand-point-r8072), [Right point](https://uk.hornby.com/products/right-hand-point-r8073)                                 |
+| R8261 / R8262 | Nominal 572 mm radius; 22.5 / 45 degrees                                         | [R8261](https://uk.hornby.com/products/curve-4th-radius-r8261), [R8262](https://uk.hornby.com/products/double-curve-4th-radius-r8262)                                    |
+| R628          | 852 mm radius; 11.25 degrees                                                     | [Large-radius half curve](https://uk.hornby.com/products/half-curve-33-large-radius-r628)                                                                                |
+| R8074 / R8075 | Approximate curved-point branches, not CAD geometry                              | [Left curved point](https://uk.hornby.com/products/left-hand-curved-point-r8074), [Right curved point](https://uk.hornby.com/products/right-hand-curved-point-r8075)     |
+| R8076         | Idealised symmetric 852 mm / 11.25 degree Y branches                             | [Y point](https://uk.hornby.com/products/y-point-r8076), [Dimensional comparison](https://www.railwayscenics.com/track_comparison_oo.php)                                |
+| R8077 / R8078 | 245 mm straight and idealised 852 mm / 11.25 degree branch                       | [Left express point](https://uk.hornby.com/products/left-hand-express-point-r8077), [Right express point](https://uk.hornby.com/products/right-hand-express-point-r8078) |
+| R614 / R615   | Idealised 168 / 181 mm diamond crossing; 22.5 degrees                            | [Left crossing](https://uk.hornby.com/products/diamond-crossing-left-hand-r614), [Right crossing](https://uk.hornby.com/products/diamond-crossing-right-hand-r615)       |
 
 Sources reviewed 23 November 2026. The
 [official Hornby track geometry diagram](https://support.hornby.com/hc/en-gb/article_attachments/10406061442332)
@@ -41,6 +45,14 @@ building. Curved points use an approximate 438 mm / 33.75 degree route and a 67 
 a 438 mm / 22.5 degree route. Express points use an idealised straight lead before their branch.
 Geometry warnings appear in the palette tooltip, selected-piece description, hover tooltip and
 planning checks.
+
+R636 includes both tracks and has four connectors; one placed crossing consumes one inventory item.
+The road, gates and barriers are not included in its clearance envelope. R645 does **not** include
+track: select one unlocked Hornby straight at least 168 mm long and choose R645 to attach it. Only
+one accessory per host is supported. It adds no rail geometry or connectors, has an independent
+inventory/shopping count and uses a schematic marker rather than an invented road/gate footprint.
+It moves and deletes with its host, survives undo/export/import and can be removed separately.
+R614 is a left-hand diamond crossing, not a road crossing.
 
 ## Peco Setrack OO Catalog
 

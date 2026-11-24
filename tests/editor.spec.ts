@@ -41,6 +41,42 @@ async function seedIdea(page: Page): Promise<void> {
   await expect(page.locator('#tracks > g')).toHaveCount(3);
 }
 
+test('R645 attaches without adding track, survives history and reload, and can be removed', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  await page.getByRole('combobox', { name: 'Select placed piece' }).selectOption('a');
+  await page
+    .getByRole('button', { name: 'Attach R645 Single-track level crossing', exact: true })
+    .click();
+  await expect(page.locator('#tracks > g')).toHaveCount(3);
+  await expect(page.locator('#tracks .accessory-mark')).toHaveCount(1);
+  await expect(page.locator('#shopping-list')).toContainText('1 x R645');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.locator('#tracks .accessory-mark')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('#tracks .accessory-mark')).toHaveCount(1);
+  await page.getByRole('combobox', { name: 'Select placed piece' }).selectOption('a');
+  await page.getByRole('button', { name: 'Lock selection', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Remove R645 accessory', exact: true }),
+  ).toBeDisabled();
+  await page.getByRole('button', { name: 'Unlock selection', exact: true }).click();
+  await page.getByRole('button', { name: 'Remove R645 accessory', exact: true }).click();
+  await expect(page.locator('#tracks .accessory-mark')).toHaveCount(0);
+  await expect(page.locator('#tracks > g')).toHaveCount(3);
+  await page
+    .getByRole('button', { name: 'Place R636 Double-track level crossing', exact: true })
+    .click();
+  await page.locator('#canvas').click({ position: { x: 200, y: 550 } });
+  await expect(page.locator('#tracks > g')).toHaveCount(4);
+  await expect(page.locator('#tracks > g').last().locator('.port')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Place R8241 Digital power track', exact: true }).click();
+  await page.locator('#canvas').click({ position: { x: 450, y: 550 } });
+  await expect(page.locator('#tracks > g')).toHaveCount(5);
+});
+
 test('inventory counts, snapping, dragging, separate ideas and persistence', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -298,10 +334,10 @@ test('unowned pieces form a per-idea shopping list that responds to inventory an
 test('grouped palette is compact and searchable; dark mode persists', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('.catalog-group > summary')).toHaveText([
-    'Straights (15)',
+    'Straights (16)',
     'Curves (17)',
     'Points (7)',
-    'Misc / crossings (2)',
+    'Misc / crossings (4)',
   ]);
   const height = await page
     .locator('.catalog-row')

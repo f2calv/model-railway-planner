@@ -154,7 +154,10 @@ the zoom owner takes over.
 
 ## Document and Update Safety
 
-Format 2 retains piece locks and migrates supported format 1 documents. Unsupported/newer formats
+Format 3 retains piece locks and attached accessory identifiers, migrating supported format 1 and 2
+documents. Accessories belong to their host piece, so transforms, deletion and history remain atomic.
+The catalog distinguishes trackless attachments from rail routes; inventory/CSV count them separately.
+Unsupported/newer formats
 and unreadable storage lock editing while preserving original bytes. Storage events prevent silent
 cross-tab overwrite. App-cache updates are explicit and separate from user documents: normal
 updates require a successful save, while recovery mode can update the app without rewriting the

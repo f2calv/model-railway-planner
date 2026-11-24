@@ -124,10 +124,17 @@ flexible track, platform furniture and custom catalog editing are not implemente
 
 ## Track Catalogs
 
-The catalog contains 41 entries: 25 Hornby, seven Peco Setrack and nine Bachmann OO pieces.
+The catalog contains 44 entries: 28 Hornby (including the R645 accessory), seven Peco Setrack
+and nine Bachmann OO pieces.
 See the [track catalog guide](docs/catalog.md) for supported dimensions, manufacturer sources,
 geometric compatibility rules and deliberately deferred furniture. Mixed-brand snapping is a planning
 aid, not certification of rail heights, joiners or rolling-stock clearance.
+
+For R645, select one unlocked Hornby straight at least 168 mm long, then choose R645 in the palette.
+It attaches centrally without adding track or connectors, and has its own inventory/shopping count.
+Use **Remove R645 accessory** to detach it without removing the host. It moves, locks and deletes
+with its host; undo and backups retain it. The marker is schematic: road, gate and barrier clearance
+is not checked. R636 includes two parallel tracks but is counted as one purchased item.
 
 ## Storage and Offline Use
 
@@ -140,8 +147,8 @@ the original readable bytes for recovery. Failed writes reject the edit and disp
 Changes in another tab lock editing until reload. Imports validate schema, catalog references,
 finite coordinates, inventory quantities and unique IDs; placement problems are displayed for review.
 
-The current backup format is version 2 and imports version 1 documents. The existing storage key
-is retained to find older plans. Locks are included in backups; display/audio/delete preferences
+The current backup format is version 3 and imports version 1 and 2 documents. The existing storage key
+is retained to find older plans. Locks and attached accessories are included in backups; display/audio/delete preferences
 and session history are not. Close or update older app tabs before editing a migrated document.
 
 Unexpected errors open a visible dialog with a link to draft a GitHub issue. Only the public app

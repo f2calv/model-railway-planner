@@ -27,6 +27,7 @@ import {
   setPieceLocks,
   resetInventory,
   setInventory,
+  setAccessory,
   shoppingList,
   updateLayout,
 } from './state';
@@ -51,7 +52,14 @@ import {
 import { playSound } from './sound';
 import { manufacturerProfiles } from './profiles';
 import { translate, translateUi } from './i18n';
-import { csvExport, drawingLayers, layoutBounds, pngExport, svgExport } from './exports';
+import {
+  accessoryMarks,
+  csvExport,
+  drawingLayers,
+  layoutBounds,
+  pngExport,
+  svgExport,
+} from './exports';
 
 function element<T extends Element>(selector: string): T {
   const result = document.querySelector<T>(selector);
@@ -124,6 +132,7 @@ element<HTMLDivElement>('#app').innerHTML = `
         <button id="apply-position">Apply position</button>
         <div class="two-columns"><button id="rotate-left">Rotate -22.5</button><button id="rotate-right">Rotate +22.5</button></div>
         <button id="flip">Reverse curve</button><button id="remove-piece">Remove piece</button>
+        <button id="remove-accessory" hidden>Remove R645 accessory</button>
       </div>
       <hr /><h2>Shopping list</h2><p>Extra pieces needed for this layout only. Orange dashed track is not yet owned.</p>
       <div id="shopping-list"></div>
@@ -210,6 +219,14 @@ function changeSummary(previous: PlannerState, next: PlannerState): string {
     return `Removed: ${removed.map((p) => definition(p.trackId).code).join(', ')}`;
   if (after.some((p) => before.find((old) => old.id === p.id)?.locked !== p.locked))
     return 'Changed piece locks';
+  if (
+    after.some(
+      (p) =>
+        JSON.stringify(before.find((old) => old.id === p.id)?.accessories ?? []) !==
+        JSON.stringify(p.accessories ?? []),
+    )
+  )
+    return 'Changed track accessories';
   if (JSON.stringify(before) !== JSON.stringify(after))
     return `Moved or transformed ${
       after.filter((p) => {
@@ -348,7 +365,13 @@ function selectOnly(id: string): void {
   selectedIds = new Set(id ? [id] : []);
 }
 
-function drawTrack(group: SVGGElement, piece: Piece, ghost = false, missing = false): void {
+function drawTrack(
+  group: SVGGElement,
+  piece: Piece,
+  ghost = false,
+  missing = false,
+  missingAccessory = false,
+): void {
   const entry = definition(piece.trackId);
   group.setAttribute(
     'transform',
@@ -376,6 +399,17 @@ function drawTrack(group: SVGGElement, piece: Piece, ghost = false, missing = fa
     .attr('stroke', (layer) => layer.stroke)
     .attr('stroke-width', (layer) => layer.width)
     .attr('stroke-dasharray', (layer) => layer.dash);
+  drawing
+    .selectAll<SVGPathElement, ReturnType<typeof accessoryMarks>[number]>('path.accessory-mark')
+    .data(accessoryMarks(piece), (mark) => mark.id)
+    .join('path')
+    .attr('class', 'accessory-mark')
+    .attr('data-accessory', (mark) => mark.id)
+    .attr('d', (mark) => mark.d)
+    .attr('fill', 'none')
+    .attr('stroke', missingAccessory ? '#db843b' : '#167c99')
+    .attr('stroke-width', 4)
+    .attr('pointer-events', 'none');
   const localPorts = ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false });
   drawing
     .selectAll<SVGCircleElement, (typeof localPorts)[number]>('circle.port')
@@ -404,6 +438,16 @@ function drawTrack(group: SVGGElement, piece: Piece, ghost = false, missing = fa
 
 function miniature(piece: Piece): SVGSVGElement {
   const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  if (definition(piece.trackId).attachment) {
+    icon.setAttribute('viewBox', '0 0 40 40');
+    icon.setAttribute('aria-hidden', 'true');
+    const mark = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    mark.setAttribute('d', 'M12 5V35M28 5V35M12 20H28');
+    mark.setAttribute('stroke', '#167c99');
+    mark.setAttribute('stroke-width', '4');
+    icon.append(mark);
+    return icon;
+  }
   const points = samples(piece).flat();
   const minX = Math.min(...points.map((p) => p.x)) - 20;
   const minY = Math.min(...points.map((p) => p.y)) - 20;
@@ -475,7 +519,7 @@ function trackTooltip(client: Vec): void {
   tooltip.hidden = true;
   if (!hovered) return;
   const entry = definition(hovered.trackId);
-  tooltip.textContent = `${entry.code} / ${translate(entry.name, preferences.language)}\n${translate(trackSize(entry), preferences.language)}${missingPieceIds(state).has(hovered.id) ? `\n${translate('To buy: not in your inventory', preferences.language)}` : ''}${entry.geometryNote ? `\n${translate('Approximate geometry. Verify actual connector positions physically.', preferences.language)}` : ''}${hovered.locked ? `\n${translate('Locked', preferences.language)}` : ''}`;
+  tooltip.textContent = `${entry.code} / ${translate(entry.name, preferences.language)}\n${translate(trackSize(entry), preferences.language)}${missingPieceIds(state).has(hovered.id) ? `\n${translate('To buy: not in your inventory', preferences.language)}` : ''}${entry.geometryNote ? `\n${translate('Approximate geometry. Verify actual connector positions physically.', preferences.language)}` : ''}${hovered.locked ? `\n${translate('Locked', preferences.language)}` : ''}${hovered.accessories?.length ? `\n${hovered.accessories.map((id) => definition(id).code).join(', ')} / ${translate('Schematic accessory; verify road and gate clearance physically.', preferences.language)}` : ''}`;
   tooltip.hidden = false;
   tooltip.style.left = `${Math.max(8, Math.min(client.x + 14, window.innerWidth - tooltip.offsetWidth - 8))}px`;
   tooltip.style.top = `${Math.max(8, Math.min(client.y + 14, window.innerHeight - tooltip.offsetHeight - 8))}px`;
@@ -579,6 +623,7 @@ function render(): void {
   selectedIds = new Set([...selectedIds].filter((id) => layout.pieces.some((p) => p.id === id)));
   if (!selectedIds.has(selectedId)) selectedId = [...selectedIds][0] ?? '';
   const missing = missingPieceIds(state);
+  const missingAccessories = missingPieceIds(state, 'hornby-oo-r645');
   const layoutSelect = element<HTMLSelectElement>('#layouts');
   layoutSelect.replaceChildren(...state.layouts.map((l) => new Option(l.name, l.id)));
   layoutSelect.value = state.activeLayoutId;
@@ -620,7 +665,10 @@ function render(): void {
       const pick = document.createElement('button');
       pick.className = 'track-choice';
       pick.disabled = recovery;
-      pick.setAttribute('aria-label', `Place ${entry.code} ${entry.name}`);
+      pick.setAttribute(
+        'aria-label',
+        `${entry.attachment ? 'Attach' : 'Place'} ${entry.code} ${entry.name}`,
+      );
       pick.title = `${entry.code}: ${translate(entry.name, preferences.language)}. ${translate(trackSize(entry), preferences.language)}${entry.geometryNote ? ` ${translate('Approximate geometry. Verify actual connector positions physically.', preferences.language)}` : ''}`;
       const icon = miniature({
         id: 'catalog',
@@ -637,7 +685,19 @@ function render(): void {
       label.textContent = `${entry.brand} / ${entry.name}`;
       text.append(code, label);
       pick.append(icon, text);
-      bindPaletteDrag(pick, entry.id);
+      if (entry.attachment)
+        pick.addEventListener('click', () =>
+          action(() => {
+            if (selectedIds.size !== 1)
+              throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+            if (commit(setAccessory(state, selectedId, entry.id, true))) {
+              toolId = '';
+              preview(null);
+            }
+            render();
+          }),
+        );
+      else bindPaletteDrag(pick, entry.id);
       const quantity = document.createElement('input');
       quantity.type = 'number';
       quantity.min = '0';
@@ -688,6 +748,11 @@ function render(): void {
     HTMLInputElement | HTMLButtonElement
   >('input,button'))
     control.disabled = !piece || locked;
+  element<HTMLButtonElement>('#remove-accessory').hidden =
+    chosen.length !== 1 || !piece?.accessories?.length;
+  if (piece?.accessories?.length)
+    element<HTMLElement>('#piece-description').textContent +=
+      ` R645 / ${translate('Schematic accessory; verify road and gate clearance physically.', preferences.language)}`;
   element<HTMLInputElement>('#piece-x').value = piece
     ? String(Math.round(piece.x * 100) / 100)
     : '';
@@ -731,7 +796,7 @@ function render(): void {
         'aria-label',
         `${piece.locked ? 'Locked ' : ''}Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
       );
-      drawTrack(group, piece, false, missing.has(piece.id));
+      drawTrack(group, piece, false, missing.has(piece.id), missingAccessories.has(piece.id));
     });
   const boardsRoot = element<SVGGElement>('#boards');
   const boardList = element<HTMLElement>('#board-list');
@@ -758,6 +823,8 @@ function render(): void {
     boardList.append(remove);
   });
   const issues = layoutProblems(layout);
+  if (layout.pieces.some((p) => p.accessories?.length))
+    issues.push('Schematic accessory; verify road and gate clearance physically.');
   const approximateCodes = [
     ...new Set(
       layout.pieces
@@ -1396,6 +1463,11 @@ button('#rotate-right', () =>
 );
 button('#flip', () => transformSelected((p) => ({ ...p, flipped: !p.flipped })));
 button('#remove-piece', removePiece);
+button('#remove-accessory', () => {
+  if (selectedIds.size !== 1)
+    throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+  commit(setAccessory(state, selectedId, 'hornby-oo-r645', false));
+});
 button('#apply-position', () =>
   transformSelected((p) => ({
     ...p,

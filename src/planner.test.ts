@@ -24,6 +24,7 @@ import {
   removePieces,
   setPieceLocks,
   resetInventory,
+  setAccessory,
 } from './state';
 import {
   createHistory,
@@ -53,6 +54,74 @@ const piece = (id: string, x = 0, y = 0, angle = 0, trackId = straightId): Piece
 const stock = (id = straightId, count = 10) => setInventory(emptyState('first'), id, count);
 
 describe('group transactions and history', () => {
+  it('counts attached crossings separately and keeps them through moves, backups and undo', () => {
+    const accessoryId = 'hornby-oo-r645';
+    const initial = putPiece(stock(), piece('a'));
+    const attached = setAccessory(initial, 'a', accessoryId, true);
+    expect(activeLayout(attached).pieces).toHaveLength(1);
+    const host = activeLayout(attached).pieces[0];
+    if (!host) throw new Error('Expected the accessory host.');
+    expect(ports(host)).toHaveLength(2);
+    expect(shoppingList(attached)).toEqual([{ trackId: accessoryId, quantity: 1 }]);
+    const moved = transformPieces(attached, ['a'], (p) => ({ ...p, x: 200, angle: 90 }));
+    expect(parseState(JSON.stringify(moved))).toEqual(moved);
+    expect(activeLayout(moved).pieces[0]?.accessories).toEqual([accessoryId]);
+    const history = recordHistory(createHistory(initial), moved);
+    expect(undoHistory(history).current).toEqual(initial);
+    expect(redoHistory(undoHistory(history)).current).toEqual(moved);
+    expect(svgExport(moved)).toContain(`data-accessory="${accessoryId}"`);
+    expect(csvExport({ ...moved, inventory: {} }, true)).toContain(
+      '"R645","Single-track level crossing","0","1","1"',
+    );
+    const owned = setInventory(attached, accessoryId, 1);
+    expect(missingPieceIds(owned, accessoryId).size).toBe(0);
+    expect(missingPieceIds(attached, accessoryId).has('a')).toBe(true);
+    expect(shoppingList(setAccessory(owned, 'a', accessoryId, false))).toEqual([]);
+    expect(available(removePieces(owned, ['a']), accessoryId)).toBe(1);
+  });
+
+  it('rejects free-standing, incompatible, duplicated and locked accessory changes', () => {
+    const accessoryId = 'hornby-oo-r645';
+    const initial = putPiece(stock(), piece('a'));
+    expect(() => putPiece(initial, piece('accessory', 0, 300, 0, accessoryId))).toThrow(/attached/);
+    for (const trackId of [curveId, 'hornby-oo-r610', 'hornby-oo-r636']) {
+      const state = putPiece(emptyState('test'), piece('a', 0, 0, 0, trackId));
+      expect(() => setAccessory(state, 'a', accessoryId, true)).toThrow(/compatible/);
+    }
+    const locked = setPieceLocks(initial, ['a'], true);
+    expect(() => setAccessory(locked, 'a', accessoryId, true)).toThrow(/Unlock/);
+    const attached = setAccessory(initial, 'a', accessoryId, true);
+    const invalid = {
+      ...attached,
+      layouts: [
+        {
+          ...activeLayout(attached),
+          pieces: [{ ...piece('a'), accessories: [accessoryId, accessoryId] }],
+        },
+      ],
+    };
+    expect(() => parseState(JSON.stringify(invalid))).toThrow(/accessories/);
+    expect(() => parseState(JSON.stringify({ ...attached, version: 2 }))).toThrow(/format 3/);
+    expect(parseState(JSON.stringify({ ...initial, version: 2 })).version).toBe(3);
+  });
+
+  it('places a double-track crossing as one item with four usable connectors', () => {
+    const crossing = piece('crossing', 0, 0, 0, 'hornby-oo-r636');
+    expect(ports(crossing)).toEqual([
+      { x: 0, y: 0, angle: 180 },
+      { x: 0, y: 67, angle: 180 },
+      { x: 168, y: 0, angle: 0 },
+      { x: 168, y: 67, angle: 0 },
+    ]);
+    const state = putPieces(emptyState('test'), [crossing, piece('a', 168), piece('b', 168, 67)]);
+    expect(shoppingList(state).find((item) => item.trackId === crossing.trackId)?.quantity).toBe(1);
+    const power = piece('power', 170, 2, 0, 'hornby-oo-r8241');
+    const snapped = snapPiece(power, [crossing], 10);
+    expect(snapped?.piece.x).toBe(168);
+    expect(snapped?.piece.y).toBe(0);
+    expect(ports(power)[1]?.x).toBe(338);
+  });
+
   it('keeps the latest 300 local activity entries independently of document undo', () => {
     let entries: readonly Activity[] = [];
     for (let i = 0; i < 302; i++)
@@ -64,7 +133,7 @@ describe('group transactions and history', () => {
   it('migrates legacy backups to a format older clients cannot overwrite while retaining their content', () => {
     const initial = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify({ ...initial, version: 1 }))).toEqual(initial);
-    expect(initial.version).toBe(2);
+    expect(initial.version).toBe(3);
   });
   it('moves a connected group atomically past its original positions and rejects a collision', () => {
     const initial = putPieces(stock(), [piece('a'), piece('b', 168), piece('obstacle', 0, 300)]);
@@ -384,7 +453,7 @@ describe('inventory and durable documents', () => {
   it('validates imported nested references, stock, IDs, numbers and versions', () => {
     const state = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify(state))).toEqual(state);
-    expect(() => parseState(JSON.stringify({ ...state, version: 3 }))).toThrow(/version/);
+    expect(() => parseState(JSON.stringify({ ...state, version: 4 }))).toThrow(/version/);
     const shortfall = parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }));
     expect(shoppingList(shortfall)).toEqual([{ trackId: straightId, quantity: 1 }]);
     expect(parseState(JSON.stringify({ ...state, inventory: {} })).layouts).toEqual(state.layouts);

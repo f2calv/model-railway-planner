@@ -47,6 +47,35 @@ export const catalog: readonly TrackDefinition[] = [
     'straights',
   ),
   track('R8206', 'Power track', [{ kind: 'straight', length: 168 }], 'power-track', 'straights'),
+  track(
+    'R8241',
+    'Digital power track',
+    [{ kind: 'straight', length: 168 }],
+    'digital-power-track',
+    'straights',
+  ),
+  track(
+    'R636',
+    'Double-track level crossing',
+    [
+      { kind: 'straight', length: 168 },
+      { kind: 'straight', length: 168, start: { x: 0, y: 67, angle: 0 } },
+    ],
+    'level-crossing-double-track',
+    'misc',
+    'Two 168 mm tracks at standard 67 mm centres. Road, gates and barriers are not included in clearance checks.',
+  ),
+  {
+    ...track(
+      'R645',
+      'Single-track level crossing',
+      [],
+      'level-crossing-single-track',
+      'misc',
+      'Accessory only; track not included. Centred schematic marker, not a road or gate clearance footprint.',
+    ),
+    attachment: { minLengthMm: 168 },
+  },
   ...[
     { code: 'R604', radius: 371, angle: 22.5, name: '1st radius', slug: 'curve-1st-radius' },
     {
@@ -304,12 +333,26 @@ function profileTrack(
 }
 
 export function trackSize(entry: TrackDefinition): string {
+  if (entry.attachment) return 'Accessory only; track not included';
   const segmentSize = (route: Route): string => {
     if (route.kind === 'straight') return `${Math.round(route.length * 10) / 10} mm`;
     if (route.kind === 'arc') return `R${route.radius} mm / ${Math.abs(route.angle)} degrees`;
     return route.segments.map(segmentSize).join(' + ');
   };
   return entry.routes.map(segmentSize).join(' | ');
+}
+
+export function accessoryFits(hostId: string, accessoryId: string): boolean {
+  const host = definition(hostId);
+  const accessory = definition(accessoryId);
+  const route = host.routes[0];
+  return (
+    !!accessory.attachment &&
+    host.profileId === accessory.profileId &&
+    host.routes.length === 1 &&
+    route?.kind === 'straight' &&
+    route.length >= accessory.attachment.minLengthMm
+  );
 }
 
 export function definition(id: string): TrackDefinition {

@@ -1,4 +1,76 @@
 {
+  "Attach {code} {name}": [
+    "{code} {name} anbringen",
+    "Fixer {code} {name}",
+    "Acoplar {code} {name}",
+    "Collega {code} {name}"
+  ],
+  "Digital power track": [
+    "Digitales Anschlussgleis",
+    "Rail d'alimentation numérique",
+    "Vía de alimentación digital",
+    "Binario di alimentazione digitale"
+  ],
+  "Single-track level crossing": [
+    "Eingleisiger Bahnübergang",
+    "Passage à niveau à voie unique",
+    "Paso a nivel de vía única",
+    "Passaggio a livello a binario singolo"
+  ],
+  "Double-track level crossing": [
+    "Zweigleisiger Bahnübergang",
+    "Passage à niveau à double voie",
+    "Paso a nivel de doble vía",
+    "Passaggio a livello a doppio binario"
+  ],
+  "Accessory only; track not included": [
+    "Nur Zubehör; Gleis nicht enthalten",
+    "Accessoire seul ; rail non inclus",
+    "Solo accesorio; vía no incluida",
+    "Solo accessorio; binario non incluso"
+  ],
+  "Remove R645 accessory": [
+    "R645-Zubehör entfernen",
+    "Retirer l'accessoire R645",
+    "Retirar accesorio R645",
+    "Rimuovi accessorio R645"
+  ],
+  "Select one compatible Hornby straight at least 168 mm long.": [
+    "Ein passendes gerades Hornby-Gleis mit mindestens 168 mm Länge auswählen.",
+    "Sélectionnez un rail droit Hornby compatible d'au moins 168 mm.",
+    "Seleccione una recta Hornby compatible de al menos 168 mm.",
+    "Seleziona un rettilineo Hornby compatibile lungo almeno 168 mm."
+  ],
+  "Schematic accessory; verify road and gate clearance physically.": [
+    "Schematisches Zubehör; Straßen- und Torabstände am Modell prüfen.",
+    "Accessoire schématique ; vérifiez les dégagements de la route et des barrières sur la maquette.",
+    "Accesorio esquemático; compruebe físicamente el espacio de carretera y barreras.",
+    "Accessorio schematico; verifica fisicamente lo spazio per strada e barriere."
+  ],
+  "Changed track accessories": [
+    "Gleiszubehör geändert",
+    "Accessoires de voie modifiés",
+    "Accesorios de vía modificados",
+    "Accessori del binario modificati"
+  ],
+  "Accessories must be attached to a compatible straight.": [
+    "Zubehör muss an einem passenden geraden Gleis angebracht werden.",
+    "Les accessoires doivent être fixés à un rail droit compatible.",
+    "Los accesorios deben acoplarse a una recta compatible.",
+    "Gli accessori devono essere collegati a un rettilineo compatibile."
+  ],
+  "Invalid accessories in backup.": [
+    "Ungültiges Zubehör in der Sicherung.",
+    "Accessoires invalides dans la sauvegarde.",
+    "Accesorios no validos en la copia de seguridad.",
+    "Accessori non validi nel backup."
+  ],
+  "Accessories require backup format 3.": [
+    "Zubehoer erfordert Sicherungsformat 3.",
+    "Les accessoires necessitent le format de sauvegarde 3.",
+    "Los accesorios requieren el formato de copia 3.",
+    "Gli accessori richiedono il formato di backup 3."
+  ],
   "Locked {description}": [
     "Gesperrt {description}",
     "Verrouillé {description}",

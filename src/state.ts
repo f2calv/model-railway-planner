@@ -1,10 +1,10 @@
-import { catalog, definition } from './catalog';
+import { accessoryFits, catalog, definition } from './catalog';
 import { joinedBoards, placementProblem } from './geometry';
 import type { Layout, Piece, PlannerState } from './model';
 
 export function emptyState(id: string): PlannerState {
   return {
-    version: 2,
+    version: 3,
     inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])),
     layouts: [{ id, name: 'My first layout', pieces: [], boards: [] }],
     activeLayoutId: id,
@@ -18,7 +18,9 @@ export function activeLayout(state: PlannerState): Layout {
 }
 
 export function used(layout: Layout, trackId: string): number {
-  return layout.pieces.filter((piece) => piece.trackId === trackId).length;
+  return layout.pieces.filter(
+    (piece) => piece.trackId === trackId || piece.accessories?.includes(trackId),
+  ).length;
 }
 
 export function available(state: PlannerState, trackId: string): number {
@@ -33,15 +35,45 @@ export function shoppingList(state: PlannerState): { trackId: string; quantity: 
   });
 }
 
-export function missingPieceIds(state: PlannerState): Set<string> {
+export function missingPieceIds(state: PlannerState, accessoryId?: string): Set<string> {
   const usedCounts = new Map<string, number>();
   return new Set(
     activeLayout(state).pieces.flatMap((piece) => {
-      const count = (usedCounts.get(piece.trackId) ?? 0) + 1;
-      usedCounts.set(piece.trackId, count);
-      return count > (state.inventory[piece.trackId] ?? 0) ? [piece.id] : [];
+      if (accessoryId && !piece.accessories?.includes(accessoryId)) return [];
+      const id = accessoryId ?? piece.trackId;
+      const count = (usedCounts.get(id) ?? 0) + 1;
+      usedCounts.set(id, count);
+      return count > (state.inventory[id] ?? 0) ? [piece.id] : [];
     }),
   );
+}
+
+function validateAccessories(piece: Piece): void {
+  if (definition(piece.trackId).attachment)
+    throw new Error('Accessories must be attached to a compatible straight.');
+  const accessories = piece.accessories ?? [];
+  if (
+    new Set(accessories).size !== accessories.length ||
+    accessories.length > 1 ||
+    accessories.some((id) => !accessoryFits(piece.trackId, id))
+  )
+    throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+}
+
+export function setAccessory(
+  state: PlannerState,
+  pieceId: string,
+  accessoryId: string,
+  attached: boolean,
+): PlannerState {
+  const piece = selection(state, [pieceId])[0];
+  if (!piece) throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+  if (piece.locked) throw new Error('Unlock the selected pieces before moving or deleting them.');
+  if (!accessoryFits(piece.trackId, accessoryId))
+    throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+  const accessories = (piece.accessories ?? []).filter((id) => id !== accessoryId);
+  if (attached) accessories.push(accessoryId);
+  return putPiece(state, { ...piece, accessories });
 }
 
 export function putPiece(state: PlannerState, piece: Piece): PlannerState {
@@ -54,7 +86,7 @@ export function putPieces(state: PlannerState, pieces: readonly Piece[]): Planne
   const layout = activeLayout(state);
   const replacements = new Map(pieces.map((piece) => [piece.id, piece]));
   for (const piece of pieces) {
-    definition(piece.trackId);
+    validateAccessories(piece);
     if (![piece.x, piece.y, piece.angle].every(Number.isFinite))
       throw new Error('Position must be finite.');
     const existing = layout.pieces.find((entry) => entry.id === piece.id);
@@ -66,7 +98,8 @@ export function putPieces(state: PlannerState, pieces: readonly Piece[]): Planne
         existing.y !== piece.y ||
         existing.angle !== piece.angle ||
         existing.flipped !== piece.flipped ||
-        existing.locked !== piece.locked)
+        existing.locked !== piece.locked ||
+        JSON.stringify(existing.accessories ?? []) !== JSON.stringify(piece.accessories ?? []))
     )
       throw new Error('Unlock the selected pieces before moving or deleting them.');
   }
@@ -179,10 +212,17 @@ function number(value: unknown): number {
   return value;
 }
 
+function parseAccessories(value: unknown, version: unknown): Pick<Piece, 'accessories'> {
+  if (value === undefined) return {};
+  if (version !== 3) throw new Error('Accessories require backup format 3.');
+  if (!Array.isArray(value) || value.length > 1) throw new Error('Invalid accessories in backup.');
+  return { accessories: value.map(text) };
+}
+
 export function parseState(json: string): PlannerState {
   if (json.length > 4_000_000) throw new Error('Backup exceeds the 4 MB import limit.');
   const data = record(JSON.parse(json));
-  if (data['version'] !== 1 && data['version'] !== 2)
+  if (data['version'] !== 1 && data['version'] !== 2 && data['version'] !== 3)
     throw new Error('Unsupported backup version. Your original data has not been changed.');
   const rawInventory = record(data['inventory']);
   const inventory: Record<string, number> = {};
@@ -214,7 +254,7 @@ export function parseState(json: string): PlannerState {
       if (typeof p['flipped'] !== 'boolean') throw new Error('Invalid track orientation.');
       if (p['locked'] !== undefined && typeof p['locked'] !== 'boolean')
         throw new Error('Invalid piece lock in backup.');
-      return {
+      const piece: Piece = {
         id: text(p['id']),
         trackId,
         x: number(p['x']),
@@ -222,7 +262,10 @@ export function parseState(json: string): PlannerState {
         angle: number(p['angle']),
         flipped: p['flipped'],
         ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
+        ...parseAccessories(p['accessories'], data['version']),
       };
+      validateAccessories(piece);
+      return piece;
     });
     if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
       throw new Error('Duplicate piece identifiers.');
@@ -241,7 +284,7 @@ export function parseState(json: string): PlannerState {
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
-    version: 2,
+    version: 3,
     inventory,
     layouts,
     activeLayoutId: text(data['activeLayoutId']),

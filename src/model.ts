@@ -29,6 +29,7 @@ export interface TrackDefinition {
   source: string;
   category: TrackCategory;
   geometryNote?: string;
+  attachment?: { minLengthMm: number };
 }
 
 export interface Piece extends Pose {
@@ -36,6 +37,7 @@ export interface Piece extends Pose {
   trackId: string;
   flipped: boolean;
   locked?: boolean;
+  accessories?: string[];
 }
 
 export interface Board extends Vec {
@@ -51,7 +53,7 @@ export interface Layout {
 }
 
 export interface PlannerState {
-  version: 2;
+  version: 3;
   inventory: Record<string, number>;
   layouts: Layout[];
   activeLayoutId: string;
