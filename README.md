@@ -38,6 +38,9 @@ flowchart LR
 See the [C4 architecture: containers, components and code map](docs/architecture.md#containers)
 for the implementation drilldown and placement/persistence sequence.
 
+See the [client-side planner decision record](docs/adr-0001-client-side-planner.md) for the purpose,
+design rationale, tradeoffs and significant evolution behind the application.
+
 ## Features
 
 - Drag-and-drop track placement with connector snapping and track descriptions.

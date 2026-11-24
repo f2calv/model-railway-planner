@@ -5,6 +5,9 @@ These C4 views describe the current browser-only implementation. The
 containers, components and persistence. No backend, authentication service or cloud user database
 exists.
 
+The [client-side planner decision record](adr-0001-client-side-planner.md) explains the purpose,
+boundaries and tradeoffs behind these views.
+
 ## Containers
 
 The application executes on the user's device. GitHub Pages serves static assets; browser storage
