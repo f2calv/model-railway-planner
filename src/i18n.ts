@@ -62,6 +62,7 @@ export function translateUi(root: Element, language: Language): void {
     const previous =
       attributes.get(node) ?? new Map<string, { source: string; rendered: string }>();
     for (const key of ['aria-label', 'title', 'placeholder']) {
+      if (node.hasAttribute('data-user-label')) continue;
       const current = node.getAttribute(key);
       if (current === null) continue;
       const record = previous.get(key);

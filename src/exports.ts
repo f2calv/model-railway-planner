@@ -1,8 +1,15 @@
 import { catalog, definition } from './catalog';
 import { pathData, ports, samples } from './geometry';
 import { boardBounds, boardPath } from './baseboards';
-import type { Layout, Piece, PlannerState } from './model';
-import { activeLayout, missingPieceIds, parseState, shoppingList, used } from './state';
+import type { Layout, Piece, PlannerState, Room } from './model';
+import {
+  activeLayout,
+  assignedRoom,
+  missingPieceIds,
+  parseState,
+  shoppingList,
+  used,
+} from './state';
 
 export function accessoryMarks(piece: Piece): { id: string; d: string }[] {
   const route = definition(piece.trackId).routes[0];
@@ -31,7 +38,7 @@ export function drawingLayers(missing = false, locked = false) {
   ];
 }
 
-export function layoutBounds(layout: Layout) {
+export function layoutBounds(layout: Layout, room?: Room) {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -44,7 +51,7 @@ export function layoutBounds(layout: Layout) {
   };
   for (const piece of layout.pieces)
     for (const route of samples(piece)) for (const point of route) include(point.x, point.y, 20);
-  for (const board of layout.boards) {
+  for (const board of [...layout.boards, ...(room?.shapes.map((entry) => entry.shape) ?? [])]) {
     const bounds = boardBounds(board);
     include(bounds.x, bounds.y, 0);
     include(bounds.x + bounds.width, bounds.y + bounds.height, 0);
@@ -99,12 +106,22 @@ function piecePaths(piece: Piece, missing: boolean): string[] {
 export function svgExport(state: PlannerState, pixels?: { width: number; height: number }): string {
   const validated = parseState(JSON.stringify(state));
   const layout = activeLayout(validated);
-  const bounds = layoutBounds(layout);
+  const room = assignedRoom(validated);
+  const bounds = layoutBounds(layout, room);
   if (!bounds) throw new Error('Add track or a baseboard before exporting.');
   validatePixelSize(pixels);
   const missing = missingPieceIds(validated);
   const missingAccessories = missingPieceIds(validated, 'hornby-oo-r645');
   const content: string[] = [];
+  for (const entry of [...(room?.shapes ?? [])].sort(
+    (a, b) => Number(a.role === 'furniture') - Number(b.role === 'furniture'),
+  )) {
+    const shape = entry.shape;
+    const local = boardBounds({ ...shape, x: 0, y: 0, angle: 0 });
+    content.push(
+      `<g data-room-shape="${xml(shape.id)}" transform="translate(${shape.x},${shape.y}) rotate(${shape.angle})"><title>${xml(entry.name)}</title><path d="${boardPath(shape)}" fill="${entry.role === 'outline' ? '#e9eef3' : '#a9bbcf'}" fill-rule="evenodd" stroke="#526a82" stroke-width="3"/><text x="${local.x + 12}" y="${local.y + 24}" font-size="20" fill="#243c55">${xml(entry.name)}</text></g>`,
+    );
+  }
   for (const board of layout.boards)
     content.push(
       `<path data-board="${xml(board.id)}" transform="translate(${board.x},${board.y}) rotate(${board.angle})" d="${boardPath(board)}" fill="#e9dfc8" fill-rule="evenodd" stroke="#a79570" stroke-width="2"/>`,
@@ -166,8 +183,9 @@ export function csvExport(state: PlannerState, shoppingOnly = false): string {
 }
 
 export async function pngExport(state: PlannerState): Promise<Blob> {
-  const layout = activeLayout(parseState(JSON.stringify(state)));
-  const bounds = layoutBounds(layout);
+  const validated = parseState(JSON.stringify(state));
+  const layout = activeLayout(validated);
+  const bounds = layoutBounds(layout, assignedRoom(validated));
   if (!bounds) throw new Error('Add track or a baseboard before exporting.');
   const scale = Math.min(2, 4096 / Math.max(bounds.width, bounds.height));
   const width = Math.max(1, Math.round(bounds.width * scale));

@@ -51,10 +51,24 @@ export interface Layout {
   name: string;
   pieces: Piece[];
   boards: Board[];
+  roomId?: string;
+}
+
+export interface RoomShape {
+  name: string;
+  role: 'outline' | 'furniture';
+  shape: Board;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  shapes: RoomShape[];
 }
 
 export interface PlannerState {
-  version: 4;
+  version: 5;
+  rooms: Room[];
   inventory: Record<string, number>;
   layouts: Layout[];
   activeLayoutId: string;

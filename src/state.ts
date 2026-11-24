@@ -1,11 +1,12 @@
 import { accessoryFits, catalog, definition } from './catalog';
 import { placementProblem } from './geometry';
 import { joinedBoards, rectangleBoard, validateBoard } from './baseboards';
-import type { Board, Layout, Piece, PlannerState } from './model';
+import type { Board, Layout, Piece, PlannerState, Room } from './model';
 
 export function emptyState(id: string): PlannerState {
   return {
-    version: 4,
+    version: 5,
+    rooms: [],
     inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])),
     layouts: [{ id, name: 'My first layout', pieces: [], boards: [] }],
     activeLayoutId: id,
@@ -16,6 +17,59 @@ export function activeLayout(state: PlannerState): Layout {
   const layout = state.layouts.find((entry) => entry.id === state.activeLayoutId);
   if (!layout) throw new Error('Active layout does not exist.');
   return layout;
+}
+
+export function assignedRoom(state: PlannerState): Room | undefined {
+  const id = activeLayout(state).roomId;
+  if (!id) return undefined;
+  const room = state.rooms.find((room) => room.id === id);
+  if (!room) throw new Error('Selected room does not exist.');
+  return room;
+}
+
+export function putRoom(state: PlannerState, room: Room): PlannerState {
+  text(room.id);
+  text(room.name);
+  if (room.shapes.length > 50 || room.shapes.filter((entry) => entry.role === 'outline').length > 1)
+    throw new Error('A room supports one outline and at most 50 shapes.');
+  if (new Set(room.shapes.map((entry) => entry.shape.id)).size !== room.shapes.length)
+    throw new Error('Duplicate room shape identifiers.');
+  for (const entry of room.shapes) {
+    text(entry.name);
+    if (entry.role !== 'outline' && entry.role !== 'furniture')
+      throw new Error('Invalid room shape role.');
+    validateBoard(entry.shape);
+  }
+  const exists = state.rooms.some((entry) => entry.id === room.id);
+  if (!exists && state.rooms.length >= 50) throw new Error('Keep at most 50 named rooms.');
+  return {
+    ...state,
+    rooms: exists
+      ? state.rooms.map((entry) => (entry.id === room.id ? room : entry))
+      : [...state.rooms, room],
+  };
+}
+
+export function assignRoom(state: PlannerState, id: string): PlannerState {
+  if (id && !state.rooms.some((room) => room.id === id))
+    throw new Error('Selected room does not exist.');
+  const layout = { ...activeLayout(state) };
+  delete layout.roomId;
+  return updateLayout(state, id ? { ...layout, roomId: id } : layout);
+}
+
+export function removeRoom(state: PlannerState, id: string): PlannerState {
+  if (!state.rooms.some((room) => room.id === id)) throw new Error('Selected room does not exist.');
+  return {
+    ...state,
+    rooms: state.rooms.filter((room) => room.id !== id),
+    layouts: state.layouts.map((layout) => {
+      if (layout.roomId !== id) return layout;
+      const remaining = { ...layout };
+      delete remaining.roomId;
+      return remaining;
+    }),
+  };
 }
 
 export function used(layout: Layout, trackId: string): number {
@@ -238,7 +292,7 @@ function number(value: unknown): number {
 
 function parseAccessories(value: unknown, version: unknown): Pick<Piece, 'accessories'> {
   if (value === undefined) return {};
-  if (version !== 3 && version !== 4)
+  if (version !== 3 && version !== 4 && version !== 5)
     throw new Error('Accessories require backup format 3 or newer.');
   if (!Array.isArray(value) || value.length > 1) throw new Error('Invalid accessories in backup.');
   return { accessories: value.map(text) };
@@ -251,7 +305,8 @@ export function parseState(json: string): PlannerState {
     data['version'] !== 1 &&
     data['version'] !== 2 &&
     data['version'] !== 3 &&
-    data['version'] !== 4
+    data['version'] !== 4 &&
+    data['version'] !== 5
   )
     throw new Error('Unsupported backup version. Your original data has not been changed.');
   const rawInventory = record(data['inventory']);
@@ -302,17 +357,54 @@ export function parseState(json: string): PlannerState {
     const boards = rawBoards.map((value, index) => parseBoard(value, data['version'], index));
     if (new Set(boards.map((b) => b.id)).size !== boards.length)
       throw new Error('Duplicate baseboard identifiers.');
-    const layout = { id: text(raw['id']), name: text(raw['name']), pieces, boards };
+    const roomId = raw['roomId'];
+    if (roomId !== undefined && data['version'] !== 5)
+      throw new Error('Rooms require backup format 5.');
+    const layout: Layout = {
+      id: text(raw['id']),
+      name: text(raw['name']),
+      pieces,
+      boards,
+      ...(roomId === undefined ? {} : { roomId: text(roomId) }),
+    };
     return layout;
   });
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
-    version: 4,
+    version: 5,
+    rooms: [],
     inventory,
     layouts,
     activeLayoutId: text(data['activeLayoutId']),
   };
+  if (data['version'] === 5) {
+    const rooms = data['rooms'];
+    if (!Array.isArray(rooms) || rooms.length > 50) throw new Error('Invalid rooms in backup.');
+    for (const value of rooms) {
+      const raw = record(value);
+      const shapes = raw['shapes'];
+      if (!Array.isArray(shapes) || shapes.length > 50)
+        throw new Error('Invalid room shapes in backup.');
+      const room: Room = {
+        id: text(raw['id']),
+        name: text(raw['name']),
+        shapes: shapes.map((value) => {
+          const entry = record(value);
+          const role = entry['role'];
+          if (role !== 'outline' && role !== 'furniture')
+            throw new Error('Invalid room shape role.');
+          return { name: text(entry['name']), role, shape: parseBoard(entry['shape'], 5, 0) };
+        }),
+      };
+      if (state.rooms.some((entry) => entry.id === room.id))
+        throw new Error('Duplicate room identifiers.');
+      state.rooms = putRoom(state, room).rooms;
+    }
+    for (const layout of layouts)
+      if (layout.roomId && !state.rooms.some((room) => room.id === layout.roomId))
+        throw new Error('Selected room does not exist.');
+  } else if (data['rooms'] !== undefined) throw new Error('Rooms require backup format 5.');
   activeLayout(state);
   return state;
 }
@@ -333,7 +425,7 @@ export function layoutProblems(layout: Layout): string[] {
 
 function parseBoard(value: unknown, version: unknown, index: number): Board {
   const raw = record(value);
-  if (version !== 4) {
+  if (version !== 4 && version !== 5) {
     const width = number(raw['width']),
       height = number(raw['height']);
     if (width <= 0 || height <= 0) throw new Error('Baseboard dimensions must be positive.');

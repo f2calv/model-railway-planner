@@ -20,6 +20,10 @@ import {
   putBoard,
   removeBoard,
   layoutProblems,
+  assignedRoom,
+  assignRoom,
+  putRoom,
+  removeRoom,
 } from './state';
 import {
   createHistory,
@@ -30,7 +34,8 @@ import {
   type Activity,
 } from './history';
 import { loadState, saveState, storageKey } from './storage';
-import type { Board, Piece, PlannerState } from './model';
+import type { Board, Piece, PlannerState, Room } from './model';
+import { roomProblems } from './rooms';
 import {
   boardBounds,
   boardPath,
@@ -57,6 +62,147 @@ const piece = (id: string, x = 0, y = 0, angle = 0, trackId = straightId): Piece
   flipped: false,
 });
 const stock = (id = straightId, count = 10) => setInventory(emptyState('first'), id, count);
+
+describe('named rooms', () => {
+  const room: Room = {
+    id: 'room',
+    name: 'Example room',
+    shapes: [
+      { name: 'Room outline', role: 'outline', shape: rectangleBoard('floor', 0, 0, 4000, 3000) },
+      { name: 'Table', role: 'furniture', shape: rectangleBoard('table', 100, 100, 2000, 1000) },
+    ],
+  };
+  it('shares a named room between ideas without moving track or boards and deletes references atomically', () => {
+    const first = assignRoom(
+      putRoom(
+        putBoard(
+          putPiece(stock(), piece('track', 200, 200)),
+          rectangleBoard('board', 100, 100, 1000, 500),
+        ),
+        room,
+      ),
+      room.id,
+    );
+    const shared = {
+      ...first,
+      layouts: [...first.layouts, { ...activeLayout(first), id: 'other', name: 'Other idea' }],
+    };
+    const changed = putRoom(shared, {
+      ...room,
+      shapes: room.shapes.map((entry) => ({
+        ...entry,
+        shape: { ...entry.shape, x: entry.shape.x + 10 },
+      })),
+    });
+    expect(changed.layouts).toEqual(shared.layouts);
+    expect(assignedRoom({ ...changed, activeLayoutId: 'other' })?.shapes[1]?.shape.x).toBe(110);
+    expect(shared.rooms[0]?.shapes[1]?.shape.x).toBe(100);
+    const removed = removeRoom(changed, room.id);
+    expect(removed.layouts.every((layout) => layout.roomId === undefined)).toBe(true);
+    expect(removed.layouts[0]?.pieces).toEqual(first.layouts[0]?.pieces);
+    expect(removed.layouts[1]?.boards).toEqual(first.layouts[0]?.boards);
+    expect(undoHistory(recordHistory(createHistory(changed), removed)).current).toEqual(changed);
+    expect(parseState(JSON.stringify(changed))).toEqual(changed);
+  });
+  it('migrates format 4 geometry and rejects dangling rooms, duplicate outlines and malformed furniture', () => {
+    const initial = putBoard(emptyState('legacy'), rectangleBoard('board', 0, 0, 1000, 500));
+    expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 4 }))).toEqual(
+      initial,
+    );
+    expect(() =>
+      parseState(
+        JSON.stringify({ ...initial, layouts: [{ ...activeLayout(initial), roomId: 'missing' }] }),
+      ),
+    ).toThrow(/room/);
+    expect(() =>
+      putRoom(initial, {
+        ...room,
+        shapes: [
+          ...room.shapes,
+          {
+            name: 'Second outline',
+            role: 'outline',
+            shape: rectangleBoard('second', 0, 0, 100, 100),
+          },
+        ],
+      }),
+    ).toThrow(/one outline/);
+    const valid = putRoom(initial, room);
+    expect(() => parseState(JSON.stringify({ ...valid, rooms: [...valid.rooms, room] }))).toThrow(
+      /Duplicate room/,
+    );
+    expect(() =>
+      parseState(
+        JSON.stringify({
+          ...initial,
+          rooms: [
+            {
+              ...room,
+              shapes: [
+                {
+                  name: 'Bad furniture',
+                  role: 'furniture',
+                  shape: { id: 'bad', kind: 'circle', x: 0, y: 0, angle: 0, radius: -1 },
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/radius/);
+  });
+  it('warns about room boundaries without preventing reference furniture or board placement', () => {
+    const initial = putBoard(
+      putPiece(stock(), piece('track', 5000, 5000)),
+      rectangleBoard('outside', 5000, 5000, 500, 250),
+    );
+    const state = assignRoom(
+      putRoom(initial, {
+        ...room,
+        shapes: [
+          ...room.shapes,
+          {
+            name: 'Round table',
+            role: 'furniture',
+            shape: { id: 'round', kind: 'circle', x: 5000, y: 5000, angle: 0, radius: 200 },
+          },
+        ],
+      }),
+      room.id,
+    );
+    expect(roomProblems(state)).toEqual([
+      'Baseboard extends outside the selected room.',
+      'Track extends outside the selected room.',
+      'Furniture extends outside the room outline.',
+    ]);
+    expect(roomProblems(assignRoom(state, ''))).toEqual([]);
+    expect(activeLayout(state).pieces).toEqual(activeLayout(initial).pieces);
+  });
+  it('exports the selected room beneath boards and escapes furniture names', () => {
+    const initial = putBoard(
+      putPiece(stock(), piece('track', 200, 200)),
+      rectangleBoard('board', 100, 100, 1000, 500),
+    );
+    const table = room.shapes.find((entry) => entry.role === 'furniture');
+    const outline = room.shapes.find((entry) => entry.role === 'outline');
+    if (!table || !outline) throw new Error('Expected room and furniture.');
+    const selected = assignRoom(
+      putRoom(initial, { ...room, shapes: [{ ...table, name: 'Table <example>' }, outline] }),
+      room.id,
+    );
+    const drawing = svgExport(selected);
+    expect(drawing).toContain('width="4040mm" height="3040mm"');
+    expect(drawing.indexOf('data-room-shape="floor"')).toBeLessThan(
+      drawing.indexOf('data-room-shape="table"'),
+    );
+    expect(drawing.indexOf('data-room-shape="table"')).toBeLessThan(
+      drawing.indexOf('data-board="board"'),
+    );
+    expect(drawing).toContain('Table &lt;example&gt;');
+    expect(drawing).not.toContain('Table <example>');
+    expect(svgExport(assignRoom(selected, ''))).not.toContain('data-room-shape');
+  });
+});
 
 describe('geometric baseboards', () => {
   it('contains rotated polygons and circular sectors without filling an arc strip hole', () => {
@@ -163,6 +309,7 @@ describe('geometric baseboards', () => {
       const migrated = parseState(
         JSON.stringify({
           ...state,
+          rooms: undefined,
           version,
           layouts: [{ ...activeLayout(state), boards: [{ x: 0, y: 0, width: 1000, height: 500 }] }],
         }),
@@ -254,7 +401,9 @@ describe('group transactions and history', () => {
     };
     expect(() => parseState(JSON.stringify(invalid))).toThrow(/accessories/);
     expect(() => parseState(JSON.stringify({ ...attached, version: 2 }))).toThrow(/format 3/);
-    expect(parseState(JSON.stringify({ ...initial, version: 2 })).version).toBe(4);
+    expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 2 })).version).toBe(
+      5,
+    );
   });
 
   it('places a double-track crossing as one item with four usable connectors', () => {
@@ -284,8 +433,10 @@ describe('group transactions and history', () => {
   });
   it('migrates legacy backups to a format older clients cannot overwrite while retaining their content', () => {
     const initial = putPiece(stock(), piece('a'));
-    expect(parseState(JSON.stringify({ ...initial, version: 1 }))).toEqual(initial);
-    expect(initial.version).toBe(4);
+    expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 1 }))).toEqual(
+      initial,
+    );
+    expect(initial.version).toBe(5);
   });
   it('moves a connected group atomically past its original positions and rejects a collision', () => {
     const initial = putPieces(stock(), [piece('a'), piece('b', 168), piece('obstacle', 0, 300)]);
@@ -602,7 +753,7 @@ describe('inventory and durable documents', () => {
   it('validates imported nested references, stock, IDs, numbers and versions', () => {
     const state = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify(state))).toEqual(state);
-    expect(() => parseState(JSON.stringify({ ...state, version: 5 }))).toThrow(/version/);
+    expect(() => parseState(JSON.stringify({ ...state, version: 6 }))).toThrow(/version/);
     const shortfall = parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }));
     expect(shoppingList(shortfall)).toEqual([{ trackId: straightId, quantity: 1 }]);
     expect(parseState(JSON.stringify({ ...state, inventory: {} })).layouts).toEqual(state.layouts);

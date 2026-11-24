@@ -44,6 +44,7 @@ for the implementation drilldown and placement/persistence sequence.
 - Marquee/Ctrl multi-selection, rigid group movement, lock/unlock and undo/redo.
 - Shared inventory, multiple layout ideas and shopping lists for pieces still to buy.
 - Unbounded canvas or draggable polygon, circular and arc-strip baseboards, with module presets.
+- Named rooms and furniture beneath baseboards and track; choose a room independently for each idea.
 - Pan and zoom, touch placement, keyboard controls and exact-coordinate editing.
 - Planning warnings for overlaps, baseboard boundaries and nominal parallel spacing.
 - Local autosave and JSON backup import/export, without accounts or cloud storage.
@@ -95,7 +96,7 @@ after a successful browser-storage write. **Export backup** downloads all invent
 - Ctrl/Command+Z undoes; Ctrl/Command+Shift+Z or Ctrl/Command+Y redoes. Up to 100 whole-document steps
   are retained during this session, including inventory and layout changes. Selection and previews
   are not history. Reload clears undo/redo and the activity pane's latest 300 entries.
-- Baseboard rectangles must overlap or share an edge, not merely touch at a corner.
+- Disconnected baseboard shapes are allowed and generate warnings; point/edge contact or overlap joins them.
 - Inventory reductions are allowed and recalculate the shopping list for each saved idea.
 - Hover over placed track for its code, name and dimensions; the selected-piece inspector provides
   the same information without hover. Unselected track uses a pointer; selected track uses a grab
@@ -135,6 +136,19 @@ SVG, PNG and print/PDF exports retain their shapes. Disconnected boards and trac
 edits are allowed but produce planning warnings. See the [baseboard guide](docs/baseboards.md) for
 the six supplier-size presets, editing rules and physical limitations.
 
+## Rooms and Furniture
+
+Use **New room** to save a named room, then choose it under **Room** for each layout.
+The drawing layers are room/furniture, baseboards, then track. Set **Room shape role** to
+**Room outline**, enter dimensions and use **Add room rectangle**. For a table, choose
+**Furniture**, enter its name and dimensions, and add another rectangle.
+
+The full geometric palette and corner editing also work for rooms and furniture. Enable
+**Edit room shapes** to edit only that bottom layer. Room edits affect every layout assigned
+to the same named room, but never move its boards or track. Outside-room placement produces
+advisory warnings; furniture is a reference, not a support or collision constraint.
+See the [room planning guide](docs/rooms.md) for sharing, saving and limitations.
+
 ## Track Catalogs
 
 The catalog contains 44 entries: 28 Hornby (including the R645 accessory), seven Peco Setrack
@@ -160,9 +174,9 @@ the original readable bytes for recovery. Failed writes reject the edit and disp
 Changes in another tab lock editing until reload. Imports validate schema, catalog references,
 finite coordinates, inventory quantities and unique IDs; placement problems are displayed for review.
 
-The current backup format is version 4 and imports version 1, 2 and 3 documents. Legacy rectangles
+The current backup format is version 5 and imports version 1, 2, 3 and 4 documents. Legacy rectangles
 become polygons with stable IDs. The existing storage key
-is retained to find older plans. Locks and attached accessories are included in backups; display/audio/delete preferences
+is retained to find older plans. Named rooms, furniture, room assignments, locks and attached accessories are included in backups; display/audio/delete preferences
 and session history are not. Close or update older app tabs before editing a migrated document.
 
 Unexpected errors open a visible dialog with a link to draft a GitHub issue. Only the public app

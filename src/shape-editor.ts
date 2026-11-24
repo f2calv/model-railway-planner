@@ -22,6 +22,15 @@ interface EditorPort {
   modeChanged(): void;
   fit(): void;
 }
+export interface ShapeLayer {
+  shapes(state: PlannerState): Board[];
+  put(state: PlannerState, board: Board): PlannerState;
+  remove(state: PlannerState, id: string): PlannerState;
+  clear(state: PlannerState): PlannerState;
+  label(board: Board): string;
+  role(board: Board): 'outline' | 'furniture';
+  selected(board: Board | undefined): void;
+}
 type Shape = 'rectangle' | 'triangle' | 'circle' | 'semicircle' | 'arc';
 type Gesture = {
   pointerId: number;
@@ -34,7 +43,7 @@ type Gesture = {
   source: Element;
 };
 
-export class BaseboardEditor {
+export class ShapeEditor {
   private selectedId = '';
   private tool: Board | null = null;
   private gesture: Gesture | null = null;
@@ -44,17 +53,25 @@ export class BaseboardEditor {
   private readonly svg: SVGSVGElement;
   private readonly boards: SVGGElement;
   private readonly port: EditorPort;
+  private readonly layer: ShapeLayer | undefined;
 
-  constructor(root: HTMLElement, svg: SVGSVGElement, boards: SVGGElement, port: EditorPort) {
+  constructor(
+    root: HTMLElement,
+    svg: SVGSVGElement,
+    boards: SVGGElement,
+    port: EditorPort,
+    layer?: ShapeLayer,
+  ) {
     this.root = root;
     this.svg = svg;
     this.boards = boards;
     this.port = port;
+    this.layer = layer;
     root.innerHTML = `
       <p>Choose shapes or module presets. Boards move independently of track; planning checks show gaps and track outside the board.</p>
       <label class="check-label"><input id="edit-boards" type="checkbox" /> Edit baseboards</label>
       <div class="board-palette" id="board-shapes"></div>
-      <details><summary>Module presets</summary><div class="board-palette" id="board-presets"></div><p>Tabletop dimensions from <a href="https://www.modellbahnmodule.de/" target="_blank" rel="noopener noreferrer">Modellbahnmodule</a>. Fixings and frame clearance are not modelled.</p></details>
+      <details id="board-module-presets"><summary>Module presets</summary><div class="board-palette" id="board-presets"></div><p>Tabletop dimensions from <a href="https://www.modellbahnmodule.de/" target="_blank" rel="noopener noreferrer">Modellbahnmodule</a>. Fixings and frame clearance are not modelled.</p></details>
       <button id="board-select-tool">Select / pan boards</button>
       <p id="board-tool-status"></p>
       <label>Baseboard shape<select id="board-select" aria-label="Select baseboard shape"><option value="">New shape</option></select></label>
@@ -78,8 +95,42 @@ export class BaseboardEditor {
       <button id="board-apply">Apply board changes</button><button id="board-remove">Remove board shape</button>
       <details id="board-corner-details"><summary>Polygon corners</summary><div id="board-corners"></div><button id="board-apply-corners">Apply corners</button><p>Drag a corner handle, or enter local corner coordinates. Keep the polygon convex and its edges uncrossed.</p></details>
       <button id="unbounded">Use unbounded area</button>`;
+    if (layer) {
+      for (const node of root.querySelectorAll<HTMLElement>('[id]')) node.id = `room-${node.id}`;
+      this.control<HTMLElement>('#board-module-presets').remove();
+      const intro = root.querySelector('p');
+      if (intro)
+        intro.textContent =
+          'Edit the room outline and named furniture. Changes affect every layout assigned to this room.';
+      const check = this.control<HTMLInputElement>('#edit-boards');
+      const label = check.parentElement;
+      if (!label) throw new Error('Missing room editing label.');
+      label.lastChild?.remove();
+      label.append(' Edit room shapes');
+      this.control<HTMLButtonElement>('#board-select-tool').textContent = 'Select / pan room';
+      this.control<HTMLSelectElement>('#board-select').setAttribute(
+        'aria-label',
+        'Select room shape',
+      );
+      const shapeLabel = this.control<HTMLSelectElement>('#board-select').parentElement?.firstChild;
+      if (!shapeLabel) throw new Error('Missing room shape label.');
+      shapeLabel.textContent = 'Room shape';
+      const angleLabel = this.control<HTMLInputElement>('#board-angle').parentElement?.firstChild;
+      if (!angleLabel) throw new Error('Missing room angle label.');
+      angleLabel.textContent = 'Shape angle (degrees)';
+      this.control<HTMLButtonElement>('#add-board').textContent = 'Add room rectangle';
+      this.control<HTMLButtonElement>('#board-add-shape').textContent =
+        'Add room shape at coordinates';
+      this.control<HTMLButtonElement>('#board-apply').textContent = 'Apply room shape changes';
+      this.control<HTMLButtonElement>('#board-remove').textContent = 'Remove room shape';
+      this.control<HTMLButtonElement>('#unbounded').textContent = 'Clear room shapes';
+      this.control<HTMLButtonElement>('#board-apply-corners').textContent = 'Apply room corners';
+      const summary = this.control<HTMLElement>('#board-corner-details').querySelector('summary');
+      if (!summary) throw new Error('Missing room corner summary.');
+      summary.textContent = 'Room polygon corners';
+    }
     this.preview = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    this.preview.id = 'board-preview';
+    this.preview.id = layer ? 'room-preview' : 'board-preview';
     this.preview.setAttribute('pointer-events', 'none');
     boards.after(this.preview);
     const shapes: { shape: Shape; label: string }[] = [
@@ -91,7 +142,7 @@ export class BaseboardEditor {
     ];
     for (const item of shapes)
       this.paletteButton('#board-shapes', item.label, () => this.create(item.shape));
-    for (const preset of boardPresets)
+    for (const preset of layer ? [] : boardPresets)
       this.paletteButton('#board-presets', preset.name, () => {
         const board = rectangleBoard(crypto.randomUUID(), 0, 0, preset.width, preset.height);
         if ('triangle' in preset && board.kind === 'polygon') board.points.splice(2, 1);
@@ -127,8 +178,7 @@ export class BaseboardEditor {
     });
     this.button('#board-apply', () => this.publish(this.readChanges(this.selected())));
     this.button('#board-remove', () => {
-      if (this.port.commit(removeBoard(this.port.state(), this.selected().id)))
-        this.selectedId = '';
+      if (this.port.commit(this.remove(this.selected().id))) this.selectedId = '';
       this.render();
     });
     this.button('#unbounded', () => {
@@ -136,7 +186,9 @@ export class BaseboardEditor {
       this.tool = null;
       if (
         this.port.commit(
-          updateLayout(this.port.state(), { ...activeLayout(this.port.state()), boards: [] }),
+          this.layer
+            ? this.layer.clear(this.port.state())
+            : updateLayout(this.port.state(), { ...activeLayout(this.port.state()), boards: [] }),
         )
       )
         this.selectedId = '';
@@ -172,7 +224,9 @@ export class BaseboardEditor {
     this.render();
   }
   private control<T extends Element>(selector: string): T {
-    const element = this.root.querySelector<T>(selector);
+    const element = this.root.querySelector<T>(
+      this.layer ? selector.replace(/^#/, '#room-') : selector,
+    );
     if (!element) throw new Error(`Required baseboard control missing: ${selector}`);
     return element;
   }
@@ -193,11 +247,19 @@ export class BaseboardEditor {
     this.control<HTMLButtonElement>(selector).addEventListener('click', () => this.run(operation));
   }
   private selected(): Board {
-    const board = activeLayout(this.port.state()).boards.find(
-      (board) => board.id === this.selectedId,
-    );
+    const board = this.shapes().find((board) => board.id === this.selectedId);
     if (!board) throw new Error('Select a baseboard shape.');
     return board;
+  }
+  private shapes(): Board[] {
+    return this.layer
+      ? this.layer.shapes(this.port.state())
+      : activeLayout(this.port.state()).boards;
+  }
+  private remove(id: string): PlannerState {
+    return this.layer
+      ? this.layer.remove(this.port.state(), id)
+      : removeBoard(this.port.state(), id);
   }
   private enable(): void {
     this.control<HTMLInputElement>('#edit-boards').checked = true;
@@ -262,7 +324,9 @@ export class BaseboardEditor {
   }
   private publish(board: Board): void {
     validateBoard(board);
-    const next = putBoard(this.port.state(), board);
+    const next = this.layer
+      ? this.layer.put(this.port.state(), board)
+      : putBoard(this.port.state(), board);
     if (this.port.commit(next)) {
       this.selectedId = board.id;
       this.tool = null;
@@ -270,9 +334,7 @@ export class BaseboardEditor {
     }
   }
   private snapped(board: Board): Board {
-    return this.port.snap()
-      ? snapBoard(board, activeLayout(this.port.state()).boards, 15 / this.port.scale())
-      : board;
+    return this.port.snap() ? snapBoard(board, this.shapes(), 15 / this.port.scale()) : board;
   }
   private showPreview(board: Board, invalid = false): void {
     select(this.preview)
@@ -295,7 +357,7 @@ export class BaseboardEditor {
   private paletteButton(selector: string, label: string, make: () => Board): void {
     const button = document.createElement('button');
     button.textContent = label;
-    button.setAttribute('aria-label', `Board ${label}`);
+    button.setAttribute('aria-label', this.layer ? `Room shape ${label}` : `Board ${label}`);
     this.control<HTMLElement>(selector).append(button);
     button.addEventListener('pointerdown', (event) =>
       this.run(() => {
@@ -400,7 +462,7 @@ export class BaseboardEditor {
           ? event.target.closest<SVGGElement>('[data-board-id]')
           : null;
       const id = hit?.dataset['boardId'];
-      const board = activeLayout(this.port.state()).boards.find((b) => b.id === id);
+      const board = this.shapes().find((b) => b.id === id);
       if (!board) return;
       this.selectedId = board.id;
       const handle =
@@ -440,7 +502,7 @@ export class BaseboardEditor {
           const target = this.port.snap()
             ? snapBoardPoint(
                 point,
-                activeLayout(this.port.state()).boards.filter((b) => b.id !== gesture.original.id),
+                this.shapes().filter((b) => b.id !== gesture.original.id),
                 15 / this.port.scale(),
               )
             : point;
@@ -523,29 +585,31 @@ export class BaseboardEditor {
       if (event.key.toLowerCase() === 'r') this.publish({ ...board, angle: board.angle + 22.5 });
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        if (this.port.commit(removeBoard(this.port.state(), board.id))) this.selectedId = '';
+        if (this.port.commit(this.remove(board.id))) this.selectedId = '';
         this.render();
       }
     });
   }
 
   render(): void {
-    const state = this.port.state(),
-      layout = activeLayout(state);
-    if (!layout.boards.some((b) => b.id === this.selectedId)) this.selectedId = '';
-    this.svg.classList.toggle('editing-boards', this.editing);
+    const shapes = this.shapes();
+    if (!shapes.some((b) => b.id === this.selectedId)) this.selectedId = '';
+    this.svg.classList.toggle(this.layer ? 'editing-room' : 'editing-boards', this.editing);
     select(this.boards)
       .selectAll<SVGGElement, Board>('g.baseboard')
-      .data(layout.boards, (b) => b.id)
+      .data(shapes, (b) => b.id)
       .join('g')
       .attr(
         'class',
         (b) => `baseboard${b.id === this.selectedId && this.editing ? ' selected-board' : ''}`,
       )
       .attr('data-board-id', (b) => b.id)
+      .attr('data-room-role', (b) => this.layer?.role(b) ?? null)
+      .attr('data-user-label', this.layer ? '' : null)
+      .attr('data-user-text', this.layer ? '' : null)
       .attr('role', 'button')
       .attr('tabindex', this.editing ? 0 : -1)
-      .attr('aria-label', (b) => `Select baseboard ${b.kind}`)
+      .attr('aria-label', (b) => (this.layer ? this.layer.label(b) : `Select baseboard ${b.kind}`))
       .attr('transform', (b) => `translate(${b.x},${b.y}) rotate(${b.angle})`)
       .attr('pointer-events', this.editing ? 'all' : 'none')
       .each((board, index, groups) => {
@@ -558,6 +622,23 @@ export class BaseboardEditor {
           .attr('d', boardPath)
           .attr('fill-rule', 'evenodd')
           .attr('class', 'board-surface');
+        const layer = this.layer;
+        if (layer) {
+          select(group)
+            .selectAll<SVGTitleElement, Board>('title')
+            .data([board])
+            .join('title')
+            .text((b) => layer.label(b));
+          select(group)
+            .selectAll<SVGTextElement, Board>('text')
+            .data([board])
+            .join('text')
+            .attr('x', (b) => boardBounds({ ...b, x: 0, y: 0, angle: 0 }).x + 12)
+            .attr('y', (b) => boardBounds({ ...b, x: 0, y: 0, angle: 0 }).y + 24)
+            .attr('data-user-text', '')
+            .attr('pointer-events', 'none')
+            .text((b) => layer.label(b));
+        }
         const corners =
           board.kind === 'polygon' && board.id === this.selectedId && this.editing
             ? board.points
@@ -579,13 +660,25 @@ export class BaseboardEditor {
     const picker = this.control<HTMLSelectElement>('#board-select');
     picker.replaceChildren(
       new Option('New shape', ''),
-      ...layout.boards.map((b, i) => new Option(`Board ${i + 1}: ${b.kind}`, b.id)),
+      ...shapes.map((b, i) => {
+        const option = new Option(
+          this.layer ? this.layer.label(b) : `Board ${i + 1}: ${b.kind}`,
+          b.id,
+        );
+        if (this.layer) option.setAttribute('data-user-text', '');
+        return option;
+      }),
     );
     picker.value = this.selectedId;
-    const board = layout.boards.find((b) => b.id === this.selectedId) ?? this.tool;
-    this.control<HTMLElement>('#board-tool-status').textContent = this.tool
-      ? 'Place board: drag from the palette or tap the canvas.'
-      : 'Select a board to move, rotate or reshape it.';
+    const board = shapes.find((b) => b.id === this.selectedId) ?? this.tool;
+    this.layer?.selected(this.selectedId ? (board ?? undefined) : undefined);
+    this.control<HTMLElement>('#board-tool-status').textContent = this.layer
+      ? this.tool
+        ? 'Place room shape: drag from the palette or tap the canvas.'
+        : 'Select a room shape to move, rotate or reshape it.'
+      : this.tool
+        ? 'Place board: drag from the palette or tap the canvas.'
+        : 'Select a board to move, rotate or reshape it.';
     for (const id of ['#board-apply', '#board-remove'])
       this.control<HTMLButtonElement>(id).disabled = !this.selectedId;
     this.control<HTMLButtonElement>('#board-add-shape').disabled = !this.tool;
@@ -621,7 +714,7 @@ export class BaseboardEditor {
           label.textContent = `Corner ${i + 1} ${axis.toUpperCase()} (mm)`;
           const input = document.createElement('input');
           input.type = 'number';
-          input.id = `corner-${i}-${axis}`;
+          input.id = `${this.layer ? 'room-' : ''}corner-${i}-${axis}`;
           input.value = String(point[axis]);
           label.append(input);
           row.append(label);

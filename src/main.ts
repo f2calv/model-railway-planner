@@ -21,9 +21,13 @@ import {
   setAccessory,
   shoppingList,
   updateLayout,
+  assignRoom,
+  assignedRoom,
+  putRoom,
+  removeRoom,
 } from './state';
 import { loadState, saveState, storageKey } from './storage';
-import type { Piece, PlannerState, TrackCategory, Vec } from './model';
+import type { Piece, PlannerState, RoomShape, TrackCategory, Vec } from './model';
 import {
   createHistory,
   recordHistory,
@@ -42,7 +46,8 @@ import {
 } from './preferences';
 import { playSound } from './sound';
 import { manufacturerProfiles } from './profiles';
-import { BaseboardEditor } from './baseboard-editor';
+import { ShapeEditor } from './shape-editor';
+import { roomProblems } from './rooms';
 import { translate, translateUi } from './i18n';
 import {
   accessoryMarks,
@@ -64,6 +69,7 @@ element<HTMLDivElement>('#app').innerHTML = `
     <img src="${import.meta.env.BASE_URL}icon.svg" width="38" height="38" alt="" />
     <div class="brand"><h1>Model Railway Planner</h1><span>Your track. Your next great layout. <span id="app-version"></span></span></div>
     <span class="privacy-badge">LOCAL & PRIVATE</span>
+    <a class="feedback-link" href="https://github.com/f2calv/model-railway-planner" target="_blank" rel="noopener noreferrer">Feature requests / bug reports</a>
     <button id="theme" aria-pressed="false">Dark mode</button>
     <label>Language<select id="language" aria-label="Language"><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="es">Español</option><option value="it">Italiano</option></select></label>
     <button id="export">Export backup</button>
@@ -72,6 +78,7 @@ element<HTMLDivElement>('#app').innerHTML = `
   </header>
   <div class="layout-bar">
     <label>Layout <select id="layouts" aria-label="Saved layouts"></select></label>
+    <label>Room <select id="layout-room" aria-label="Room for this layout"><option value="">No room</option></select></label>
     <button id="new-layout">New idea</button><button id="duplicate-layout">Duplicate</button>
     <button id="rename-layout">Rename</button><button id="delete-layout">Delete layout</button>
     <button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button>
@@ -106,7 +113,7 @@ element<HTMLDivElement>('#app').innerHTML = `
           </pattern>
         </defs>
         <g id="world"><rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="url(#grid)" />
-          <g id="boards"></g><g id="tracks"></g><g id="preview" pointer-events="none"></g><rect id="marquee" hidden pointer-events="none" />
+          <g id="rooms"></g><g id="boards"></g><g id="tracks"></g><g id="preview" pointer-events="none"></g><rect id="marquee" hidden pointer-events="none" />
         </g>
       </svg>
       <div id="empty-hint"><strong>A little space for big ideas.</strong><span>Choose a track piece, then drag or tap to place it.</span></div>
@@ -130,6 +137,14 @@ element<HTMLDivElement>('#app').innerHTML = `
       <div id="shopping-list"></div>
       <hr /><span class="eyebrow">YOUR SPACE</span><h2>Baseboard</h2>
       <div id="baseboard-editor"></div>
+      <hr /><h2>Room & furniture</h2>
+      <p>Choose a named room for this layout. Room shapes are shared by all layouts using that room; furniture is a visual reference only.</p>
+      <button id="new-room">New room</button><button id="rename-room">Rename room</button><button id="delete-room">Delete room</button>
+      <div id="room-controls">
+        <label>Room shape role<select id="room-role"><option value="outline">Room outline</option><option value="furniture">Furniture</option></select></label>
+        <label>Room shape name<input id="room-shape-name" maxlength="120" value="Room outline" data-user-text /></label>
+        <div id="room-editor"></div>
+      </div>
       <hr /><h2>Planning checks</h2><div id="checks"></div>
       <p class="subtle">67 mm nominal Hornby track centres. Curves and turnout fans still need physical checks with your longest trains. This is not a clearance certificate.</p>
       <details><summary>Controls & mobile</summary><p>Tap to place track. Drag blank space to select enclosed pieces; Ctrl-click toggles selection. Drag selected pieces as a group. Space + drag pans; scroll or pinch zooms. On touch screens, drag blank space to pan. Arrows move 5 mm; Shift + arrows move 1 mm. R rotates; Delete removes; Escape cancels. Ctrl+A selects all; Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y redoes. Right-click a piece for lock actions, or use the buttons.</p><p>For offline installation, open a production build over HTTPS (or localhost). Use your browser's Install app / Add to Home Screen option. Browser support varies.</p></details>
@@ -182,7 +197,7 @@ let paletteDrag: {
 const openCategories = new Set<TrackCategory>(['straights', 'curves', 'points', 'misc']);
 const svg = element<SVGSVGElement>('#canvas');
 const svgSelection = select(svg);
-const boardEditor = new BaseboardEditor(
+const boardEditor = new ShapeEditor(
   element<HTMLElement>('#baseboard-editor'),
   svg,
   element<SVGGElement>('#boards'),
@@ -194,6 +209,7 @@ const boardEditor = new BaseboardEditor(
     scale: () => transform.k,
     snap: () => element<HTMLInputElement>('#snap').checked,
     modeChanged: () => {
+      roomEditor.leave();
       clearPaletteDrag();
       cancelGesture();
       toolId = '';
@@ -203,6 +219,83 @@ const boardEditor = new BaseboardEditor(
     fit,
   },
 );
+const roomEditor = new ShapeEditor(
+  element<HTMLElement>('#room-editor'),
+  svg,
+  element<SVGGElement>('#rooms'),
+  {
+    state: () => state,
+    commit,
+    error: (message) => status(message, true),
+    point: modelPoint,
+    scale: () => transform.k,
+    snap: () => element<HTMLInputElement>('#snap').checked,
+    modeChanged: () => {
+      boardEditor.leave();
+      clearPaletteDrag();
+      cancelGesture();
+      toolId = '';
+      selectOnly('');
+      render();
+    },
+    fit,
+  },
+  {
+    shapes: (state) =>
+      [...(assignedRoom(state)?.shapes ?? [])]
+        .sort((a, b) => Number(a.role === 'furniture') - Number(b.role === 'furniture'))
+        .map((entry) => entry.shape),
+    put: (state, shape) => {
+      const room = assignedRoom(state);
+      if (!room) throw new Error('Choose a named room first.');
+      const role = element<HTMLSelectElement>('#room-role').value;
+      if (role !== 'outline' && role !== 'furniture') throw new Error('Invalid room shape role.');
+      const entry: RoomShape = {
+        shape,
+        name: element<HTMLInputElement>('#room-shape-name').value.trim(),
+        role,
+      };
+      return putRoom(state, {
+        ...room,
+        shapes: [...room.shapes.filter((entry) => entry.shape.id !== shape.id), entry],
+      });
+    },
+    remove: (state, id) => {
+      const room = assignedRoom(state);
+      if (!room || !room.shapes.some((entry) => entry.shape.id === id))
+        throw new Error('Select a room shape.');
+      return putRoom(state, {
+        ...room,
+        shapes: room.shapes.filter((entry) => entry.shape.id !== id),
+      });
+    },
+    clear: (state) => {
+      const room = assignedRoom(state);
+      if (!room) throw new Error('Choose a named room first.');
+      return putRoom(state, { ...room, shapes: [] });
+    },
+    label: (shape) => {
+      const entry = assignedRoom(state)?.shapes.find((entry) => entry.shape.id === shape.id);
+      if (!entry) throw new Error('Select a room shape.');
+      return entry.name;
+    },
+    role: (shape) => {
+      const entry = assignedRoom(state)?.shapes.find((entry) => entry.shape.id === shape.id);
+      if (!entry) throw new Error('Select a room shape.');
+      return entry.role;
+    },
+    selected: (shape) => {
+      if (!shape) return;
+      const entry = assignedRoom(state)?.shapes.find((entry) => entry.shape.id === shape.id);
+      if (!entry) throw new Error('Select a room shape.');
+      element<HTMLSelectElement>('#room-role').value = entry.role;
+      element<HTMLInputElement>('#room-shape-name').value = entry.name;
+    },
+  },
+);
+const shapeEditor = () => (roomEditor.editing ? roomEditor : boardEditor);
+element<HTMLInputElement>('#room-board-width').value = '4000';
+element<HTMLInputElement>('#room-board-height').value = '3000';
 
 function status(message: string, error = false): void {
   const target = element<HTMLElement>('#status');
@@ -219,6 +312,8 @@ function addActivity(message: string): void {
 
 function changeSummary(previous: PlannerState, next: PlannerState): string {
   if (previous.activeLayoutId !== next.activeLayoutId) return 'Changed layout';
+  if (JSON.stringify(previous.rooms) !== JSON.stringify(next.rooms)) return 'Room updated';
+  if (activeLayout(previous).roomId !== activeLayout(next).roomId) return 'Changed assigned room';
   if (JSON.stringify(activeLayout(previous).boards) !== JSON.stringify(activeLayout(next).boards))
     return 'Baseboard updated';
   const before = activeLayout(previous).pieces;
@@ -554,6 +649,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
       return;
     }
     boardEditor.leave();
+    roomEditor.leave();
     toolId = trackId;
     selectOnly('');
     preview(null);
@@ -562,6 +658,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
   pick.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     boardEditor.leave();
+    roomEditor.leave();
     paletteDrag = {
       pointerId: event.pointerId,
       source: pick,
@@ -640,6 +737,17 @@ function render(): void {
   const layoutSelect = element<HTMLSelectElement>('#layouts');
   layoutSelect.replaceChildren(...state.layouts.map((l) => new Option(l.name, l.id)));
   layoutSelect.value = state.activeLayoutId;
+  const room = assignedRoom(state);
+  const roomSelect = element<HTMLSelectElement>('#layout-room');
+  roomSelect.replaceChildren(
+    new Option(translate('No room', preferences.language), ''),
+    ...state.rooms.map((room) => new Option(room.name, room.id)),
+  );
+  roomSelect.setAttribute('data-user-text', '');
+  roomSelect.value = room?.id ?? '';
+  element<HTMLElement>('#room-controls').hidden = !room;
+  element<HTMLButtonElement>('#rename-room').disabled = !room;
+  element<HTMLButtonElement>('#delete-room').disabled = !room;
   const query = element<HTMLInputElement>('#search').value.toLowerCase();
   const catalogRoot = element<HTMLElement>('#catalog');
   catalogRoot.replaceChildren();
@@ -804,7 +912,7 @@ function render(): void {
       if (!group) throw new Error('Missing SVG track element.');
       group.dataset['pieceId'] = piece.id;
       group.setAttribute('role', 'button');
-      group.setAttribute('tabindex', boardEditor.editing ? '-1' : '0');
+      group.setAttribute('tabindex', shapeEditor().editing ? '-1' : '0');
       group.setAttribute(
         'aria-label',
         `${piece.locked ? 'Locked ' : ''}Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
@@ -812,7 +920,8 @@ function render(): void {
       drawTrack(group, piece, false, missing.has(piece.id), missingAccessories.has(piece.id));
     });
   boardEditor.render();
-  const issues = layoutProblems(layout);
+  roomEditor.render();
+  const issues = [...layoutProblems(layout), ...roomProblems(state)];
   if (layout.pieces.some((p) => p.accessories?.length))
     issues.push('Schematic accessory; verify road and gate clearance physically.');
   const approximateCodes = [
@@ -839,7 +948,8 @@ function render(): void {
   );
   element<HTMLElement>('#checks').className = issues.length ? 'check-warning' : 'check-ok';
   element<HTMLElement>('#piece-count').textContent = `${layout.pieces.length} pieces`;
-  element<HTMLElement>('#empty-hint').hidden = layout.pieces.length > 0;
+  element<HTMLElement>('#empty-hint').hidden =
+    layout.pieces.length > 0 || layout.boards.length > 0 || !!room?.shapes.length;
   element<HTMLButtonElement>('#delete-layout').disabled = state.layouts.length <= 1;
   element<HTMLButtonElement>('#tool-rotate').disabled = !toolId;
   element<HTMLButtonElement>('#tool-flip').disabled =
@@ -876,7 +986,7 @@ function render(): void {
 const zoomer = zoom<SVGSVGElement, unknown>()
   .scaleExtent([0.08, 4])
   .filter((event: Event) => {
-    if (event.type === 'wheel') return !drag && !marquee && !boardEditor.busy;
+    if (event.type === 'wheel') return !drag && !marquee && !shapeEditor().busy;
     if (event.type.startsWith('touch')) {
       const target = event.target;
       return (
@@ -884,9 +994,9 @@ const zoomer = zoom<SVGSVGElement, unknown>()
         (!toolId &&
           !drag &&
           !marquee &&
-          !boardEditor.busy &&
-          !boardEditor.placing &&
-          (!boardEditor.editing ||
+          !shapeEditor().busy &&
+          !shapeEditor().placing &&
+          (!shapeEditor().editing ||
             !(target instanceof Element) ||
             !target.closest('[data-board-id]')) &&
           (!(target instanceof Element) || !target.closest('.track')))
@@ -896,7 +1006,7 @@ const zoomer = zoom<SVGSVGElement, unknown>()
       spaceDown &&
       !drag &&
       !marquee &&
-      !boardEditor.busy &&
+      !shapeEditor().busy &&
       (!(event instanceof MouseEvent) || event.button === 0)
     );
   })
@@ -905,6 +1015,7 @@ const zoomer = zoom<SVGSVGElement, unknown>()
     element<SVGGElement>('#world').setAttribute('transform', transform.toString());
     element<HTMLOutputElement>('#zoom-level').textContent = `${Math.round(transform.k * 100)}%`;
     boardEditor.render();
+    roomEditor.render();
   });
 svgSelection.call(zoomer).on('dblclick.zoom', null);
 svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
@@ -939,8 +1050,8 @@ function toggleSelection(id: string): void {
 svg.addEventListener('pointerdown', (event) => {
   suppressClick = false;
   if (beginMultiTouch(event)) return;
-  if (boardEditor.editing) {
-    if (!spaceDown) boardEditor.pointerDown(event);
+  if (shapeEditor().editing) {
+    if (!spaceDown) shapeEditor().pointerDown(event);
     return;
   }
   if (drag || marquee) return;
@@ -1013,8 +1124,8 @@ function previewMarquee(position: Vec): void {
 
 svg.addEventListener('pointermove', (event) => {
   if (multiTouch || spaceDown) return;
-  if (boardEditor.editing) {
-    boardEditor.pointerMove(event);
+  if (shapeEditor().editing) {
+    shapeEditor().pointerMove(event);
     return;
   }
   trackTooltip({ x: event.clientX, y: event.clientY });
@@ -1075,8 +1186,8 @@ function finishMarquee(pointerId: number): void {
 svg.addEventListener('pointerup', (event) => {
   touches.delete(event.pointerId);
   if (!touches.size) multiTouch = false;
-  if (boardEditor.editing) {
-    boardEditor.pointerUp(event);
+  if (shapeEditor().editing) {
+    shapeEditor().pointerUp(event);
     return;
   }
   if (marquee?.pointerId === event.pointerId) {
@@ -1100,13 +1211,13 @@ svg.addEventListener('pointercancel', (event) => {
   render();
 });
 svg.addEventListener('lostpointercapture', () => {
-  if (!drag && !marquee && !boardEditor.busy) return;
+  if (!drag && !marquee && !shapeEditor().busy) return;
   cancelGesture();
   render();
 });
 svg.addEventListener('pointerleave', () => {
   element<HTMLElement>('#track-tooltip').hidden = true;
-  if (boardEditor.editing && !boardEditor.busy) boardEditor.cancel();
+  if (shapeEditor().editing && !shapeEditor().busy) shapeEditor().cancel();
   if (!drag && !marquee) preview(null);
 });
 svg.addEventListener('click', (event) => {
@@ -1114,8 +1225,8 @@ svg.addEventListener('click', (event) => {
     suppressClick = false;
     return;
   }
-  if (boardEditor.editing) {
-    boardEditor.click(event);
+  if (shapeEditor().editing) {
+    shapeEditor().click(event);
     return;
   }
   if (!toolId && event.target instanceof Element && event.target.closest('.track')) return;
@@ -1158,6 +1269,7 @@ function transformSelected(change: (p: Piece) => Piece): void {
 
 function cancelGesture(): void {
   boardEditor.cancel();
+  roomEditor.cancel();
   const pointerId = drag?.pointerId ?? marquee?.pointerId;
   drag = null;
   marquee = null;
@@ -1221,7 +1333,7 @@ document.addEventListener('keydown', (event) => {
     clearPaletteDrag();
     cancelGesture();
     toolId = '';
-    if (boardEditor.editing) boardEditor.key(event);
+    if (shapeEditor().editing) shapeEditor().key(event);
     preview(null);
     render();
     return;
@@ -1245,7 +1357,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-    if (boardEditor.editing) return;
+    if (shapeEditor().editing) return;
     event.preventDefault();
     selectedIds = new Set(activeLayout(state).pieces.map((p) => p.id));
     selectedId = [...selectedIds][0] ?? '';
@@ -1258,7 +1370,7 @@ document.addEventListener('keydown', (event) => {
     action(() => restoreHistory(event.key.toLowerCase() === 'y' || event.shiftKey));
     return;
   }
-  if (boardEditor.editing) boardEditor.key(event);
+  if (shapeEditor().editing) shapeEditor().key(event);
   else handlePieceKey(event);
 });
 document.addEventListener('keyup', (event) => {
@@ -1422,7 +1534,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 function fit(): void {
   const layout = activeLayout(state);
-  const bounds = layoutBounds(layout);
+  const bounds = layoutBounds(layout, assignedRoom(state));
   if (!bounds) {
     svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
     return;
@@ -1503,11 +1615,15 @@ element<HTMLInputElement>('#search').addEventListener('input', render);
 element<HTMLSelectElement>('#catalog-profile').addEventListener('change', render);
 element<HTMLSelectElement>('#piece-select').addEventListener('change', (event) => {
   boardEditor.leave();
+  roomEditor.leave();
   selectOnly((event.currentTarget as HTMLSelectElement).value);
   toolId = '';
   render();
 });
 element<HTMLSelectElement>('#layouts').addEventListener('change', () => {
+  cancelGesture();
+  boardEditor.leave();
+  roomEditor.leave();
   if (commit({ ...state, activeLayoutId: element<HTMLSelectElement>('#layouts').value })) {
     selectOnly('');
     toolId = '';
@@ -1515,6 +1631,46 @@ element<HTMLSelectElement>('#layouts').addEventListener('change', () => {
     render();
     fit();
   }
+});
+element<HTMLSelectElement>('#layout-room').addEventListener('change', () =>
+  action(() => {
+    cancelGesture();
+    roomEditor.leave();
+    if (commit(assignRoom(state, element<HTMLSelectElement>('#layout-room').value))) fit();
+  }),
+);
+button('#new-room', () =>
+  askName('New room', `Room ${state.rooms.length + 1}`, (name) => {
+    cancelGesture();
+    boardEditor.leave();
+    roomEditor.leave();
+    const room = { id: uuid(), name, shapes: [] };
+    element<HTMLSelectElement>('#room-role').value = 'outline';
+    element<HTMLInputElement>('#room-shape-name').value = 'Room outline';
+    if (commit(assignRoom(putRoom(state, room), room.id))) fit();
+  }),
+);
+button('#rename-room', () => {
+  const room = assignedRoom(state);
+  if (!room) throw new Error('Choose a named room first.');
+  askName('Rename room', room.name, (name) => {
+    const current = state.rooms.find((entry) => entry.id === room.id);
+    if (!current) throw new Error('Selected room does not exist.');
+    commit(putRoom(state, { ...current, name }));
+  });
+});
+button('#delete-room', () => {
+  const room = assignedRoom(state);
+  if (!room) throw new Error('Choose a named room first.');
+  confirm(
+    'Delete this room?',
+    'This removes the room and furniture from every assigned layout, but keeps all baseboards and track. Undo can restore it.',
+    () => {
+      cancelGesture();
+      roomEditor.leave();
+      if (commit(removeRoom(state, room.id))) fit();
+    },
+  );
 });
 
 function confirm(title: string, message: string, operation: () => void, deletion = false): void {
@@ -1671,7 +1827,7 @@ element<HTMLInputElement>('#import-file').addEventListener('change', async () =>
     const next = parseState(await file.text());
     confirm(
       "Replace this device's planner data?",
-      'This replaces all inventory and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.',
+      'This replaces all inventory, rooms and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.',
       () => {
         if (commit(next, 'Backup imported and saved on this device.', true)) {
           selectOnly('');

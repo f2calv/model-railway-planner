@@ -50,8 +50,9 @@ flowchart TB
         editor["Editor adapter<br/>DOM, D3 joins and gestures"]:::component
         state["Planner commands<br/>Atomic edits, locks and inventory"]:::component
         geometry["Track geometry<br/>Snapping and clearance"]:::component
-        board_editor["Baseboard editor<br/>Shape tools and corner gestures"]:::component
+        board_editor["Geometric editor<br/>Board and room shape gestures"]:::component
         boards["Baseboard geometry<br/>Shapes, joins and containment"]:::component
+        rooms["Room checks<br/>Sampled boundary warnings"]:::component
         catalog["Track catalog and profiles<br/>Routes and compatibility"]:::component
         storage["Persistence adapter<br/>Validated snapshot reads and writes"]:::component
         history["History and activity<br/>Bounded session revisions"]:::component
@@ -65,9 +66,13 @@ flowchart TB
     worker["Service worker"]:::external
     editor -->|"Commands and derived state"| state
     editor -->|"Routes and gesture candidates"| geometry
-    editor -->|"Delegate board mode"| board_editor
-    board_editor -->|"putBoard and removeBoard"| state
+    editor -->|"Delegate board or room mode"| board_editor
+    board_editor -->|"Layer commands through save boundary"| state
     board_editor -->|"snapBoard and moveBoardCorner"| boards
+    editor -->|"roomProblems"| rooms
+    rooms -->|"assignedRoom and activeLayout"| state
+    rooms -->|"Sampled track footprint"| geometry
+    rooms -->|"containsBoard and boardBounds"| boards
     editor -->|"Load and commit snapshot"| storage
     editor -->|"Register and request update"| pwa
     editor -->|"recordHistory and undo/redo"| history
@@ -102,21 +107,22 @@ unexpected-error reports never automatically include it or document content.
 
 ## Code Map
 
-| Component                  | Responsibility                                                                | Code location                                                            | Provides                                                                                        | Requires                                                      |
-| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Editor adapter             | Controls, SVG joins, previews, pointer/keyboard gestures and visible errors   | [main.ts](../src/main.ts), [style.css](../src/style.css)                 | Browser UI and command dispatch                                                                 | State, geometry, catalog, storage, PWA integration            |
-| Planner commands           | Atomic group/layout edits, locks, inventory, shortfalls and backup validation | [state.ts](../src/state.ts), [model.ts](../src/model.ts)                 | `putPieces`, `transformPieces`, `removePieces`, `setPieceLocks`, `resetInventory`, `parseState` | Catalog and geometry                                          |
-| Track geometry             | Model-space routes, poses, group snapping and clearance                       | [geometry.ts](../src/geometry.ts)                                        | `ports`, `snapPiece`, `snapGroup`, `placementProblem`, `pathData`                               | Catalog routes/profiles and board containment                 |
-| Baseboard editor           | Shape palette, inspector and reversible pointer/keyboard gestures             | [baseboard-editor.ts](../src/baseboard-editor.ts)                        | Board mode, previews and command dispatch                                                       | Planner commands, baseboard geometry and editor save boundary |
-| Baseboard geometry         | Analytic shapes, convex corner edits, snapping and union containment          | [baseboards.ts](../src/baseboards.ts)                                    | `containsBoard`, `joinedBoards`, `snapBoard`, `moveBoardCorner`, `boardPath`, `boardBounds`     | Domain types                                                  |
-| Track catalog and profiles | Verified nominal dimensions, warnings and geometric compatibility             | [catalog.ts](../src/catalog.ts), [profiles.ts](../src/profiles.ts)       | `catalog`, `definition`, `trackSize`, `planningCompatible`                                      | Domain types                                                  |
-| Persistence adapter        | Validate a whole snapshot before writing; surface malformed/denied storage    | [storage.ts](../src/storage.ts)                                          | `loadState`, `saveState`, `StoragePort`                                                         | State parser and browser Storage                              |
-| History and activity       | Bound undo/redo revisions and activity entries to the current session         | [history.ts](../src/history.ts)                                          | `recordHistory`, `undoHistory`, `redoHistory`, `recordActivity`                                 | Document model                                                |
-| Preferences                | Validate and persist independent UI settings                                  | [preferences.ts](../src/preferences.ts)                                  | `loadPreferences`, `savePreferences`                                                            | Browser Storage port                                          |
-| Localization               | Translate owned UI text/templates without changing user names or codes        | [i18n.ts](../src/i18n.ts), [translations.json](../src/translations.json) | `translate`, `translateUi`                                                                      | Language value and translation data                           |
-| Drawing and interchange    | Generate safe standalone drawings and formula-protected CSV                   | [exports.ts](../src/exports.ts)                                          | `drawingLayers`, `layoutBounds`, `svgExport`, `pngExport`, `csvExport`                          | State, geometry and catalog                                   |
-| Track audio                | Synthesize optional local feedback with cleaned-up audio nodes                | [sound.ts](../src/sound.ts)                                              | `playSound`                                                                                     | Browser Web Audio                                             |
-| Offline adapter            | Build worker/manifest, register it and offer explicit updates                 | [vite.config.ts](../vite.config.ts), [main.ts](../src/main.ts)           | PWA assets and update action                                                                    | Vite PWA plugin and browser service worker                    |
+| Component                  | Responsibility                                                                      | Code location                                                            | Provides                                                                                        | Requires                                            |
+| -------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Editor adapter             | Controls, SVG joins, previews, pointer/keyboard gestures and visible errors         | [main.ts](../src/main.ts), [style.css](../src/style.css)                 | Browser UI and command dispatch                                                                 | State, geometry, catalog, storage, PWA integration  |
+| Planner commands           | Atomic group/layout edits, locks, inventory, shortfalls and backup validation       | [state.ts](../src/state.ts), [model.ts](../src/model.ts)                 | `putPieces`, `transformPieces`, `removePieces`, `setPieceLocks`, `resetInventory`, `parseState` | Catalog and geometry                                |
+| Track geometry             | Model-space routes, poses, group snapping and clearance                             | [geometry.ts](../src/geometry.ts)                                        | `ports`, `snapPiece`, `snapGroup`, `placementProblem`, `pathData`                               | Catalog routes/profiles and board containment       |
+| Geometric editor           | Shared palette, inspector and reversible gestures for independent board/room layers | [shape-editor.ts](../src/shape-editor.ts)                                | `ShapeEditor`, `ShapeLayer`, previews and command dispatch                                      | Planner commands, geometry and editor save boundary |
+| Room checks                | Advisory sampled boundary checks for assigned rooms and furniture                   | [rooms.ts](../src/rooms.ts)                                              | `roomProblems`                                                                                  | Planner commands, track and board geometry          |
+| Baseboard geometry         | Analytic shapes, convex corner edits, snapping and union containment                | [baseboards.ts](../src/baseboards.ts)                                    | `containsBoard`, `joinedBoards`, `snapBoard`, `moveBoardCorner`, `boardPath`, `boardBounds`     | Domain types                                        |
+| Track catalog and profiles | Verified nominal dimensions, warnings and geometric compatibility                   | [catalog.ts](../src/catalog.ts), [profiles.ts](../src/profiles.ts)       | `catalog`, `definition`, `trackSize`, `planningCompatible`                                      | Domain types                                        |
+| Persistence adapter        | Validate a whole snapshot before writing; surface malformed/denied storage          | [storage.ts](../src/storage.ts)                                          | `loadState`, `saveState`, `StoragePort`                                                         | State parser and browser Storage                    |
+| History and activity       | Bound undo/redo revisions and activity entries to the current session               | [history.ts](../src/history.ts)                                          | `recordHistory`, `undoHistory`, `redoHistory`, `recordActivity`                                 | Document model                                      |
+| Preferences                | Validate and persist independent UI settings                                        | [preferences.ts](../src/preferences.ts)                                  | `loadPreferences`, `savePreferences`                                                            | Browser Storage port                                |
+| Localization               | Translate owned UI text/templates without changing user names or codes              | [i18n.ts](../src/i18n.ts), [translations.json](../src/translations.json) | `translate`, `translateUi`                                                                      | Language value and translation data                 |
+| Drawing and interchange    | Generate safe standalone drawings and formula-protected CSV                         | [exports.ts](../src/exports.ts)                                          | `drawingLayers`, `layoutBounds`, `svgExport`, `pngExport`, `csvExport`                          | State, geometry and catalog                         |
+| Track audio                | Synthesize optional local feedback with cleaned-up audio nodes                      | [sound.ts](../src/sound.ts)                                              | `playSound`                                                                                     | Browser Web Audio                                   |
+| Offline adapter            | Build worker/manifest, register it and offer explicit updates                       | [vite.config.ts](../vite.config.ts), [main.ts](../src/main.ts)           | PWA assets and update action                                                                    | Vite PWA plugin and browser service worker          |
 
 ## Runtime Scenarios
 
@@ -164,7 +170,8 @@ the zoom owner takes over.
 
 ## Document and Update Safety
 
-Format 4 retains board IDs/shapes, piece locks and attached accessory identifiers, migrating
+Format 5 retains named rooms/furniture and layout room references alongside board IDs/shapes,
+piece locks and attached accessory identifiers, migrating
 supported format 1, 2 and 3 documents. Old rectangles become canonical polygon boards.
 Accessories belong to their host piece, so transforms, deletion and history remain atomic.
 The catalog distinguishes trackless attachments from rail routes; inventory/CSV count them separately.

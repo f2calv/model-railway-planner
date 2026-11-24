@@ -74,10 +74,13 @@ Containment and joining use analytic polygon/line/circle geometry. Track footpri
 existing sampled clearance checks; this is not a guarantee of vehicle clearance or structural safety.
 
 Each successful gesture is one save and one undo step. A failed browser-storage write rejects the
-edit. Format 4 backups retain board IDs, poses and geometry and migrate the earlier rectangle format.
+edit. Format 5 backups retain board IDs, poses and geometry and migrate the earlier rectangle format.
 Close/update older app tabs before editing migrated documents. The existing storage key is retained.
 
 Layouts support at most 50 board shapes. Polygons have 3 to 16 corners with at least 1 mm between
 consecutive corners; local corner coordinates and radii are bounded to 100000 mm. Circles/arcs use
 1 to 100000 mm outer radii, with sweeps from 1 to 360 degrees. Arbitrary concave outlines, freehand
 curves, structural frames, elevations and multi-board group editing are not implemented.
+
+Named rooms and furniture form a separate layer beneath baseboards. See the [room guide](rooms.md)
+for assigning a room and placing a baseboard over a table without attaching their movement.

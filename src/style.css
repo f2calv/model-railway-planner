@@ -344,6 +344,41 @@ hr {
   margin: 8px 0;
 }
 
+.feedback-link {
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+#rooms .board-surface {
+  fill: #a9bbcf;
+  stroke: #526a82;
+}
+
+#rooms [data-room-role='outline'] .board-surface {
+  fill: #e9eef3;
+  pointer-events: stroke;
+}
+
+#rooms text {
+  fill: #243c55;
+  font-size: 20px;
+}
+
+.editing-room #boards,
+.editing-room #tracks {
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+.editing-room #rooms .baseboard {
+  cursor: move;
+}
+
 .board-palette button {
   touch-action: none;
 }

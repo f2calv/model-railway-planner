@@ -1,4 +1,262 @@
 {
+  "Feature requests / bug reports": [
+    "Funktionswünsche / Fehlerberichte",
+    "Demandes de fonctionnalités / signalements de bugs",
+    "Solicitudes de funciones / informes de errores",
+    "Richieste di funzionalità / segnalazioni di errori"
+  ],
+  "Room": ["Raum", "Pièce", "Habitación", "Stanza"],
+  "No room": ["Kein Raum", "Aucune pièce", "Sin habitación", "Nessuna stanza"],
+  "Room for this layout": [
+    "Raum für diesen Gleisplan",
+    "Pièce pour ce réseau",
+    "Habitación para este trazado",
+    "Stanza per questo plastico"
+  ],
+  "Room & furniture": [
+    "Raum & Möbel",
+    "Pièce et mobilier",
+    "Habitación y muebles",
+    "Stanza e mobili"
+  ],
+  "New room": ["Neuer Raum", "Nouvelle pièce", "Nueva habitación", "Nuova stanza"],
+  "Rename room": [
+    "Raum umbenennen",
+    "Renommer la pièce",
+    "Renombrar habitación",
+    "Rinomina stanza"
+  ],
+  "Delete room": ["Raum löschen", "Supprimer la pièce", "Eliminar habitación", "Elimina stanza"],
+  "Room shape role": [
+    "Funktion der Raumform",
+    "Rôle de la forme",
+    "Función de la forma",
+    "Ruolo della forma"
+  ],
+  "Room outline": [
+    "Raumumriss",
+    "Contour de la pièce",
+    "Contorno de la habitación",
+    "Contorno della stanza"
+  ],
+  "Furniture": ["Möbel", "Mobilier", "Muebles", "Mobili"],
+  "Room shape name": [
+    "Name der Raumform",
+    "Nom de la forme",
+    "Nombre de la forma",
+    "Nome della forma"
+  ],
+  "Edit room shapes": [
+    "Raumformen bearbeiten",
+    "Modifier les formes de la pièce",
+    "Editar formas de la habitación",
+    "Modifica le forme della stanza"
+  ],
+  "Room shape": ["Raumform", "Forme de la pièce", "Forma de la habitación", "Forma della stanza"],
+  "Room shape {name}": [
+    "Raumform {name}",
+    "Forme de la pièce {name}",
+    "Forma de la habitación {name}",
+    "Forma della stanza {name}"
+  ],
+  "Select room shape": [
+    "Raumform auswählen",
+    "Sélectionner une forme de la pièce",
+    "Seleccionar forma de la habitación",
+    "Seleziona forma della stanza"
+  ],
+  "Select / pan room": [
+    "Raum auswählen / verschieben",
+    "Sélectionner / déplacer la pièce",
+    "Seleccionar / desplazar habitación",
+    "Seleziona / sposta stanza"
+  ],
+  "Shape angle (degrees)": [
+    "Formwinkel (Grad)",
+    "Angle de la forme (degrés)",
+    "Ángulo de la forma (grados)",
+    "Angolo della forma (gradi)"
+  ],
+  "Add room rectangle": [
+    "Raumrechteck hinzufügen",
+    "Ajouter un rectangle à la pièce",
+    "Añadir rectángulo a la habitación",
+    "Aggiungi rettangolo alla stanza"
+  ],
+  "Add room shape at coordinates": [
+    "Raumform an Koordinaten hinzufügen",
+    "Ajouter une forme aux coordonnées",
+    "Añadir forma de habitación en coordenadas",
+    "Aggiungi forma della stanza alle coordinate"
+  ],
+  "Apply room shape changes": [
+    "Raumformänderungen anwenden",
+    "Appliquer les modifications de la forme",
+    "Aplicar cambios de forma de habitación",
+    "Applica modifiche alla forma della stanza"
+  ],
+  "Remove room shape": [
+    "Raumform entfernen",
+    "Retirer la forme de la pièce",
+    "Eliminar forma de la habitación",
+    "Rimuovi forma della stanza"
+  ],
+  "Clear room shapes": [
+    "Raumformen leeren",
+    "Effacer les formes de la pièce",
+    "Borrar formas de la habitación",
+    "Cancella forme della stanza"
+  ],
+  "Room polygon corners": [
+    "Ecken des Raumpolygons",
+    "Sommets du polygone de la pièce",
+    "Vértices del polígono de habitación",
+    "Vertici del poligono della stanza"
+  ],
+  "Apply room corners": [
+    "Raumecken anwenden",
+    "Appliquer les sommets de la pièce",
+    "Aplicar vértices de habitación",
+    "Applica vertici della stanza"
+  ],
+  "Room updated": [
+    "Raum aktualisiert",
+    "Pièce mise à jour",
+    "Habitación actualizada",
+    "Stanza aggiornata"
+  ],
+  "Changed assigned room": [
+    "Zugewiesenen Raum geändert",
+    "Pièce associée modifiée",
+    "Habitación asignada cambiada",
+    "Stanza assegnata modificata"
+  ],
+  "Choose a named room first.": [
+    "Wähle zuerst einen benannten Raum.",
+    "Choisissez d’abord une pièce nommée.",
+    "Elige primero una habitación con nombre.",
+    "Scegli prima una stanza con nome."
+  ],
+  "Select a room shape.": [
+    "Wähle eine Raumform.",
+    "Sélectionnez une forme de la pièce.",
+    "Selecciona una forma de la habitación.",
+    "Seleziona una forma della stanza."
+  ],
+  "Selected room does not exist.": [
+    "Der ausgewählte Raum existiert nicht.",
+    "La pièce sélectionnée n’existe pas.",
+    "La habitación seleccionada no existe.",
+    "La stanza selezionata non esiste."
+  ],
+  "A room supports one outline and at most 50 shapes.": [
+    "Ein Raum unterstützt einen Umriss und höchstens 50 Formen.",
+    "Une pièce accepte un contour et au plus 50 formes.",
+    "Una habitación admite un contorno y hasta 50 formas.",
+    "Una stanza supporta un contorno e al massimo 50 forme."
+  ],
+  "Keep at most 50 named rooms.": [
+    "Behalte höchstens 50 benannte Räume.",
+    "Conservez au plus 50 pièces nommées.",
+    "Mantén como máximo 50 habitaciones con nombre.",
+    "Mantieni al massimo 50 stanze con nome."
+  ],
+  "Invalid room shape role.": [
+    "Ungültige Funktion der Raumform.",
+    "Rôle de forme invalide.",
+    "Función de forma no válida.",
+    "Ruolo della forma non valido."
+  ],
+  "Duplicate room shape identifiers.": [
+    "Doppelte Raumformkennungen.",
+    "Identifiants de formes en double.",
+    "Identificadores de forma duplicados.",
+    "Identificatori di forma duplicati."
+  ],
+  "Duplicate room identifiers.": [
+    "Doppelte Raumkennungen.",
+    "Identifiants de pièces en double.",
+    "Identificadores de habitación duplicados.",
+    "Identificatori di stanza duplicati."
+  ],
+  "Invalid rooms in backup.": [
+    "Ungültige Räume in der Sicherung.",
+    "Pièces invalides dans la sauvegarde.",
+    "Habitaciones no válidas en la copia.",
+    "Stanze non valide nel backup."
+  ],
+  "Invalid room shapes in backup.": [
+    "Ungültige Raumformen in der Sicherung.",
+    "Formes invalides dans la sauvegarde.",
+    "Formas de habitación no válidas en la copia.",
+    "Forme della stanza non valide nel backup."
+  ],
+  "Rooms require backup format 5.": [
+    "Räume benötigen Sicherungsformat 5.",
+    "Les pièces nécessitent le format de sauvegarde 5.",
+    "Las habitaciones requieren el formato de copia 5.",
+    "Le stanze richiedono il formato di backup 5."
+  ],
+  "The selected room has no outline. Add a room outline to check dimensions.": [
+    "Der Raum hat keinen Umriss. Ergänze einen Raumumriss zur Maßprüfung.",
+    "La pièce n’a pas de contour. Ajoutez-en un pour vérifier les dimensions.",
+    "La habitación no tiene contorno. Añádelo para comprobar dimensiones.",
+    "La stanza non ha un contorno. Aggiungilo per verificare le dimensioni."
+  ],
+  "Baseboard extends outside the selected room.": [
+    "Die Grundplatte ragt aus dem ausgewählten Raum.",
+    "Le plateau dépasse de la pièce sélectionnée.",
+    "El tablero sobresale de la habitación seleccionada.",
+    "La base supera il contorno della stanza selezionata."
+  ],
+  "Track extends outside the selected room.": [
+    "Das Gleis ragt aus dem ausgewählten Raum.",
+    "La voie dépasse de la pièce sélectionnée.",
+    "La vía sobresale de la habitación seleccionada.",
+    "Il binario supera il contorno della stanza selezionata."
+  ],
+  "Furniture extends outside the room outline.": [
+    "Möbel ragen aus dem Raumumriss.",
+    "Le mobilier dépasse du contour de la pièce.",
+    "Los muebles sobresalen del contorno de la habitación.",
+    "I mobili superano il contorno della stanza."
+  ],
+  "Place room shape: drag from the palette or tap the canvas.": [
+    "Raumform platzieren: aus der Palette ziehen oder die Fläche antippen.",
+    "Placez une forme : glissez-la depuis la palette ou touchez le canevas.",
+    "Coloca una forma: arrástrala desde la paleta o toca el lienzo.",
+    "Posiziona una forma: trascinala dalla tavolozza o tocca l’area."
+  ],
+  "Select a room shape to move, rotate or reshape it.": [
+    "Wähle eine Raumform zum Verschieben, Drehen oder Umformen.",
+    "Sélectionnez une forme pour la déplacer, tourner ou remodeler.",
+    "Selecciona una forma para moverla, girarla o cambiarla.",
+    "Seleziona una forma per spostarla, ruotarla o modificarla."
+  ],
+  "Choose a named room for this layout. Room shapes are shared by all layouts using that room; furniture is a visual reference only.": [
+    "Wähle einen benannten Raum für den Gleisplan. Seine Formen gelten für alle zugeordneten Pläne; Möbel dienen nur als visuelle Referenz.",
+    "Choisissez une pièce nommée pour ce réseau. Ses formes sont partagées par les réseaux associés ; le mobilier est une référence visuelle.",
+    "Elige una habitación para este trazado. Sus formas se comparten entre trazados asignados; los muebles son una referencia visual.",
+    "Scegli una stanza per questo plastico. Le forme sono condivise dai plastici assegnati; i mobili sono un riferimento visivo."
+  ],
+  "Edit the room outline and named furniture. Changes affect every layout assigned to this room.": [
+    "Bearbeite Raumumriss und benannte Möbel. Änderungen betreffen jeden zugewiesenen Gleisplan.",
+    "Modifiez le contour et le mobilier nommé. Les modifications affectent chaque réseau associé.",
+    "Edita el contorno y los muebles con nombre. Los cambios afectan a todos los trazados asignados.",
+    "Modifica contorno e mobili con nome. Le modifiche riguardano tutti i plastici assegnati."
+  ],
+  "Delete this room?": [
+    "Diesen Raum löschen?",
+    "Supprimer cette pièce ?",
+    "¿Eliminar esta habitación?",
+    "Eliminare questa stanza?"
+  ],
+  "This removes the room and furniture from every assigned layout, but keeps all baseboards and track. Undo can restore it.": [
+    "Entfernt Raum und Möbel aus allen zugeordneten Plänen, behält aber Grundplatten und Gleise. Rückgängig stellt alles wieder her.",
+    "Retire la pièce et le mobilier de tous les réseaux associés, sans retirer plateaux ni voies. L’annulation les restaure.",
+    "Elimina la habitación y muebles de todos los trazados asignados, pero conserva tableros y vías. Deshacer lo restaura.",
+    "Rimuove stanza e mobili da tutti i plastici assegnati, mantenendo basi e binari. Annulla ripristina tutto."
+  ],
   "Edit baseboards": [
     "Grundplatten bearbeiten",
     "Modifier les plateaux",
@@ -1031,11 +1289,11 @@
     "¿Reemplazar los datos de este dispositivo?",
     "Sostituire i dati di questo dispositivo?"
   ],
-  "This replaces all inventory and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.": [
-    "Ersetzt Bestand und alle Gleispläne. Exportiere zuerst eine Sicherung. Importierte Geometrie wird geprüft; Probleme werden angezeigt.",
-    "Remplace tous les stocks et réseaux. Exportez d’abord une sauvegarde. La géométrie importée sera vérifiée et les problèmes affichés.",
-    "Reemplaza todo el inventario y los trazados. Exporta antes una copia. Se comprobará la geometría y se mostrarán los problemas.",
-    "Sostituisce tutto l’inventario e i plastici. Esporta prima un backup. La geometria importata sarà verificata e i problemi mostrati."
+  "This replaces all inventory, rooms and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.": [
+    "Ersetzt Bestand, Räume und alle Gleispläne. Exportiere zuerst eine Sicherung. Importierte Geometrie wird geprüft; Probleme werden angezeigt.",
+    "Remplace tous les stocks, pièces et réseaux. Exportez d’abord une sauvegarde. La géométrie importée sera vérifiée et les problèmes affichés.",
+    "Reemplaza todo el inventario, habitaciones y trazados. Exporta antes una copia. Se comprobará la geometría y se mostrarán los problemas.",
+    "Sostituisce tutto l’inventario, le stanze e i plastici. Esporta prima un backup. La geometria importata sarà verificata e i problemi mostrati."
   ],
   "Unexpected problem": [
     "Unerwartetes Problem",

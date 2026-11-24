@@ -58,6 +58,162 @@ async function boardScreenPoint(
   );
 }
 
+test('room furniture sits below independent boards and track, with undo and exported layers', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'New room', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Example room');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('#room-add-board').click();
+  await page.locator('#room-role').selectOption('furniture');
+  await page.locator('#room-shape-name').fill('Large table');
+  await page.locator('#room-board-x').fill('500');
+  await page.locator('#room-board-y').fill('500');
+  await page.locator('#room-board-width').fill('2000');
+  await page.locator('#room-board-height').fill('1000');
+  await page.locator('#room-add-board').click();
+  await page.getByRole('button', { name: 'Board Rectangle', exact: true }).click();
+  await page.locator('#board-x').fill('600');
+  await page.locator('#board-y').fill('600');
+  await page.locator('#board-width').fill('1000');
+  await page.locator('#board-height').fill('500');
+  await page.locator('#board-add-shape').click();
+  await page.getByRole('button', { name: /Place R600 / }).click();
+  const trackPoint = await boardScreenPoint(page, 700, 700);
+  await page.mouse.click(trackPoint.x, trackPoint.y);
+  await expect(page.locator('#tracks > g')).toHaveCount(1);
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('Missing test viewport.');
+  for (const width of [1280, 900, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const dark of [true, false]) {
+      if ((await page.locator('#theme').getAttribute('aria-pressed')) !== String(dark))
+        await page.locator('#theme').click();
+      await expect(page.locator('#theme')).toHaveAttribute('aria-pressed', String(dark));
+      const header = await page.locator('.app-header').evaluate((node) => {
+        const link = node.querySelector('.feedback-link');
+        if (!link) throw new Error('Missing feedback link.');
+        const luminance = (color: string) => {
+          const channels = color
+            .match(/[\d.]+/g)
+            ?.slice(0, 3)
+            .map(Number);
+          if (!channels || channels.length !== 3) throw new Error('Missing rendered RGB color.');
+          return channels.reduce((total, value, index) => {
+            const channel = value / 255;
+            const linear =
+              channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+            const weight = [0.2126, 0.7152, 0.0722][index];
+            if (weight === undefined) throw new Error('Missing color channel.');
+            return total + linear * weight;
+          }, 0);
+        };
+        const foreground = luminance(getComputedStyle(link).color);
+        const background = luminance(getComputedStyle(node).backgroundColor);
+        const box = link.getBoundingClientRect();
+        return {
+          overflow: node.scrollWidth - node.clientWidth,
+          left: box.left,
+          right: box.right,
+          viewport: innerWidth,
+          contrast:
+            (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05),
+        };
+      });
+      expect(header.overflow).toBeLessThanOrEqual(1);
+      expect(header.left).toBeGreaterThanOrEqual(0);
+      expect(header.right).toBeLessThanOrEqual(header.viewport);
+      expect(header.contrast).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+  await page.setViewportSize(viewport);
+  const before = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  await page.locator('#room-edit-boards').check();
+  const point = await boardScreenPoint(page, 1500, 900);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.mouse.move(point.x + 80, point.y + 40, { steps: 8 });
+  await page.mouse.up();
+  const after = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  expect(after.layouts).toEqual(before.layouts);
+  expect(
+    after.rooms[0].shapes.find((entry: { name: string }) => entry.name === 'Large table').shape.x,
+  ).not.toBe(500);
+  expect(
+    await page.evaluate(() => {
+      const world = document.querySelector('#world');
+      return [...(world?.children ?? [])]
+        .map((node) => node.id)
+        .filter((id) => ['rooms', 'boards', 'tracks'].includes(id));
+    }),
+  ).toEqual(['rooms', 'boards', 'tracks']);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}')),
+  ).toEqual(before);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export SVG', exact: true }).click(),
+  ]);
+  const path = await download.path();
+  if (!path) throw new Error('Missing room export.');
+  const drawing = await readFile(path, 'utf8');
+  expect(drawing.indexOf('data-room-shape')).toBeLessThan(drawing.indexOf('data-board'));
+  expect(drawing).toContain('Large table');
+  await expect(
+    page.getByRole('link', { name: 'Feature requests / bug reports', exact: true }),
+  ).toHaveAttribute('href', 'https://github.com/f2calv/model-railway-planner');
+  await page.reload();
+  await expect(page.locator('#rooms > g')).toHaveCount(2);
+  await expect(page.locator('#boards > g')).toHaveCount(1);
+  await expect(page.locator('#tracks > g')).toHaveCount(1);
+});
+
+test('named rooms are selectable per layout and shared deletion is undoable without translating names', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'New room', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Dark mode');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('#room-add-board').click();
+  const originalId = await page.locator('#layouts').inputValue();
+  const roomId = await page.locator('#layout-room').inputValue();
+  await createIdea(page);
+  await expect(page.locator('#layout-room')).toHaveValue('');
+  await page.locator('#layout-room').selectOption(roomId);
+  await expect(page.locator('#rooms > g')).toHaveCount(1);
+  await page.getByRole('button', { name: 'New room', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Round room');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Room shape Circle', exact: true }).click();
+  await page.locator('#room-board-radius').fill('1500');
+  await page.locator('#room-board-add-shape').click();
+  await page.locator('#layouts').selectOption(originalId);
+  await expect(page.locator('#layout-room')).toHaveValue(roomId);
+  await page.locator('#language').selectOption('de');
+  await expect(page.locator('#layout-room option:checked')).toHaveText('Dark mode');
+  await expect(page.getByRole('button', { name: 'Neuer Raum', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Funktionswünsche / Fehlerberichte', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('#rooms title')).toHaveText('Room outline');
+  await page.locator('#language').selectOption('en');
+  await page.getByRole('button', { name: 'Delete room', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(page.locator('#rooms > g')).toHaveCount(0);
+  await expect(page.locator('#layout-room')).toHaveValue('');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('#layout-room')).toHaveValue(roomId);
+  await expect(page.locator('#rooms > g')).toHaveCount(1);
+});
+
 test('baseboard presets snap, corner handles reshape atomically, and undo preserves boards', async ({
   page,
 }) => {
