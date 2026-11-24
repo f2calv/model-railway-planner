@@ -1,15 +1,15 @@
 # Track Catalogs
 
 Reference information for the planner's supported track catalogs, organised by manufacturer and
-scale. There are 44 entries across Hornby, Peco Setrack and Bachmann OO, including one accessory. Other scales require their
+scale. There are 47 entries across Hornby, Peco Setrack and Bachmann OO, including four accessories. Other scales require their
 own verified geometry and clearance profile, not merely a new display label.
 
 Return to the [planner README](../README.md) for installation and editing instructions.
 
 ## Hornby OO Catalog
 
-The Hornby catalog includes 28 entries: 17 dimension-supported simple straights/arcs, one
-double-track level crossing, one attached accessory and nine
+The Hornby catalog includes 31 entries: 17 dimension-supported simple straights/arcs, one
+double-track level crossing, four attached accessories and nine
 idealised points/diamond crossings, including all seven standard-range point types and both diamond crossing
 hands. It is not the complete Hornby range. Numeric dimensions and product codes are
 referenced from product descriptions; no product photographs or artwork are copied.
@@ -23,6 +23,8 @@ referenced from product descriptions; no product photographs or artwork are copi
 | R8241         | 168 mm digital power straight                                                    | [Digital power track](https://uk.hornby.com/products/digital-power-track-r8241)                                                                                          |
 | R636          | Two independent 168 mm straights at standard 67 mm centres                       | [Double-track level crossing](https://uk.hornby.com/products/level-crossing-double-track-r636)                                                                           |
 | R645          | Trackless single-track level-crossing accessory, centred on an existing straight | [Single-track level crossing](https://uk.hornby.com/products/level-crossing-single-track-r645)                                                                           |
+| R602 / R8242  | DC / DCC feed clips; one clip per inventory unit                                 | [DC clip](https://uk.hornby.com/products/power-connecting-clip-r602), [DCC clip](https://uk.hornby.com/products/digital-power-connecting-clip-r8242)                     |
+| R8232         | Point bypass clips; two per point, individual clip inventory units               | [Current pack of 20 clips](https://uk.hornby.com/products/digital-electric-point-clips-pack-20-r8232)                                                                    |
 | R604 / R605   | 371 mm radius; 22.5 / 45 degrees                                                 | [R604](https://uk.hornby.com/products/curve-1st-radius-r604), [R605](https://uk.hornby.com/products/double-curve-1st-radius-r605)                                        |
 | R606          | 438 mm radius; 22.5 degrees                                                      | [R606](https://uk.hornby.com/products/curve-2nd-radius-r606)                                                                                                             |
 | R607 / R643   | Nominal 438 mm radius; 45 / 11.25 degrees                                        | [R607](https://uk.hornby.com/products/double-curve-2nd-radius-r607), [R643](https://uk.hornby.com/products/half-curve-2nd-radius-r643)                                   |
@@ -49,10 +51,15 @@ planning checks.
 R636 includes both tracks and has four connectors; one placed crossing consumes one inventory item.
 The road, gates and barriers are not included in its clearance envelope. R645 does **not** include
 track: select one unlocked Hornby straight at least 168 mm long and choose R645 to attach it. Only
-one accessory per host is supported. It adds no rail geometry or connectors, has an independent
+one R645 per host is supported, independently of power settings. It adds no rail geometry or connectors, has an independent
 inventory/shopping count and uses a schematic marker rather than an invented road/gate footprint.
 It moves and deletes with its host, survives undo/export/import and can be removed separately.
 R614 is a left-hand diamond crossing, not a road crossing.
+
+Power accessories add no track geometry. Select a suitable unlocked host and choose the accessory,
+then explicitly mark feed connection in **Track power**. R602/R8242 clip controls are limited to
+R600/R601; actual fit still requires physical verification. R8232 consumes two individual clips
+per declared bypass. See the [power planning guide](power.md) for compatibility and limitations.
 
 ## Peco Setrack OO Catalog
 

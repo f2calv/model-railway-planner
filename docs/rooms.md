@@ -65,7 +65,8 @@ Fit, SVG, PNG and print/PDF include the selected room and furniture below boards
 Only the assigned room appears in a drawing; JSON backups include every named room and assignment.
 User room/furniture names are retained verbatim when changing UI language and escaped in SVG exports.
 
-Format 5 backups migrate versions 1–4 without inventing rooms or changing older track/board geometry.
+Format 6 backups retain rooms from version 5 and migrate versions 1–4 without inventing rooms or
+changing older track/board geometry.
 Autosave, failed-write protection, whole-document undo/redo and cross-tab recovery apply to room edits
 as well. Close/update older app tabs before editing migrated documents.
 

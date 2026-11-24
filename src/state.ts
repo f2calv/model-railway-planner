@@ -1,11 +1,12 @@
 import { accessoryFits, catalog, definition } from './catalog';
 import { placementProblem } from './geometry';
 import { joinedBoards, rectangleBoard, validateBoard } from './baseboards';
-import type { Board, Layout, Piece, PlannerState, Room } from './model';
+import { powerSupplies, validateElectrical } from './power';
+import type { Board, ElectricalSettings, Layout, Piece, PlannerState, Room } from './model';
 
 export function emptyState(id: string): PlannerState {
   return {
-    version: 5,
+    version: 6,
     rooms: [],
     inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])),
     layouts: [{ id, name: 'My first layout', pieces: [], boards: [] }],
@@ -73,9 +74,33 @@ export function removeRoom(state: PlannerState, id: string): PlannerState {
 }
 
 export function used(layout: Layout, trackId: string): number {
-  return layout.pieces.filter(
-    (piece) => piece.trackId === trackId || piece.accessories?.includes(trackId),
-  ).length;
+  return layout.pieces.reduce((total, piece) => total + requirement(piece, trackId), 0);
+}
+
+function requirement(piece: Piece, id: string): number {
+  return (
+    Number(piece.trackId === id || !!piece.accessories?.includes(id)) +
+    (powerSupplies(piece).find((entry) => entry.id === id)?.quantity ?? 0)
+  );
+}
+
+export function setElectrical(
+  state: PlannerState,
+  id: string,
+  settings: ElectricalSettings,
+): PlannerState {
+  const piece = selection(state, [id])[0];
+  if (!piece) throw new Error('Select one track piece.');
+  if (piece.locked) throw new Error('Unlock the selected pieces before moving or deleting them.');
+  const next = { ...piece };
+  if (Object.keys(settings).length) next.electrical = settings;
+  else delete next.electrical;
+  validateElectrical(next);
+  const layout = activeLayout(state);
+  return updateLayout(state, {
+    ...layout,
+    pieces: layout.pieces.map((entry) => (entry.id === id ? next : entry)),
+  });
 }
 
 export function available(state: PlannerState, trackId: string): number {
@@ -94,9 +119,10 @@ export function missingPieceIds(state: PlannerState, accessoryId?: string): Set<
   const usedCounts = new Map<string, number>();
   return new Set(
     activeLayout(state).pieces.flatMap((piece) => {
-      if (accessoryId && !piece.accessories?.includes(accessoryId)) return [];
       const id = accessoryId ?? piece.trackId;
-      const count = (usedCounts.get(id) ?? 0) + 1;
+      const quantity = requirement(piece, id);
+      if (!quantity) return [];
+      const count = (usedCounts.get(id) ?? 0) + quantity;
       usedCounts.set(id, count);
       return count > (state.inventory[id] ?? 0) ? [piece.id] : [];
     }),
@@ -104,6 +130,7 @@ export function missingPieceIds(state: PlannerState, accessoryId?: string): Set<
 }
 
 function validateAccessories(piece: Piece): void {
+  validateElectrical(piece);
   if (definition(piece.trackId).attachment)
     throw new Error('Accessories must be attached to a compatible straight.');
   const accessories = piece.accessories ?? [];
@@ -154,6 +181,7 @@ export function putPieces(state: PlannerState, pieces: readonly Piece[]): Planne
         existing.angle !== piece.angle ||
         existing.flipped !== piece.flipped ||
         existing.locked !== piece.locked ||
+        JSON.stringify(existing.electrical) !== JSON.stringify(piece.electrical) ||
         JSON.stringify(existing.accessories ?? []) !== JSON.stringify(piece.accessories ?? []))
     )
       throw new Error('Unlock the selected pieces before moving or deleting them.');
@@ -292,10 +320,44 @@ function number(value: unknown): number {
 
 function parseAccessories(value: unknown, version: unknown): Pick<Piece, 'accessories'> {
   if (value === undefined) return {};
-  if (version !== 3 && version !== 4 && version !== 5)
+  if (version !== 3 && version !== 4 && version !== 5 && version !== 6)
     throw new Error('Accessories require backup format 3 or newer.');
   if (!Array.isArray(value) || value.length > 1) throw new Error('Invalid accessories in backup.');
   return { accessories: value.map(text) };
+}
+
+function parseElectrical(value: unknown, version: unknown): Pick<Piece, 'electrical'> {
+  if (value === undefined) return {};
+  if (version !== 6) throw new Error('Power settings require backup format 6.');
+  const raw = record(value);
+  const electrical: ElectricalSettings = {};
+  if (raw['pointRoute'] !== undefined) {
+    if (raw['pointRoute'] !== 0 && raw['pointRoute'] !== 1)
+      throw new Error('Choose a supported point route.');
+    electrical.pointRoute = raw['pointRoute'];
+  }
+  if (raw['bypass'] !== undefined) {
+    if (raw['bypass'] !== 'clips' && raw['bypass'] !== 'soldered')
+      throw new Error('Choose a supported point bypass.');
+    electrical.bypass = raw['bypass'];
+  }
+  if (raw['feed'] !== undefined) {
+    const feed = record(raw['feed']);
+    const kind = feed['kind'],
+      connected = feed['connected'];
+    if (kind !== 'native' && kind !== 'r602' && kind !== 'r8242' && kind !== 'manual')
+      throw new Error('Choose a valid power feed.');
+    if (typeof connected !== 'boolean') throw new Error('Invalid power feed connection flag.');
+    electrical.feed = { kind, connected, port: number(feed['port']) };
+  }
+  return { electrical };
+}
+
+function parsePowerMode(value: unknown, version: unknown): Pick<Layout, 'powerMode'> {
+  if (value === undefined) return {};
+  if (version !== 6) throw new Error('Power settings require backup format 6.');
+  if (value !== 'dc' && value !== 'dcc') throw new Error('Choose DC or DCC power.');
+  return { powerMode: value };
 }
 
 export function parseState(json: string): PlannerState {
@@ -306,7 +368,8 @@ export function parseState(json: string): PlannerState {
     data['version'] !== 2 &&
     data['version'] !== 3 &&
     data['version'] !== 4 &&
-    data['version'] !== 5
+    data['version'] !== 5 &&
+    data['version'] !== 6
   )
     throw new Error('Unsupported backup version. Your original data has not been changed.');
   const rawInventory = record(data['inventory']);
@@ -348,6 +411,7 @@ export function parseState(json: string): PlannerState {
         flipped: p['flipped'],
         ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
         ...parseAccessories(p['accessories'], data['version']),
+        ...parseElectrical(p['electrical'], data['version']),
       };
       validateAccessories(piece);
       return piece;
@@ -358,7 +422,7 @@ export function parseState(json: string): PlannerState {
     if (new Set(boards.map((b) => b.id)).size !== boards.length)
       throw new Error('Duplicate baseboard identifiers.');
     const roomId = raw['roomId'];
-    if (roomId !== undefined && data['version'] !== 5)
+    if (roomId !== undefined && data['version'] !== 5 && data['version'] !== 6)
       throw new Error('Rooms require backup format 5.');
     const layout: Layout = {
       id: text(raw['id']),
@@ -366,19 +430,20 @@ export function parseState(json: string): PlannerState {
       pieces,
       boards,
       ...(roomId === undefined ? {} : { roomId: text(roomId) }),
+      ...parsePowerMode(raw['powerMode'], data['version']),
     };
     return layout;
   });
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
-    version: 5,
+    version: 6,
     rooms: [],
     inventory,
     layouts,
     activeLayoutId: text(data['activeLayoutId']),
   };
-  if (data['version'] === 5) {
+  if (data['version'] === 5 || data['version'] === 6) {
     const rooms = data['rooms'];
     if (!Array.isArray(rooms) || rooms.length > 50) throw new Error('Invalid rooms in backup.');
     for (const value of rooms) {
@@ -394,7 +459,11 @@ export function parseState(json: string): PlannerState {
           const role = entry['role'];
           if (role !== 'outline' && role !== 'furniture')
             throw new Error('Invalid room shape role.');
-          return { name: text(entry['name']), role, shape: parseBoard(entry['shape'], 5, 0) };
+          return {
+            name: text(entry['name']),
+            role,
+            shape: parseBoard(entry['shape'], data['version'], 0),
+          };
         }),
       };
       if (state.rooms.some((entry) => entry.id === room.id))
@@ -425,7 +494,7 @@ export function layoutProblems(layout: Layout): string[] {
 
 function parseBoard(value: unknown, version: unknown, index: number): Board {
   const raw = record(value);
-  if (version !== 4 && version !== 5) {
+  if (version !== 4 && version !== 5 && version !== 6) {
     const width = number(raw['width']),
       height = number(raw['height']);
     if (width <= 0 || height <= 0) throw new Error('Baseboard dimensions must be positive.');

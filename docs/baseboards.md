@@ -74,7 +74,7 @@ Containment and joining use analytic polygon/line/circle geometry. Track footpri
 existing sampled clearance checks; this is not a guarantee of vehicle clearance or structural safety.
 
 Each successful gesture is one save and one undo step. A failed browser-storage write rejects the
-edit. Format 5 backups retain board IDs, poses and geometry and migrate the earlier rectangle format.
+edit. Format 6 backups retain board IDs, poses and geometry and migrate the earlier rectangle format.
 Close/update older app tabs before editing migrated documents. The existing storage key is retained.
 
 Layouts support at most 50 board shapes. Polygons have 3 to 16 corners with at least 1 mm between

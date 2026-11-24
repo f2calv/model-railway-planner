@@ -47,6 +47,7 @@ for the implementation drilldown and placement/persistence sequence.
 - Named rooms and furniture beneath baseboards and track; choose a room independently for each idea.
 - Pan and zoom, touch placement, keyboard controls and exact-coordinate editing.
 - Planning warnings for overlaps, baseboard boundaries and nominal parallel spacing.
+- Optional DC/DCC power checks, explicit feeds, self-isolating point positions and bypass clips.
 - Local autosave and JSON backup import/export, without accounts or cloud storage.
 - Dark mode and installable offline use where the browser supports it.
 - English, German, French, Spanish and Italian interfaces.
@@ -151,7 +152,7 @@ See the [room planning guide](docs/rooms.md) for sharing, saving and limitations
 
 ## Track Catalogs
 
-The catalog contains 44 entries: 28 Hornby (including the R645 accessory), seven Peco Setrack
+The catalog contains 47 entries: 31 Hornby (including R645 and three power accessories), seven Peco Setrack
 and nine Bachmann OO pieces.
 See the [track catalog guide](docs/catalog.md) for supported dimensions, manufacturer sources,
 geometric compatibility rules and deliberately deferred furniture. Mixed-brand snapping is a planning
@@ -162,6 +163,22 @@ It attaches centrally without adding track or connectors, and has its own invent
 Use **Remove R645 accessory** to detach it without removing the host. It moves, locks and deletes
 with its host; undo and backups retain it. The marker is schematic: road, gate and barrier clearance
 is not checked. R636 includes two parallel tracks but is counted as one purchased item.
+
+## Track Power
+
+Choose **DC (analogue)** or **DCC (digital)** under **Track power** for each idea.
+Select an unlocked track piece, choose its feed/connector and explicitly mark whether it is
+connected to the selected controller. R8206 is DC; R8241 is DCC. Manual feeders and R602/R8242
+clips are also supported as planning declarations.
+
+Hornby points power only the selected route unless a bypass is declared. Choose the point position,
+an **R8232 pair (2 clips)** or a soldered bypass. Inventory counts individual R8232 clips:
+enter 20 for the current full pack. Clip shortages appear on the shopping list.
+
+The optional overlay distinguishes powered, unpowered, partial and unverified routes without
+replacing stock/lock colours. DC dead sidings may be intentional; DCC warns about unpowered
+sections and uncertain continuity. This assumes one controller and sound rail joints, not a
+polarity, short-circuit or wiring certificate. See the [power planning guide](docs/power.md).
 
 ## Storage and Offline Use
 
@@ -174,9 +191,10 @@ the original readable bytes for recovery. Failed writes reject the edit and disp
 Changes in another tab lock editing until reload. Imports validate schema, catalog references,
 finite coordinates, inventory quantities and unique IDs; placement problems are displayed for review.
 
-The current backup format is version 5 and imports version 1, 2, 3 and 4 documents. Legacy rectangles
+The current backup format is version 6 and imports versions 1–5. Legacy rectangles
 become polygons with stable IDs. The existing storage key
-is retained to find older plans. Named rooms, furniture, room assignments, locks and attached accessories are included in backups; display/audio/delete preferences
+is retained to find older plans. Named rooms, furniture, room assignments, locks, attached accessories
+and power settings are included in backups; display/audio/delete preferences
 and session history are not. Close or update older app tabs before editing a migrated document.
 
 Unexpected errors open a visible dialog with a link to draft a GitHub issue. Only the public app

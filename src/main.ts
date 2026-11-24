@@ -19,6 +19,7 @@ import {
   resetInventory,
   setInventory,
   setAccessory,
+  setElectrical,
   shoppingList,
   updateLayout,
   assignRoom,
@@ -48,6 +49,8 @@ import { playSound } from './sound';
 import { manufacturerProfiles } from './profiles';
 import { ShapeEditor } from './shape-editor';
 import { roomProblems } from './rooms';
+import { analyzePower, attachPowerAccessory, type PowerRoute } from './power';
+import { PowerEditor } from './power-editor';
 import { translate, translateUi } from './i18n';
 import {
   accessoryMarks,
@@ -133,6 +136,7 @@ element<HTMLDivElement>('#app').innerHTML = `
         <button id="flip">Reverse curve</button><button id="remove-piece">Remove piece</button>
         <button id="remove-accessory" hidden>Remove R645 accessory</button>
       </div>
+      <hr /><div id="power-editor"></div>
       <hr /><h2>Shopping list</h2><p>Extra pieces needed for this layout only. Orange dashed track is not yet owned.</p>
       <div id="shopping-list"></div>
       <hr /><span class="eyebrow">YOUR SPACE</span><h2>Baseboard</h2>
@@ -197,6 +201,15 @@ let paletteDrag: {
 const openCategories = new Set<TrackCategory>(['straights', 'curves', 'points', 'misc']);
 const svg = element<SVGSVGElement>('#canvas');
 const svgSelection = select(svg);
+const powerEditor = new PowerEditor(element<HTMLElement>('#power-editor'), {
+  state: () => state,
+  selected,
+  single: () => selectedIds.size === 1,
+  readonly: () => recovery,
+  commit,
+  action,
+  redraw: render,
+});
 const boardEditor = new ShapeEditor(
   element<HTMLElement>('#baseboard-editor'),
   svg,
@@ -318,6 +331,15 @@ function changeSummary(previous: PlannerState, next: PlannerState): string {
     return 'Baseboard updated';
   const before = activeLayout(previous).pieces;
   const after = activeLayout(next).pieces;
+  if (
+    activeLayout(previous).powerMode !== activeLayout(next).powerMode ||
+    after.some(
+      (p) =>
+        JSON.stringify(before.find((old) => old.id === p.id)?.electrical) !==
+        JSON.stringify(p.electrical),
+    )
+  )
+    return 'Track power updated';
   const added = after.filter((p) => !before.some((old) => old.id === p.id));
   const removed = before.filter((p) => !after.some((current) => current.id === p.id));
   if (added.length) return `Added: ${added.map((p) => definition(p.trackId).code).join(', ')}`;
@@ -477,6 +499,7 @@ function drawTrack(
   ghost = false,
   missing = false,
   missingAccessory = false,
+  power: readonly PowerRoute[] = [],
 ): void {
   const entry = definition(piece.trackId);
   group.setAttribute(
@@ -534,6 +557,32 @@ function drawTrack(
     .attr('x2', (port) => port.x + 19 * Math.sin((port.angle * Math.PI) / 180))
     .attr('y2', (port) => port.y - 19 * Math.cos((port.angle * Math.PI) / 180))
     .attr('class', 'track-join');
+  drawing
+    .selectAll<SVGPathElement, PowerRoute>('path.power-route')
+    .data(power, (route) => route.route)
+    .join('path')
+    .attr('class', 'power-route')
+    .attr('data-power-status', (route) => route.status)
+    .attr('d', (route) => {
+      const geometry = entry.routes[route.route];
+      if (!geometry) throw new Error('Missing power overlay route.');
+      return pathData(geometry);
+    })
+    .attr('fill', 'none')
+    .attr(
+      'stroke',
+      (route) =>
+        ({ powered: '#38c59b', unpowered: '#ef8b46', partial: '#e5bd43', unverified: '#ba82ea' })[
+          route.status
+        ],
+    )
+    .attr('stroke-width', 3)
+    .attr('stroke-dasharray', (route) => (route.status === 'powered' ? '' : '8 5'))
+    .attr('pointer-events', 'none')
+    .selectAll<SVGTitleElement, PowerRoute>('title')
+    .data((route) => [route])
+    .join('title')
+    .text((route) => `Power ${entry.code} route ${route.route + 1}: ${route.status}`);
   drawing
     .selectAll<SVGPathElement, Piece>('path.padlock')
     .data(piece.locked ? [piece] : [])
@@ -732,6 +781,8 @@ function render(): void {
   if (!selectedIds.has(selectedId)) selectOnly(selectedId);
   selectedIds = new Set([...selectedIds].filter((id) => layout.pieces.some((p) => p.id === id)));
   if (!selectedIds.has(selectedId)) selectedId = [...selectedIds][0] ?? '';
+  const power = analyzePower(layout);
+  powerEditor.render(power);
   const missing = missingPieceIds(state);
   const missingAccessories = missingPieceIds(state, 'hornby-oo-r645');
   const layoutSelect = element<HTMLSelectElement>('#layouts');
@@ -810,8 +861,17 @@ function render(): void {
         pick.addEventListener('click', () =>
           action(() => {
             if (selectedIds.size !== 1)
-              throw new Error('Select one compatible Hornby straight at least 168 mm long.');
-            if (commit(setAccessory(state, selectedId, entry.id, true))) {
+              throw new Error(
+                entry.electrical?.accessory
+                  ? 'Select one track piece.'
+                  : 'Select one compatible Hornby straight at least 168 mm long.',
+              );
+            const host = selected();
+            if (!host) throw new Error('Select one track piece.');
+            const next = entry.electrical?.accessory
+              ? setElectrical(state, selectedId, attachPowerAccessory(host, entry.id))
+              : setAccessory(state, selectedId, entry.id, true);
+            if (commit(next)) {
               toolId = '';
               preview(null);
             }
@@ -917,7 +977,14 @@ function render(): void {
         'aria-label',
         `${piece.locked ? 'Locked ' : ''}Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
       );
-      drawTrack(group, piece, false, missing.has(piece.id), missingAccessories.has(piece.id));
+      drawTrack(
+        group,
+        piece,
+        false,
+        missing.has(piece.id),
+        missingAccessories.has(piece.id),
+        powerEditor.overlay ? power.routes.filter((route) => route.pieceId === piece.id) : [],
+      );
     });
   boardEditor.render();
   roomEditor.render();

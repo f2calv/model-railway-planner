@@ -53,6 +53,8 @@ flowchart TB
         board_editor["Geometric editor<br/>Board and room shape gestures"]:::component
         boards["Baseboard geometry<br/>Shapes, joins and containment"]:::component
         rooms["Room checks<br/>Sampled boundary warnings"]:::component
+        power_editor["Power editor<br/>Feed and point declarations"]:::component
+        power["Power checks<br/>Conservative route reachability"]:::component
         catalog["Track catalog and profiles<br/>Routes and compatibility"]:::component
         storage["Persistence adapter<br/>Validated snapshot reads and writes"]:::component
         history["History and activity<br/>Bounded session revisions"]:::component
@@ -70,6 +72,14 @@ flowchart TB
     board_editor -->|"Layer commands through save boundary"| state
     board_editor -->|"snapBoard and moveBoardCorner"| boards
     editor -->|"roomProblems"| rooms
+    editor -->|"Render power controls and results"| power_editor
+    editor -->|"analyzePower"| power
+    power_editor -->|"setElectrical and updateLayout through save boundary"| state
+    power_editor -->|"Connector positions"| geometry
+    power_editor -->|"Supported power options"| catalog
+    power -->|"ports, connected and routePose"| geometry
+    power -->|"Electrical behavior and compatible profiles"| catalog
+    state -->|"validateElectrical and powerSupplies"| power
     rooms -->|"assignedRoom and activeLayout"| state
     rooms -->|"Sampled track footprint"| geometry
     rooms -->|"containsBoard and boardBounds"| boards
@@ -110,10 +120,12 @@ unexpected-error reports never automatically include it or document content.
 | Component                  | Responsibility                                                                      | Code location                                                            | Provides                                                                                        | Requires                                            |
 | -------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | Editor adapter             | Controls, SVG joins, previews, pointer/keyboard gestures and visible errors         | [main.ts](../src/main.ts), [style.css](../src/style.css)                 | Browser UI and command dispatch                                                                 | State, geometry, catalog, storage, PWA integration  |
-| Planner commands           | Atomic group/layout edits, locks, inventory, shortfalls and backup validation       | [state.ts](../src/state.ts), [model.ts](../src/model.ts)                 | `putPieces`, `transformPieces`, `removePieces`, `setPieceLocks`, `resetInventory`, `parseState` | Catalog and geometry                                |
+| Planner commands           | Atomic group/layout edits, locks, inventory, shortfalls and backup validation       | [state.ts](../src/state.ts), [model.ts](../src/model.ts)                 | `putPieces`, `transformPieces`, `removePieces`, `setPieceLocks`, `resetInventory`, `parseState` | Catalog, geometry and power checks                  |
 | Track geometry             | Model-space routes, poses, group snapping and clearance                             | [geometry.ts](../src/geometry.ts)                                        | `ports`, `snapPiece`, `snapGroup`, `placementProblem`, `pathData`                               | Catalog routes/profiles and board containment       |
 | Geometric editor           | Shared palette, inspector and reversible gestures for independent board/room layers | [shape-editor.ts](../src/shape-editor.ts)                                | `ShapeEditor`, `ShapeLayer`, previews and command dispatch                                      | Planner commands, geometry and editor save boundary |
 | Room checks                | Advisory sampled boundary checks for assigned rooms and furniture                   | [rooms.ts](../src/rooms.ts)                                              | `roomProblems`                                                                                  | Planner commands, track and board geometry          |
+| Power editor               | Feed/point controls and textual power results                                       | [power-editor.ts](../src/power-editor.ts)                                | `PowerEditor` and command dispatch                                                              | State, geometry, catalog and editor save boundary   |
+| Power checks               | Definite/possible reachability, independent routes, isolation and clip requirements | [power.ts](../src/power.ts)                                              | `analyzePower`, `validateElectrical`, `powerSupplies`                                           | Catalog/profiles, track geometry and domain types   |
 | Baseboard geometry         | Analytic shapes, convex corner edits, snapping and union containment                | [baseboards.ts](../src/baseboards.ts)                                    | `containsBoard`, `joinedBoards`, `snapBoard`, `moveBoardCorner`, `boardPath`, `boardBounds`     | Domain types                                        |
 | Track catalog and profiles | Verified nominal dimensions, warnings and geometric compatibility                   | [catalog.ts](../src/catalog.ts), [profiles.ts](../src/profiles.ts)       | `catalog`, `definition`, `trackSize`, `planningCompatible`                                      | Domain types                                        |
 | Persistence adapter        | Validate a whole snapshot before writing; surface malformed/denied storage          | [storage.ts](../src/storage.ts)                                          | `loadState`, `saveState`, `StoragePort`                                                         | State parser and browser Storage                    |
@@ -170,9 +182,9 @@ the zoom owner takes over.
 
 ## Document and Update Safety
 
-Format 5 retains named rooms/furniture and layout room references alongside board IDs/shapes,
-piece locks and attached accessory identifiers, migrating
-supported format 1, 2 and 3 documents. Old rectangles become canonical polygon boards.
+Format 6 retains named rooms/furniture and layout room references alongside board IDs/shapes,
+piece locks, attached accessories and typed power declarations, migrating supported formats 1–5.
+Old rectangles become canonical polygon boards; older ideas have no configured power system.
 Accessories belong to their host piece, so transforms, deletion and history remain atomic.
 The catalog distinguishes trackless attachments from rail routes; inventory/CSV count them separately.
 Unsupported/newer formats
@@ -184,6 +196,10 @@ document. Background cache notifications do not replace foreground save/recovery
 The [baseboard guide](baseboards.md) describes the shape and preset contract. Board edits are
 atomic but allow disconnected shapes and exposed track, publishing warnings rather than moving
 track or silently rejecting the composition. Track placement still checks containment.
+
+The [power guide](power.md) describes the conservative route/port graph, controller declarations
+and electrical limits. Power checks do not certify physical wiring, and drawing exports remain
+geometry-only.
 
 ## Deployment Flow
 

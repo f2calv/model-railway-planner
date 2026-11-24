@@ -402,7 +402,7 @@ describe('group transactions and history', () => {
     expect(() => parseState(JSON.stringify(invalid))).toThrow(/accessories/);
     expect(() => parseState(JSON.stringify({ ...attached, version: 2 }))).toThrow(/format 3/);
     expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 2 })).version).toBe(
-      5,
+      6,
     );
   });
 
@@ -436,7 +436,7 @@ describe('group transactions and history', () => {
     expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 1 }))).toEqual(
       initial,
     );
-    expect(initial.version).toBe(5);
+    expect(initial.version).toBe(6);
   });
   it('moves a connected group atomically past its original positions and rejects a collision', () => {
     const initial = putPieces(stock(), [piece('a'), piece('b', 168), piece('obstacle', 0, 300)]);
@@ -753,7 +753,7 @@ describe('inventory and durable documents', () => {
   it('validates imported nested references, stock, IDs, numbers and versions', () => {
     const state = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify(state))).toEqual(state);
-    expect(() => parseState(JSON.stringify({ ...state, version: 6 }))).toThrow(/version/);
+    expect(() => parseState(JSON.stringify({ ...state, version: 7 }))).toThrow(/version/);
     const shortfall = parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }));
     expect(shoppingList(shortfall)).toEqual([{ trackId: straightId, quantity: 1 }]);
     expect(parseState(JSON.stringify({ ...state, inventory: {} })).layouts).toEqual(state.layouts);

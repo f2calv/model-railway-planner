@@ -30,6 +30,17 @@ export interface TrackDefinition {
   category: TrackCategory;
   geometryNote?: string;
   attachment?: { minLengthMm: number };
+  electrical?: {
+    behavior: 'continuous' | 'turnout' | 'isolating' | 'independent' | 'unverified';
+    nativeFeed?: 'dc' | 'dcc';
+    accessory?: 'dc-feed' | 'dcc-feed' | 'point-clips';
+  };
+}
+
+export interface ElectricalSettings {
+  feed?: { kind: 'native' | 'r602' | 'r8242' | 'manual'; port: number; connected: boolean };
+  pointRoute?: 0 | 1;
+  bypass?: 'clips' | 'soldered';
 }
 
 export interface Piece extends Pose {
@@ -38,6 +49,7 @@ export interface Piece extends Pose {
   flipped: boolean;
   locked?: boolean;
   accessories?: string[];
+  electrical?: ElectricalSettings;
 }
 
 export type Board = Pose & { id: string } & (
@@ -52,6 +64,7 @@ export interface Layout {
   pieces: Piece[];
   boards: Board[];
   roomId?: string;
+  powerMode?: 'dc' | 'dcc';
 }
 
 export interface RoomShape {
@@ -67,7 +80,7 @@ export interface Room {
 }
 
 export interface PlannerState {
-  version: 5;
+  version: 6;
   rooms: Room[];
   inventory: Record<string, number>;
   layouts: Layout[];

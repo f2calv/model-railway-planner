@@ -77,6 +77,30 @@ export const catalog: readonly TrackDefinition[] = [
     attachment: { minLengthMm: 168 },
   },
   ...[
+    {
+      code: 'R602',
+      name: 'DC power connecting clip',
+      slug: 'power-connecting-clip',
+      accessory: 'dc-feed' as const,
+    },
+    {
+      code: 'R8242',
+      name: 'DCC power connecting clip',
+      slug: 'digital-power-connecting-clip',
+      accessory: 'dcc-feed' as const,
+    },
+    {
+      code: 'R8232',
+      name: 'DCC point clips (individual clips)',
+      slug: 'digital-electric-point-clips-pack-20',
+      accessory: 'point-clips' as const,
+    },
+  ].map((item) => ({
+    ...track(item.code, item.name, [], item.slug, 'misc'),
+    attachment: { minLengthMm: 0 },
+    electrical: { behavior: 'unverified' as const, accessory: item.accessory },
+  })),
+  ...[
     { code: 'R604', radius: 371, angle: 22.5, name: '1st radius', slug: 'curve-1st-radius' },
     {
       code: 'R605',
@@ -328,6 +352,27 @@ function profileTrack(
     routes,
     source,
     category,
+    electrical: {
+      behavior:
+        code === 'R618'
+          ? 'isolating'
+          : category === 'points'
+            ? profileId === 'hornby-oo' && /^R807[2-8]$/.test(code) && routes.length === 2
+              ? 'turnout'
+              : 'unverified'
+            : routes.length === 1
+              ? 'continuous'
+              : routes.length === 2 &&
+                  profileId === 'hornby-oo' &&
+                  ['R636', 'R614', 'R615'].includes(code)
+                ? 'independent'
+                : 'unverified',
+      ...(code === 'R8206'
+        ? { nativeFeed: 'dc' as const }
+        : code === 'R8241'
+          ? { nativeFeed: 'dcc' as const }
+          : {}),
+    },
     ...(geometryNote ? { geometryNote } : {}),
   };
 }
@@ -348,6 +393,7 @@ export function accessoryFits(hostId: string, accessoryId: string): boolean {
   const route = host.routes[0];
   return (
     !!accessory.attachment &&
+    !accessory.electrical?.accessory &&
     host.profileId === accessory.profileId &&
     host.routes.length === 1 &&
     route?.kind === 'straight' &&

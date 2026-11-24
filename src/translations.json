@@ -1,4 +1,316 @@
 {
+  "Track power": [
+    "Stromversorgung",
+    "Alimentation des voies",
+    "Alimentación de vías",
+    "Alimentazione dei binari"
+  ],
+  "Powered estimates assume all planned parts are fitted, including shopping-list items.": [
+    "Die Stromschätzung setzt alle geplanten Teile voraus, einschließlich der Einkaufsliste.",
+    "L’estimation suppose toutes les pièces prévues installées, y compris celles de la liste d’achats.",
+    "La estimación supone instaladas todas las piezas previstas, incluidas las de la lista de compras.",
+    "La stima presume installati tutti i componenti previsti, inclusi quelli della lista acquisti."
+  ],
+  "Track power updated": [
+    "Stromversorgung aktualisiert",
+    "Alimentation mise à jour",
+    "Alimentación actualizada",
+    "Alimentazione aggiornata"
+  ],
+  "Power system": [
+    "Stromsystem",
+    "Système d’alimentation",
+    "Sistema de alimentación",
+    "Sistema di alimentazione"
+  ],
+  "Not configured": ["Nicht konfiguriert", "Non configuré", "Sin configurar", "Non configurato"],
+  "DC (analogue)": ["DC (analog)", "DC (analogique)", "DC (analógico)", "DC (analogico)"],
+  "DCC (digital)": ["DCC (digital)", "DCC (numérique)", "DCC (digital)", "DCC (digitale)"],
+  "Show power overlay": [
+    "Stromversorgung anzeigen",
+    "Afficher l’alimentation",
+    "Mostrar alimentación",
+    "Mostra alimentazione"
+  ],
+  "Green: powered. Orange: unpowered. Yellow: partial. Purple: unverified.": [
+    "Grün: versorgt. Orange: stromlos. Gelb: teilweise. Violett: ungeprüft.",
+    "Vert : alimenté. Orange : non alimenté. Jaune : partiel. Violet : non vérifié.",
+    "Verde: alimentada. Naranja: sin alimentación. Amarillo: parcial. Morado: sin verificar.",
+    "Verde: alimentato. Arancione: non alimentato. Giallo: parziale. Viola: non verificato."
+  ],
+  "Planning estimate only: one controller, sound rail joints. No polarity, short-circuit or wiring certification.": [
+    "Nur Planungsschätzung: ein Regler, intakte Schienenverbindungen. Keine Prüfung von Polarität, Kurzschlüssen oder Verkabelung.",
+    "Estimation de planification : un contrôleur et des jonctions fiables. Aucune certification de polarité, de court-circuit ou de câblage.",
+    "Solo estimación: un controlador y uniones fiables. No certifica polaridad, cortocircuitos ni cableado.",
+    "Solo stima progettuale: un controller e giunzioni integre. Nessuna certificazione di polarità, cortocircuiti o cablaggio."
+  ],
+  "Select one unlocked track piece to edit its power settings.": [
+    "Ein entsperrtes Gleisstück auswählen, um seine Stromversorgung zu bearbeiten.",
+    "Sélectionnez une voie déverrouillée pour modifier son alimentation.",
+    "Seleccione una pieza desbloqueada para editar su alimentación.",
+    "Seleziona un binario sbloccato per modificarne l’alimentazione."
+  ],
+  "Selected track power": [
+    "Stromversorgung des gewählten Gleises",
+    "Alimentation de la voie sélectionnée",
+    "Alimentación de la vía seleccionada",
+    "Alimentazione del binario selezionato"
+  ],
+  "Feed type": [
+    "Einspeisungsart",
+    "Type d’alimentation",
+    "Tipo de alimentación",
+    "Tipo di alimentazione"
+  ],
+  "Feed connector": [
+    "Einspeisungsanschluss",
+    "Connecteur d’alimentation",
+    "Conector de alimentación",
+    "Connettore di alimentazione"
+  ],
+  "Connected to the selected controller": [
+    "Mit dem ausgewählten Regler verbunden",
+    "Connecté au contrôleur sélectionné",
+    "Conectado al controlador seleccionado",
+    "Collegato al controller selezionato"
+  ],
+  "Point position": [
+    "Weichenstellung",
+    "Position de l’aiguille",
+    "Posición del desvío",
+    "Posizione dello scambio"
+  ],
+  "Unknown position": [
+    "Unbekannte Stellung",
+    "Position inconnue",
+    "Posición desconocida",
+    "Posizione sconosciuta"
+  ],
+  "Route 1": ["Fahrweg 1", "Itinéraire 1", "Ruta 1", "Percorso 1"],
+  "Route 2": ["Fahrweg 2", "Itinéraire 2", "Ruta 2", "Percorso 2"],
+  "Point bypass": [
+    "Weichenüberbrückung",
+    "Pontage de l’aiguille",
+    "Puente del desvío",
+    "Ponticello dello scambio"
+  ],
+  "No bypass": ["Keine Überbrückung", "Aucun pontage", "Sin puente", "Nessun ponticello"],
+  "R8232 pair (2 clips)": [
+    "R8232-Paar (2 Clips)",
+    "Paire R8232 (2 clips)",
+    "Par R8232 (2 clips)",
+    "Coppia R8232 (2 clip)"
+  ],
+  "Soldered bypass": [
+    "Gelötete Überbrückung",
+    "Pontage soudé",
+    "Puente soldado",
+    "Ponticello saldato"
+  ],
+  "Apply power settings": [
+    "Stromeinstellungen anwenden",
+    "Appliquer l’alimentation",
+    "Aplicar alimentación",
+    "Applica alimentazione"
+  ],
+  "No feed": [
+    "Keine Einspeisung",
+    "Aucune alimentation",
+    "Sin alimentación",
+    "Nessuna alimentazione"
+  ],
+  "Native power track": [
+    "Gleis mit eingebauter Einspeisung",
+    "Voie d’alimentation intégrée",
+    "Vía de alimentación integrada",
+    "Binario con alimentazione integrata"
+  ],
+  "R602 DC clip": ["R602-DC-Clip", "Clip DC R602", "Clip DC R602", "Clip DC R602"],
+  "R8242 DCC clip": ["R8242-DCC-Clip", "Clip DCC R8242", "Clip DCC R8242", "Clip DCC R8242"],
+  "Manual feeder (operator declaration)": [
+    "Manuelle Einspeisung (eigene Angabe)",
+    "Alimentation manuelle (déclaration)",
+    "Alimentación manual (declaración)",
+    "Alimentazione manuale (dichiarazione)"
+  ],
+  "Connector {index}: {x}, {y} mm": [
+    "Anschluss {index}: {x}, {y} mm",
+    "Connecteur {index} : {x}, {y} mm",
+    "Conector {index}: {x}, {y} mm",
+    "Connettore {index}: {x}, {y} mm"
+  ],
+  "Power {code} route {index}: {state}": [
+    "Strom {code}, Fahrweg {index}: {state}",
+    "Alimentation {code}, itinéraire {index} : {state}",
+    "Alimentación {code}, ruta {index}: {state}",
+    "Alimentazione {code}, percorso {index}: {state}"
+  ],
+  "powered": ["versorgt", "alimenté", "alimentada", "alimentato"],
+  "unpowered": ["stromlos", "non alimenté", "sin alimentación", "non alimentato"],
+  "partial": ["teilweise versorgt", "partiel", "parcial", "parziale"],
+  "unverified": ["ungeprüft", "non vérifié", "sin verificar", "non verificato"],
+  "Power routes: {powered} powered / {unpowered} unpowered / {partial} partial / {unverified} unverified.": [
+    "Fahrwege: {powered} versorgt / {unpowered} stromlos / {partial} teilweise / {unverified} ungeprüft.",
+    "Itinéraires : {powered} alimentés / {unpowered} non alimentés / {partial} partiels / {unverified} non vérifiés.",
+    "Rutas: {powered} alimentadas / {unpowered} sin alimentación / {partial} parciales / {unverified} sin verificar.",
+    "Percorsi: {powered} alimentati / {unpowered} non alimentati / {partial} parziali / {unverified} non verificati."
+  ],
+  "Compatible connected feeds: {count}.": [
+    "Kompatible verbundene Einspeisungen: {count}.",
+    "Alimentations compatibles connectées : {count}.",
+    "Alimentaciones compatibles conectadas: {count}.",
+    "Alimentazioni compatibili collegate: {count}."
+  ],
+  "All modelled routes powered.": [
+    "Alle modellierten Fahrwege sind versorgt.",
+    "Tous les itinéraires modélisés sont alimentés.",
+    "Todas las rutas modeladas están alimentadas.",
+    "Tutti i percorsi modellati sono alimentati."
+  ],
+  "DC dead sidings may be intentional.": [
+    "Stromlose Abstellgleise können bei DC beabsichtigt sein.",
+    "Les voies de garage hors tension peuvent être intentionnelles en DC.",
+    "Las vías muertas sin alimentación pueden ser intencionales en DC.",
+    "I binari morti non alimentati possono essere intenzionali in DC."
+  ],
+  "Choose DC or DCC to check power connectivity.": [
+    "DC oder DCC wählen, um die Stromverbindungen zu prüfen.",
+    "Choisissez DC ou DCC pour vérifier la continuité.",
+    "Elija DC o DCC para comprobar la continuidad.",
+    "Scegli DC o DCC per verificare la continuità."
+  ],
+  "No compatible connected power feed is marked.": [
+    "Keine kompatible verbundene Einspeisung markiert.",
+    "Aucune alimentation compatible connectée n’est indiquée.",
+    "No hay alimentación compatible conectada indicada.",
+    "Nessuna alimentazione compatibile collegata è indicata."
+  ],
+  "Ambiguous connector joins prevent a reliable power result.": [
+    "Mehrdeutige Gleisverbindungen verhindern ein zuverlässiges Stromergebnis.",
+    "Des jonctions ambiguës empêchent un résultat fiable.",
+    "Las uniones ambiguas impiden un resultado fiable.",
+    "Giunzioni ambigue impediscono un risultato affidabile."
+  ],
+  "Factory R8206/R602 DC hardware is not DCC-compatible. Verify the actual hardware.": [
+    "Werkseitige R8206/R602-DC-Hardware ist nicht DCC-kompatibel. Tatsächliche Hardware prüfen.",
+    "Le matériel DC R8206/R602 d’origine n’est pas compatible DCC. Vérifiez le matériel réel.",
+    "El hardware DC R8206/R602 de fábrica no es compatible con DCC. Verifique el hardware real.",
+    "L’hardware DC R8206/R602 originale non è compatibile DCC. Verifica l’hardware effettivo."
+  ],
+  "A connected feed does not match the selected DC/DCC system and is ignored.": [
+    "Eine verbundene Einspeisung passt nicht zum DC/DCC-System und wird ignoriert.",
+    "Une alimentation connectée ne correspond pas au système DC/DCC et est ignorée.",
+    "Una alimentación conectada no coincide con el sistema DC/DCC y se ignora.",
+    "Un’alimentazione collegata non corrisponde al sistema DC/DCC e viene ignorata."
+  ],
+  "DCC has unpowered or partially powered routes. Check feeds, point positions and bypasses.": [
+    "DCC hat stromlose oder teilweise versorgte Fahrwege. Einspeisungen, Weichenstellungen und Überbrückungen prüfen.",
+    "DCC comporte des itinéraires non ou partiellement alimentés. Vérifiez les alimentations, aiguilles et pontages.",
+    "DCC tiene rutas sin alimentación o parciales. Compruebe alimentaciones, desvíos y puentes.",
+    "DCC presenta percorsi non alimentati o parziali. Verifica alimentazioni, scambi e ponticelli."
+  ],
+  "Some routes have unverified electrical continuity. This is not an all-powered result.": [
+    "Einige Fahrwege haben ungeprüfte elektrische Kontinuität. Das Ergebnis ist nicht vollständig versorgt.",
+    "La continuité de certains itinéraires n’est pas vérifiée. Ce n’est pas un résultat entièrement alimenté.",
+    "Algunas rutas tienen continuidad sin verificar. No es un resultado de alimentación completa.",
+    "La continuità di alcuni percorsi non è verificata. Non è un risultato completamente alimentato."
+  ],
+  "DC power connecting clip": [
+    "DC-Stromanschlussclip",
+    "Clip de connexion DC",
+    "Clip de conexión DC",
+    "Clip di collegamento DC"
+  ],
+  "DCC power connecting clip": [
+    "DCC-Stromanschlussclip",
+    "Clip de connexion DCC",
+    "Clip de conexión DCC",
+    "Clip di collegamento DCC"
+  ],
+  "DCC point clips (individual clips)": [
+    "DCC-Weichenclips (einzelne Clips)",
+    "Clips d’aiguille DCC (clips individuels)",
+    "Clips de desvío DCC (clips individuales)",
+    "Clip per scambi DCC (clip singole)"
+  ],
+  "Select one track piece.": [
+    "Ein Gleisstück auswählen.",
+    "Sélectionnez une voie.",
+    "Seleccione una pieza de vía.",
+    "Seleziona un binario."
+  ],
+  "Choose DC or DCC power.": [
+    "DC oder DCC wählen.",
+    "Choisissez DC ou DCC.",
+    "Elija DC o DCC.",
+    "Scegli DC o DCC."
+  ],
+  "Choose a valid power feed.": [
+    "Eine gültige Einspeisung wählen.",
+    "Choisissez une alimentation valide.",
+    "Elija una alimentación válida.",
+    "Scegli un’alimentazione valida."
+  ],
+  "Choose a supported point route.": [
+    "Einen unterstützten Weichenfahrweg wählen.",
+    "Choisissez un itinéraire d’aiguille pris en charge.",
+    "Elija una ruta de desvío compatible.",
+    "Scegli un percorso di scambio supportato."
+  ],
+  "Choose a supported point bypass.": [
+    "Eine unterstützte Weichenüberbrückung wählen.",
+    "Choisissez un pontage pris en charge.",
+    "Elija un puente compatible.",
+    "Scegli un ponticello supportato."
+  ],
+  "Power settings belong on track, not a free-standing accessory.": [
+    "Stromeinstellungen gehören zum Gleis, nicht zu einem separaten Zubehör.",
+    "L’alimentation appartient à la voie, pas à un accessoire séparé.",
+    "La alimentación pertenece a la vía, no a un accesorio separado.",
+    "L’alimentazione appartiene al binario, non a un accessorio separato."
+  ],
+  "Point bypasses require a supported Hornby point.": [
+    "Weichenüberbrückungen erfordern eine unterstützte Hornby-Weiche.",
+    "Les pontages nécessitent une aiguille Hornby prise en charge.",
+    "Los puentes requieren un desvío Hornby compatible.",
+    "I ponticelli richiedono uno scambio Hornby supportato."
+  ],
+  "Choose a valid power feed connector.": [
+    "Einen gültigen Einspeisungsanschluss wählen.",
+    "Choisissez un connecteur d’alimentation valide.",
+    "Elija un conector de alimentación válido.",
+    "Scegli un connettore di alimentazione valido."
+  ],
+  "Native feeds require R8206 or R8241 power track.": [
+    "Eingebaute Einspeisungen erfordern R8206 oder R8241.",
+    "Les alimentations intégrées nécessitent R8206 ou R8241.",
+    "Las alimentaciones integradas requieren R8206 o R8241.",
+    "Le alimentazioni integrate richiedono R8206 o R8241."
+  ],
+  "Clip placement is modelled on R600 and R601 only. Verify physical fit elsewhere and use a manual feed.": [
+    "Clips werden nur auf R600 und R601 modelliert. Bei anderen Gleisen die Passform prüfen und manuelle Einspeisung wählen.",
+    "Les clips sont modélisés uniquement sur R600 et R601. Vérifiez l’ajustement ailleurs et utilisez une alimentation manuelle.",
+    "Los clips solo se modelan en R600 y R601. Verifique el ajuste en otras vías y use alimentación manual.",
+    "Le clip sono modellate solo su R600 e R601. Verifica la compatibilità altrove e usa un’alimentazione manuale."
+  ],
+  "Unknown power accessory.": [
+    "Unbekanntes Stromzubehör.",
+    "Accessoire d’alimentation inconnu.",
+    "Accesorio de alimentación desconocido.",
+    "Accessorio di alimentazione sconosciuto."
+  ],
+  "Power settings require backup format 6.": [
+    "Stromeinstellungen erfordern Sicherungsformat 6.",
+    "L’alimentation nécessite le format de sauvegarde 6.",
+    "La alimentación requiere el formato de copia 6.",
+    "L’alimentazione richiede il formato di backup 6."
+  ],
+  "Invalid power feed connection flag.": [
+    "Ungültige Einspeisungsverbindung.",
+    "Indicateur de connexion invalide.",
+    "Indicador de conexión inválido.",
+    "Indicatore di connessione non valido."
+  ],
   "Feature requests / bug reports": [
     "Funktionswünsche / Fehlerberichte",
     "Demandes de fonctionnalités / signalements de bugs",

@@ -2,6 +2,145 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+async function seedPowerIdea(page: Page): Promise<void> {
+  await page.goto('./');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'model-railway-planner.v1',
+      JSON.stringify({
+        version: 5,
+        rooms: [],
+        inventory: {},
+        activeLayoutId: 'power',
+        layouts: [
+          {
+            id: 'power',
+            name: 'Example power idea',
+            boards: [],
+            pieces: [
+              { id: 'source', trackId: 'hornby-oo-r8241', x: -168, y: 0, angle: 0, flipped: false },
+              { id: 'point', trackId: 'hornby-oo-r8072', x: 0, y: 0, angle: 0, flipped: false },
+            ],
+          },
+        ],
+      }),
+    ),
+  );
+  await page.reload();
+  await expect(page.locator('#tracks > g')).toHaveCount(2);
+}
+
+test('power controls model self-isolation, clip stock, overlay, undo and persisted DCC feeds', async ({
+  page,
+}) => {
+  await seedPowerIdea(page);
+  await expect(page.locator('#power-mode')).toHaveValue('');
+  await page.locator('#power-mode').selectOption('dcc');
+  await expect(page.locator('#power-summary')).toContainText('No compatible connected power feed');
+  await page.locator('#piece-select').selectOption('source');
+  await page.locator('#power-feed-kind').selectOption('native');
+  await page.locator('#power-feed-connected').check();
+  await page.locator('#power-apply').click();
+  await expect(page.locator('#power-summary')).toContainText('unverified electrical continuity');
+  await page.locator('#piece-select').selectOption('point');
+  await page.locator('#power-point-route').selectOption('0');
+  await page.locator('#power-apply').click();
+  await expect(page.locator('#power-piece-status')).toContainText('route 2: unpowered');
+  await page.locator('#search').fill('R8232');
+  await page.getByRole('button', { name: /^Attach R8232/ }).click();
+  await expect(page.locator('#power-summary')).toContainText('All modelled routes powered.');
+  await expect(page.locator('#shopping-list')).toContainText('2 x R8232');
+  await expect(page.locator('.power-route[data-power-status="powered"]')).toHaveCount(3);
+  await expect(page.locator('[data-piece-id="source"]')).toHaveClass(/missing-stock/);
+  await expect(page.locator('[data-piece-id="source"] .track-bed')).toHaveAttribute(
+    'stroke',
+    '#db843b',
+  );
+  await page.locator('#undo').click();
+  await page.locator('#piece-select').selectOption('point');
+  await expect(page.locator('#power-bypass')).toHaveValue('');
+  await expect(page.locator('#power-piece-status')).toContainText('route 2: unpowered');
+  await page.locator('#redo').click();
+  await page.locator('#piece-select').selectOption('point');
+  await page.getByRole('spinbutton', { name: 'Owned R8232', exact: true }).fill('1');
+  await page.getByRole('spinbutton', { name: 'Owned R8232', exact: true }).press('Tab');
+  await expect(page.locator('#shopping-list')).toContainText('1 x R8232');
+  await page.locator('#lock-pieces').click();
+  await expect(page.locator('#power-apply')).toBeDisabled();
+  await page.locator('#unlock-pieces').click();
+  await page.locator('#power-overlay').uncheck();
+  await expect(page.locator('.power-route')).toHaveCount(0);
+  await expect(page.locator('[data-piece-id="source"]')).toHaveClass(/missing-stock/);
+  await page.reload();
+  await expect(page.locator('#power-mode')).toHaveValue('dcc');
+  await expect(page.locator('#power-summary')).toContainText('All modelled routes powered.');
+  await expect(page.locator('#shopping-list')).toContainText('1 x R8232');
+  await page.locator('#piece-select').selectOption('point');
+  await expect(page.locator('#power-bypass')).toHaveValue('clips');
+  await page.locator('#language').selectOption('de');
+  await expect(page.locator('#power-editor h2')).toHaveText('Stromversorgung');
+  await expect(page.locator('#power-summary')).toContainText(
+    'Alle modellierten Fahrwege sind versorgt.',
+  );
+  await expect(page.locator('#power-piece-status')).toContainText('Fahrweg 2: versorgt');
+});
+
+test('power inspector fits desktop and mobile panels in every supported language', async ({
+  page,
+}) => {
+  await seedPowerIdea(page);
+  await page.locator('#piece-select').selectOption('source');
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const language of ['en', 'de', 'fr', 'es', 'it']) {
+      await page.locator('#language').selectOption(language);
+      const overflowing = await page.locator('#power-editor').evaluate((root) => {
+        const panel = root.closest('.details-panel');
+        if (!panel) throw new Error('Missing details panel.');
+        const bounds = panel.getBoundingClientRect();
+        return [...root.querySelectorAll('fieldset, select, button')].flatMap((control) => {
+          const box = control.getBoundingClientRect();
+          return !box.width || (box.left >= bounds.left && box.right <= bounds.right)
+            ? []
+            : [
+                {
+                  id: control.id,
+                  left: box.left,
+                  right: box.right,
+                  panelLeft: bounds.left,
+                  panelRight: bounds.right,
+                },
+              ];
+        });
+      });
+      expect(overflowing, `${width}px ${language} power controls fit their panel`).toEqual([]);
+    }
+  }
+});
+
+test('power edits preserve the saved snapshot when clip fit or storage fails', async ({ page }) => {
+  await seedPowerIdea(page);
+  await page.locator('#power-mode').selectOption('dcc');
+  await page.locator('#piece-select').selectOption('source');
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await page.locator('#search').fill('R602');
+  await page.getByRole('button', { name: /^Attach R602/ }).click();
+  await expect(page.locator('#status')).toContainText('modelled on R600 and R601 only');
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+  await page.locator('#power-feed-kind').selectOption('native');
+  await page.locator('#power-feed-connected').check();
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException('Storage unavailable', 'QuotaExceededError');
+    };
+  });
+  await page.locator('#power-apply').click();
+  await expect(page.locator('#status')).toContainText('Not saved:');
+  await expect(page.locator('#power-feed-kind')).toHaveValue('');
+  await expect(page.locator('#power-summary')).toContainText('No compatible connected power feed');
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+});
+
 async function stock(page: Page, code: string, quantity: number): Promise<void> {
   await page.getByRole('spinbutton', { name: `Owned ${code}`, exact: true }).fill(String(quantity));
   await page.getByRole('spinbutton', { name: `Owned ${code}`, exact: true }).press('Tab');
