@@ -1,10 +1,11 @@
 import { accessoryFits, catalog, definition } from './catalog';
-import { joinedBoards, placementProblem } from './geometry';
-import type { Layout, Piece, PlannerState } from './model';
+import { placementProblem } from './geometry';
+import { joinedBoards, rectangleBoard, validateBoard } from './baseboards';
+import type { Board, Layout, Piece, PlannerState } from './model';
 
 export function emptyState(id: string): PlannerState {
   return {
-    version: 3,
+    version: 4,
     inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])),
     layouts: [{ id, name: 'My first layout', pieces: [], boards: [] }],
     activeLayoutId: id,
@@ -187,6 +188,29 @@ export function updateLayout(state: PlannerState, layout: Layout): PlannerState 
   };
 }
 
+export function putBoard(state: PlannerState, board: Board): PlannerState {
+  validateBoard(board);
+  const layout = activeLayout(state);
+  const exists = layout.boards.some((b) => b.id === board.id);
+  if (!exists && layout.boards.length >= 50)
+    throw new Error('A layout can contain at most 50 baseboard shapes.');
+  return updateLayout(state, {
+    ...layout,
+    boards: exists
+      ? layout.boards.map((b) => (b.id === board.id ? board : b))
+      : [...layout.boards, board],
+  });
+}
+
+export function removeBoard(state: PlannerState, id: string): PlannerState {
+  const layout = activeLayout(state);
+  if (!layout.boards.some((board) => board.id === id)) throw new Error('Select a baseboard shape.');
+  return updateLayout(state, {
+    ...layout,
+    boards: layout.boards.filter((board) => board.id !== id),
+  });
+}
+
 export function setInventory(state: PlannerState, id: string, quantity: number): PlannerState {
   definition(id);
   if (!Number.isSafeInteger(quantity) || quantity < 0 || quantity > 9999)
@@ -214,7 +238,8 @@ function number(value: unknown): number {
 
 function parseAccessories(value: unknown, version: unknown): Pick<Piece, 'accessories'> {
   if (value === undefined) return {};
-  if (version !== 3) throw new Error('Accessories require backup format 3.');
+  if (version !== 3 && version !== 4)
+    throw new Error('Accessories require backup format 3 or newer.');
   if (!Array.isArray(value) || value.length > 1) throw new Error('Invalid accessories in backup.');
   return { accessories: value.map(text) };
 }
@@ -222,7 +247,12 @@ function parseAccessories(value: unknown, version: unknown): Pick<Piece, 'access
 export function parseState(json: string): PlannerState {
   if (json.length > 4_000_000) throw new Error('Backup exceeds the 4 MB import limit.');
   const data = record(JSON.parse(json));
-  if (data['version'] !== 1 && data['version'] !== 2 && data['version'] !== 3)
+  if (
+    data['version'] !== 1 &&
+    data['version'] !== 2 &&
+    data['version'] !== 3 &&
+    data['version'] !== 4
+  )
     throw new Error('Unsupported backup version. Your original data has not been changed.');
   const rawInventory = record(data['inventory']);
   const inventory: Record<string, number> = {};
@@ -269,22 +299,16 @@ export function parseState(json: string): PlannerState {
     });
     if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
       throw new Error('Duplicate piece identifiers.');
-    const boards = rawBoards.map((value) => {
-      const b = record(value);
-      const width = number(b['width']);
-      const height = number(b['height']);
-      if (width <= 0 || height <= 0) throw new Error('Baseboard dimensions must be positive.');
-      return { x: number(b['x']), y: number(b['y']), width, height };
-    });
-    if (!joinedBoards(boards))
-      throw new Error('Baseboard rectangles must share an edge or overlap.');
+    const boards = rawBoards.map((value, index) => parseBoard(value, data['version'], index));
+    if (new Set(boards.map((b) => b.id)).size !== boards.length)
+      throw new Error('Duplicate baseboard identifiers.');
     const layout = { id: text(raw['id']), name: text(raw['name']), pieces, boards };
     return layout;
   });
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
-    version: 3,
+    version: 4,
     inventory,
     layouts,
     activeLayoutId: text(data['activeLayoutId']),
@@ -295,6 +319,9 @@ export function parseState(json: string): PlannerState {
 
 export function layoutProblems(layout: Layout): string[] {
   return [
+    ...(!joinedBoards(layout.boards)
+      ? ['Baseboard shapes are disconnected. Snap or move them together.']
+      : []),
     ...new Set(
       layout.pieces.flatMap((piece, index) => {
         const problem = placementProblem(piece, layout.pieces.slice(0, index), layout.boards);
@@ -302,4 +329,61 @@ export function layoutProblems(layout: Layout): string[] {
       }),
     ),
   ];
+}
+
+function parseBoard(value: unknown, version: unknown, index: number): Board {
+  const raw = record(value);
+  if (version !== 4) {
+    const width = number(raw['width']),
+      height = number(raw['height']);
+    if (width <= 0 || height <= 0) throw new Error('Baseboard dimensions must be positive.');
+    const board = rectangleBoard(
+      `legacy-board-${index + 1}`,
+      number(raw['x']),
+      number(raw['y']),
+      width,
+      height,
+    );
+    validateBoard(board);
+    return board;
+  }
+  const pose = {
+    id: text(raw['id']),
+    x: number(raw['x']),
+    y: number(raw['y']),
+    angle: number(raw['angle']),
+  };
+  let board: Board;
+  switch (raw['kind']) {
+    case 'polygon': {
+      const points = raw['points'];
+      if (!Array.isArray(points) || points.length < 3 || points.length > 16)
+        throw new Error('Baseboard polygons need 3 to 16 finite corners.');
+      board = {
+        ...pose,
+        kind: 'polygon',
+        points: points.map((value) => {
+          const p = record(value);
+          return { x: number(p['x']), y: number(p['y']) };
+        }),
+      };
+      break;
+    }
+    case 'circle':
+      board = { ...pose, kind: 'circle', radius: number(raw['radius']) };
+      break;
+    case 'arc':
+      board = {
+        ...pose,
+        kind: 'arc',
+        radius: number(raw['radius']),
+        innerRadius: number(raw['innerRadius']),
+        sweep: number(raw['sweep']),
+      };
+      break;
+    default:
+      throw new Error('Unknown baseboard shape.');
+  }
+  validateBoard(board);
+  return board;
 }

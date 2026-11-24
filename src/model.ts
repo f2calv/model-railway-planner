@@ -40,10 +40,11 @@ export interface Piece extends Pose {
   accessories?: string[];
 }
 
-export interface Board extends Vec {
-  width: number;
-  height: number;
-}
+export type Board = Pose & { id: string } & (
+    | { kind: 'polygon'; points: Vec[] }
+    | { kind: 'circle'; radius: number }
+    | { kind: 'arc'; radius: number; innerRadius: number; sweep: number }
+  );
 
 export interface Layout {
   id: string;
@@ -53,7 +54,7 @@ export interface Layout {
 }
 
 export interface PlannerState {
-  version: 3;
+  version: 4;
   inventory: Record<string, number>;
   layouts: Layout[];
   activeLayoutId: string;

@@ -3,16 +3,7 @@ import { select } from 'd3-selection';
 import { zoom, zoomIdentity, type ZoomTransform } from 'd3-zoom';
 import { registerSW } from 'virtual:pwa-register';
 import { catalog, definition, trackSize } from './catalog';
-import {
-  joinedBoards,
-  connected,
-  normalize,
-  pathData,
-  ports,
-  samples,
-  snapPiece,
-  snapGroup,
-} from './geometry';
+import { connected, normalize, pathData, ports, samples, snapPiece, snapGroup } from './geometry';
 import {
   activeLayout,
   available,
@@ -51,6 +42,7 @@ import {
 } from './preferences';
 import { playSound } from './sound';
 import { manufacturerProfiles } from './profiles';
+import { BaseboardEditor } from './baseboard-editor';
 import { translate, translateUi } from './i18n';
 import {
   accessoryMarks,
@@ -137,11 +129,7 @@ element<HTMLDivElement>('#app').innerHTML = `
       <hr /><h2>Shopping list</h2><p>Extra pieces needed for this layout only. Orange dashed track is not yet owned.</p>
       <div id="shopping-list"></div>
       <hr /><span class="eyebrow">YOUR SPACE</span><h2>Baseboard</h2>
-      <p>Unbounded until you add a rectangle. Join more rectangles for an L or U shape.</p>
-      <div class="two-columns"><label>X (mm)<input id="board-x" type="number" value="0" /></label><label>Y (mm)<input id="board-y" type="number" value="0" /></label>
-        <label>Width (mm)<input id="board-width" type="number" min="1" value="1800" /></label><label>Height (mm)<input id="board-height" type="number" min="1" value="1200" /></label></div>
-      <button id="add-board">Add rectangle</button><div id="board-list"></div>
-      <button id="unbounded">Use unbounded area</button>
+      <div id="baseboard-editor"></div>
       <hr /><h2>Planning checks</h2><div id="checks"></div>
       <p class="subtle">67 mm nominal Hornby track centres. Curves and turnout fans still need physical checks with your longest trains. This is not a clearance certificate.</p>
       <details><summary>Controls & mobile</summary><p>Tap to place track. Drag blank space to select enclosed pieces; Ctrl-click toggles selection. Drag selected pieces as a group. Space + drag pans; scroll or pinch zooms. On touch screens, drag blank space to pan. Arrows move 5 mm; Shift + arrows move 1 mm. R rotates; Delete removes; Escape cancels. Ctrl+A selects all; Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y redoes. Right-click a piece for lock actions, or use the buttons.</p><p>For offline installation, open a production build over HTTPS (or localhost). Use your browser's Install app / Add to Home Screen option. Browser support varies.</p></details>
@@ -194,6 +182,27 @@ let paletteDrag: {
 const openCategories = new Set<TrackCategory>(['straights', 'curves', 'points', 'misc']);
 const svg = element<SVGSVGElement>('#canvas');
 const svgSelection = select(svg);
+const boardEditor = new BaseboardEditor(
+  element<HTMLElement>('#baseboard-editor'),
+  svg,
+  element<SVGGElement>('#boards'),
+  {
+    state: () => state,
+    commit,
+    error: (message) => status(message, true),
+    point: modelPoint,
+    scale: () => transform.k,
+    snap: () => element<HTMLInputElement>('#snap').checked,
+    modeChanged: () => {
+      clearPaletteDrag();
+      cancelGesture();
+      toolId = '';
+      selectOnly('');
+      render();
+    },
+    fit,
+  },
+);
 
 function status(message: string, error = false): void {
   const target = element<HTMLElement>('#status');
@@ -210,6 +219,8 @@ function addActivity(message: string): void {
 
 function changeSummary(previous: PlannerState, next: PlannerState): string {
   if (previous.activeLayoutId !== next.activeLayoutId) return 'Changed layout';
+  if (JSON.stringify(activeLayout(previous).boards) !== JSON.stringify(activeLayout(next).boards))
+    return 'Baseboard updated';
   const before = activeLayout(previous).pieces;
   const after = activeLayout(next).pieces;
   const added = after.filter((p) => !before.some((old) => old.id === p.id));
@@ -542,6 +553,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
       ignoreClick = false;
       return;
     }
+    boardEditor.leave();
     toolId = trackId;
     selectOnly('');
     preview(null);
@@ -549,6 +561,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
   });
   pick.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
+    boardEditor.leave();
     paletteDrag = {
       pointerId: event.pointerId,
       source: pick,
@@ -791,37 +804,14 @@ function render(): void {
       if (!group) throw new Error('Missing SVG track element.');
       group.dataset['pieceId'] = piece.id;
       group.setAttribute('role', 'button');
-      group.setAttribute('tabindex', '0');
+      group.setAttribute('tabindex', boardEditor.editing ? '-1' : '0');
       group.setAttribute(
         'aria-label',
         `${piece.locked ? 'Locked ' : ''}Select ${definition(piece.trackId).code} at ${Math.round(piece.x)}, ${Math.round(piece.y)} mm${missing.has(piece.id) ? ', to buy' : ''}`,
       );
       drawTrack(group, piece, false, missing.has(piece.id), missingAccessories.has(piece.id));
     });
-  const boardsRoot = element<SVGGElement>('#boards');
-  const boardList = element<HTMLElement>('#board-list');
-  boardsRoot.replaceChildren();
-  boardList.replaceChildren();
-  layout.boards.forEach((board, index) => {
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    for (const [key, value] of Object.entries(board)) rect.setAttribute(key, String(value));
-    rect.setAttribute('class', 'baseboard');
-    boardsRoot.append(rect);
-    const remove = document.createElement('button');
-    remove.textContent = `${board.width} x ${board.height} at ${board.x}, ${board.y} / remove`;
-    remove.addEventListener('click', () =>
-      action(() => {
-        const boards = layout.boards.filter((_, i) => i !== index);
-        if (!joinedBoards(boards))
-          throw new Error('Removing this rectangle would disconnect the baseboard.');
-        const next = { ...layout, boards };
-        const issues = layoutProblems(next);
-        if (issues.length) throw new Error(issues.join(' '));
-        commit(updateLayout(state, next));
-      }),
-    );
-    boardList.append(remove);
-  });
+  boardEditor.render();
   const issues = layoutProblems(layout);
   if (layout.pieces.some((p) => p.accessories?.length))
     issues.push('Schematic accessory; verify road and gate clearance physically.');
@@ -886,7 +876,7 @@ function render(): void {
 const zoomer = zoom<SVGSVGElement, unknown>()
   .scaleExtent([0.08, 4])
   .filter((event: Event) => {
-    if (event.type === 'wheel') return !drag && !marquee;
+    if (event.type === 'wheel') return !drag && !marquee && !boardEditor.busy;
     if (event.type.startsWith('touch')) {
       const target = event.target;
       return (
@@ -894,15 +884,27 @@ const zoomer = zoom<SVGSVGElement, unknown>()
         (!toolId &&
           !drag &&
           !marquee &&
+          !boardEditor.busy &&
+          !boardEditor.placing &&
+          (!boardEditor.editing ||
+            !(target instanceof Element) ||
+            !target.closest('[data-board-id]')) &&
           (!(target instanceof Element) || !target.closest('.track')))
       );
     }
-    return spaceDown && !drag && !marquee && (!(event instanceof MouseEvent) || event.button === 0);
+    return (
+      spaceDown &&
+      !drag &&
+      !marquee &&
+      !boardEditor.busy &&
+      (!(event instanceof MouseEvent) || event.button === 0)
+    );
   })
   .on('zoom', (event: { transform: ZoomTransform }) => {
     transform = event.transform;
     element<SVGGElement>('#world').setAttribute('transform', transform.toString());
     element<HTMLOutputElement>('#zoom-level').textContent = `${Math.round(transform.k * 100)}%`;
+    boardEditor.render();
   });
 svgSelection.call(zoomer).on('dblclick.zoom', null);
 svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
@@ -937,6 +939,10 @@ function toggleSelection(id: string): void {
 svg.addEventListener('pointerdown', (event) => {
   suppressClick = false;
   if (beginMultiTouch(event)) return;
+  if (boardEditor.editing) {
+    if (!spaceDown) boardEditor.pointerDown(event);
+    return;
+  }
   if (drag || marquee) return;
   if (toolId || spaceDown || event.button !== 0) return;
   const target =
@@ -1007,6 +1013,10 @@ function previewMarquee(position: Vec): void {
 
 svg.addEventListener('pointermove', (event) => {
   if (multiTouch || spaceDown) return;
+  if (boardEditor.editing) {
+    boardEditor.pointerMove(event);
+    return;
+  }
   trackTooltip({ x: event.clientX, y: event.clientY });
   const position = modelPoint({ x: event.clientX, y: event.clientY });
   if (event.pointerId === marquee?.pointerId) {
@@ -1065,6 +1075,10 @@ function finishMarquee(pointerId: number): void {
 svg.addEventListener('pointerup', (event) => {
   touches.delete(event.pointerId);
   if (!touches.size) multiTouch = false;
+  if (boardEditor.editing) {
+    boardEditor.pointerUp(event);
+    return;
+  }
   if (marquee?.pointerId === event.pointerId) {
     finishMarquee(event.pointerId);
     return;
@@ -1086,17 +1100,22 @@ svg.addEventListener('pointercancel', (event) => {
   render();
 });
 svg.addEventListener('lostpointercapture', () => {
-  if (!drag && !marquee) return;
+  if (!drag && !marquee && !boardEditor.busy) return;
   cancelGesture();
   render();
 });
 svg.addEventListener('pointerleave', () => {
   element<HTMLElement>('#track-tooltip').hidden = true;
+  if (boardEditor.editing && !boardEditor.busy) boardEditor.cancel();
   if (!drag && !marquee) preview(null);
 });
 svg.addEventListener('click', (event) => {
   if (suppressClick) {
     suppressClick = false;
+    return;
+  }
+  if (boardEditor.editing) {
+    boardEditor.click(event);
     return;
   }
   if (!toolId && event.target instanceof Element && event.target.closest('.track')) return;
@@ -1138,6 +1157,7 @@ function transformSelected(change: (p: Piece) => Piece): void {
 }
 
 function cancelGesture(): void {
+  boardEditor.cancel();
   const pointerId = drag?.pointerId ?? marquee?.pointerId;
   drag = null;
   marquee = null;
@@ -1201,6 +1221,7 @@ document.addEventListener('keydown', (event) => {
     clearPaletteDrag();
     cancelGesture();
     toolId = '';
+    if (boardEditor.editing) boardEditor.key(event);
     preview(null);
     render();
     return;
@@ -1224,6 +1245,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+    if (boardEditor.editing) return;
     event.preventDefault();
     selectedIds = new Set(activeLayout(state).pieces.map((p) => p.id));
     selectedId = [...selectedIds][0] ?? '';
@@ -1236,7 +1258,8 @@ document.addEventListener('keydown', (event) => {
     action(() => restoreHistory(event.key.toLowerCase() === 'y' || event.shiftKey));
     return;
   }
-  handlePieceKey(event);
+  if (boardEditor.editing) boardEditor.key(event);
+  else handlePieceKey(event);
 });
 document.addEventListener('keyup', (event) => {
   if (event.code === 'Space') spaceDown = false;
@@ -1479,6 +1502,7 @@ button('#apply-position', () =>
 element<HTMLInputElement>('#search').addEventListener('input', render);
 element<HTMLSelectElement>('#catalog-profile').addEventListener('change', render);
 element<HTMLSelectElement>('#piece-select').addEventListener('change', (event) => {
+  boardEditor.leave();
   selectOnly((event.currentTarget as HTMLSelectElement).value);
   toolId = '';
   render();
@@ -1579,26 +1603,6 @@ button('#delete-layout', () =>
     },
   ),
 );
-button('#add-board', () => {
-  const board = {
-    x: element<HTMLInputElement>('#board-x').valueAsNumber,
-    y: element<HTMLInputElement>('#board-y').valueAsNumber,
-    width: element<HTMLInputElement>('#board-width').valueAsNumber,
-    height: element<HTMLInputElement>('#board-height').valueAsNumber,
-  };
-  if (!Object.values(board).every(Number.isFinite) || board.width <= 0 || board.height <= 0)
-    throw new Error('Enter finite coordinates and positive rectangle dimensions.');
-  const layout = activeLayout(state);
-  const boards = [...layout.boards, board];
-  if (!joinedBoards(boards))
-    throw new Error('Rectangles must share an edge or overlap, not just touch at a corner.');
-  const next = { ...layout, boards };
-  const issues = layoutProblems(next);
-  if (issues.length) throw new Error(issues.join(' '));
-  if (commit(updateLayout(state, next))) fit();
-});
-button('#unbounded', () => commit(updateLayout(state, { ...activeLayout(state), boards: [] })));
-
 function download(content: string | Blob, filename: string, type = 'application/json'): void {
   const url = URL.createObjectURL(
     typeof content === 'string' ? new Blob([content], { type }) : content,

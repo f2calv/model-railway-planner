@@ -43,7 +43,7 @@ for the implementation drilldown and placement/persistence sequence.
 - Drag-and-drop track placement with connector snapping and track descriptions.
 - Marquee/Ctrl multi-selection, rigid group movement, lock/unlock and undo/redo.
 - Shared inventory, multiple layout ideas and shopping lists for pieces still to buy.
-- Unbounded canvas or baseboards formed from joined rectangles.
+- Unbounded canvas or draggable polygon, circular and arc-strip baseboards, with module presets.
 - Pan and zoom, touch placement, keyboard controls and exact-coordinate editing.
 - Planning warnings for overlaps, baseboard boundaries and nominal parallel spacing.
 - Local autosave and JSON backup import/export, without accounts or cloud storage.
@@ -122,6 +122,19 @@ physical validation. Diamond crossings contain two independent routes and four c
 internal crossing is permitted, but unrelated track still cannot overlap them. Bridges, elevations,
 flexible track, platform furniture and custom catalog editing are not implemented.
 
+## Baseboard Shapes
+
+Choose **Edit baseboards** to move and reshape boards without moving track. Drag a shape or module
+preset from the palette, or choose it and tap the canvas. Rectangles/squares, right triangles,
+circles, semicircles and adjustable arc strips are supported. Corner handles turn rectangles into
+convex quadrilaterals, including trapezoids; coordinate inputs provide a non-drag alternative.
+
+Boards snap to nearby edges, vertices and circular boundaries without automatic rotation.
+The inspector edits dimensions, rotation, radius, inner radius and arc sweep. Undo/redo and JSON,
+SVG, PNG and print/PDF exports retain their shapes. Disconnected boards and track exposed by board
+edits are allowed but produce planning warnings. See the [baseboard guide](docs/baseboards.md) for
+the six supplier-size presets, editing rules and physical limitations.
+
 ## Track Catalogs
 
 The catalog contains 44 entries: 28 Hornby (including the R645 accessory), seven Peco Setrack
@@ -147,7 +160,8 @@ the original readable bytes for recovery. Failed writes reject the edit and disp
 Changes in another tab lock editing until reload. Imports validate schema, catalog references,
 finite coordinates, inventory quantities and unique IDs; placement problems are displayed for review.
 
-The current backup format is version 3 and imports version 1 and 2 documents. The existing storage key
+The current backup format is version 4 and imports version 1, 2 and 3 documents. Legacy rectangles
+become polygons with stable IDs. The existing storage key
 is retained to find older plans. Locks and attached accessories are included in backups; display/audio/delete preferences
 and session history are not. Close or update older app tabs before editing a migrated document.
 

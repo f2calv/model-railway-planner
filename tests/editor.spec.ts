@@ -41,6 +41,178 @@ async function seedIdea(page: Page): Promise<void> {
   await expect(page.locator('#tracks > g')).toHaveCount(3);
 }
 
+async function boardScreenPoint(
+  page: Page,
+  x: number,
+  y: number,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate(
+    ({ x, y }) => {
+      const world = document.querySelector<SVGGElement>('#world');
+      const matrix = world?.getScreenCTM();
+      if (!matrix) throw new Error('Missing model-to-screen transform.');
+      const point = new DOMPoint(x, y).matrixTransform(matrix);
+      return { x: point.x, y: point.y };
+    },
+    { x, y },
+  );
+}
+
+test('baseboard presets snap, corner handles reshape atomically, and undo preserves boards', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByText('Module presets', { exact: true }).click();
+  await page.getByRole('button', { name: 'Board 1000 x 500 mm', exact: true }).click();
+  const origin = await boardScreenPoint(page, 0, 0);
+  await page.mouse.click(origin.x, origin.y);
+  await expect(page.locator('#boards > g')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Board 500 x 500 mm', exact: true }).click();
+  const next = await boardScreenPoint(page, 1010, 0);
+  await page.mouse.click(next.x, next.y);
+  await expect(page.locator('#boards > g')).toHaveCount(2);
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  expect(saved.layouts[0].boards[1].x).toBeCloseTo(1000);
+  await page.getByRole('combobox', { name: 'Select baseboard shape' }).selectOption({ index: 1 });
+  const handle = page.locator('#boards > g.selected-board').locator('.board-corner').nth(1);
+  const box = await handle.boundingBox();
+  if (!box) throw new Error('Corner handle is not visible.');
+  const target = await boardScreenPoint(page, 900, 0);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 8 });
+  await page.mouse.up();
+  const reshaped = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  expect(reshaped.layouts[0].boards[0].points[1].x).toBeCloseTo(900, 4);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  const restored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  expect(restored.layouts[0].boards).toEqual(saved.layouts[0].boards);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('#boards > g')).toHaveCount(2);
+  const persisted = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  expect(persisted.layouts[0].boards).toEqual(reshaped.layouts[0].boards);
+});
+
+test('curved baseboards drag from the palette, cancel cleanly and export their real outlines', async ({
+  page,
+}) => {
+  await page.goto('./');
+  const palette = page.getByRole('button', { name: 'Board Circle', exact: true });
+  await palette.scrollIntoViewIfNeeded();
+  const box = await palette.boundingBox();
+  if (!box) throw new Error('Circle palette entry is not visible.');
+  const target = await boardScreenPoint(page, 300, 300);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 8 });
+  await expect(page.locator('#board-preview > path')).toHaveCount(1);
+  await expect(page.locator('#boards > g')).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.locator('#boards > g')).toHaveCount(1);
+  const circle = page.locator('#boards > g').first().locator('.board-surface');
+  const bounds = await circle.boundingBox();
+  if (!bounds) throw new Error('Placed circle is not visible.');
+  const before = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await page.mouse.move(target.x, target.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x + 80, target.y + 30, { steps: 6 });
+  await page
+    .locator('#canvas')
+    .dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse' });
+  await page.mouse.up();
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(before);
+  await expect(page.locator('#board-preview > path')).toHaveCount(0);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 6 });
+  await expect(page.locator('#board-preview > path')).toHaveCount(1);
+  await page.locator('#canvas').dispatchEvent('pointerdown', {
+    pointerId: 99,
+    pointerType: 'touch',
+    button: 0,
+    clientX: target.x + 40,
+    clientY: target.y,
+  });
+  await page.mouse.up();
+  await page.locator('#canvas').dispatchEvent('pointerup', { pointerId: 99, pointerType: 'touch' });
+  await expect(page.locator('#board-preview > path')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(before);
+  await page.getByRole('button', { name: 'Board Arc strip', exact: true }).click();
+  await page.locator('#board-x').fill('1200');
+  await page.locator('#board-y').fill('0');
+  await page.locator('#board-radius').fill('300');
+  await page.locator('#board-inner').fill('150');
+  await page.locator('#board-sweep').fill('270');
+  await page.locator('#board-angle').fill('45');
+  await page.getByRole('button', { name: 'Add shape at coordinates', exact: true }).click();
+  await expect(page.locator('#boards > g')).toHaveCount(2);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export SVG', exact: true }).click(),
+  ]);
+  const path = await download.path();
+  if (!path) throw new Error('Missing exported board SVG.');
+  const drawing = await readFile(path, 'utf8');
+  expect(drawing).toContain('A300,300');
+  expect(drawing).toContain('A150,150');
+  expect(drawing).toContain('rotate(45)');
+  expect(
+    await page.evaluate((text) => {
+      const svg = new DOMParser().parseFromString(text, 'image/svg+xml');
+      return {
+        errors: svg.querySelectorAll('parsererror').length,
+        boards: svg.querySelectorAll('[data-board]').length,
+      };
+    }, drawing),
+  ).toEqual({ errors: 0, boards: 2 });
+});
+
+test('triangle and semicircle baseboards retain their geometry and translated controls', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByText('Module presets', { exact: true }).click();
+  await page.getByRole('button', { name: 'Board 250 mm right triangle', exact: true }).click();
+  await page.getByRole('button', { name: 'Add shape at coordinates', exact: true }).click();
+  await expect(page.locator('#boards > g.selected-board .board-corner')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Board Semicircle', exact: true }).click();
+  await page.locator('#board-radius').fill('125');
+  await page.locator('#board-x').fill('500');
+  await page.getByRole('button', { name: 'Add shape at coordinates', exact: true }).click();
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('model-railway-planner.v1') ?? '{}'),
+  );
+  expect(saved.layouts[0].boards[0].points).toEqual([
+    { x: 0, y: 0 },
+    { x: 250, y: 0 },
+    { x: 0, y: 250 },
+  ]);
+  expect(saved.layouts[0].boards[1]).toMatchObject({
+    kind: 'arc',
+    radius: 125,
+    innerRadius: 0,
+    sweep: 180,
+  });
+  await page.getByRole('combobox', { name: 'Language', exact: true }).selectOption('de');
+  await expect(
+    page.getByRole('checkbox', { name: 'Grundplatten bearbeiten', exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole('button', { name: 'Grundplattenänderungen anwenden', exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#boards > g')).toHaveCount(2);
+});
+
 test('R645 attaches without adding track, survives history and reload, and can be removed', async ({
   page,
 }) => {
@@ -153,6 +325,9 @@ test('local storage write failures reject edits and malformed reads preserve ori
   await stock(page, 'R600', 2);
   await expect(page.getByRole('status', { name: 'Planner status' })).toContainText('Not saved');
   await expect(page.getByRole('spinbutton', { name: 'Owned R600', exact: true })).toHaveValue('0');
+  await page.getByRole('button', { name: 'Add rectangle', exact: true }).click();
+  await expect(page.locator('#boards > g')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
   await page.reload();
   await page.evaluate(() => localStorage.setItem('model-railway-planner.v1', '{bad-json'));
   await page.reload();
@@ -700,17 +875,19 @@ test('cancelled palette drags do not place or consume track', async ({ page }) =
   await expect(page.locator('#preview > g')).toHaveCount(0);
 });
 
-test('joined baseboards persist and disconnected rectangles are rejected', async ({ page }) => {
+test('baseboard islands persist and display disconnected warnings instead of blocking edits', async ({
+  page,
+}) => {
   await page.goto('./');
   await page.getByRole('button', { name: 'Add rectangle', exact: true }).click();
   await page.getByRole('spinbutton', { name: 'X (mm)', exact: true }).last().fill('1800');
   await page.getByRole('spinbutton', { name: 'Width (mm)', exact: true }).fill('600');
   await page.getByRole('button', { name: 'Add rectangle', exact: true }).click();
-  await expect(page.locator('#boards > rect')).toHaveCount(2);
+  await expect(page.locator('#boards > g')).toHaveCount(2);
   await page.getByRole('spinbutton', { name: 'X (mm)', exact: true }).last().fill('4000');
   await page.getByRole('button', { name: 'Add rectangle', exact: true }).click();
-  await expect(page.getByRole('status', { name: 'Planner status' })).toContainText('share an edge');
-  await expect(page.locator('#boards > rect')).toHaveCount(2);
+  await expect(page.locator('#checks')).toContainText('disconnected');
+  await expect(page.locator('#boards > g')).toHaveCount(3);
   await page.reload();
-  await expect(page.locator('#boards > rect')).toHaveCount(2);
+  await expect(page.locator('#boards > g')).toHaveCount(3);
 });

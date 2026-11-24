@@ -1,5 +1,6 @@
 import { catalog, definition } from './catalog';
 import { pathData, ports, samples } from './geometry';
+import { boardBounds, boardPath } from './baseboards';
 import type { Layout, Piece, PlannerState } from './model';
 import { activeLayout, missingPieceIds, parseState, shoppingList, used } from './state';
 
@@ -44,8 +45,9 @@ export function layoutBounds(layout: Layout) {
   for (const piece of layout.pieces)
     for (const route of samples(piece)) for (const point of route) include(point.x, point.y, 20);
   for (const board of layout.boards) {
-    include(board.x, board.y, 0);
-    include(board.x + board.width, board.y + board.height, 0);
+    const bounds = boardBounds(board);
+    include(bounds.x, bounds.y, 0);
+    include(bounds.x + bounds.width, bounds.y + bounds.height, 0);
   }
   return minX === Infinity
     ? null
@@ -105,7 +107,7 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
   const content: string[] = [];
   for (const board of layout.boards)
     content.push(
-      `<rect x="${board.x}" y="${board.y}" width="${board.width}" height="${board.height}" fill="#e9dfc8" stroke="#a79570" stroke-width="2"/>`,
+      `<path data-board="${xml(board.id)}" transform="translate(${board.x},${board.y}) rotate(${board.angle})" d="${boardPath(board)}" fill="#e9dfc8" fill-rule="evenodd" stroke="#a79570" stroke-width="2"/>`,
     );
   for (const piece of layout.pieces) {
     content.push(

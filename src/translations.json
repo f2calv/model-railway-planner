@@ -1,4 +1,258 @@
 {
+  "Edit baseboards": [
+    "Grundplatten bearbeiten",
+    "Modifier les plateaux",
+    "Editar tableros",
+    "Modifica piani di base"
+  ],
+  "Module presets": [
+    "Modulvorlagen",
+    "Modules prédéfinis",
+    "Módulos predefinidos",
+    "Moduli predefiniti"
+  ],
+  "Rectangle": ["Rechteck", "Rectangle", "Rectángulo", "Rettangolo"],
+  "Right triangle": [
+    "Rechtwinkliges Dreieck",
+    "Triangle rectangle",
+    "Triángulo rectángulo",
+    "Triangolo rettangolo"
+  ],
+  "Circle": ["Kreis", "Cercle", "Círculo", "Cerchio"],
+  "Semicircle": ["Halbkreis", "Demi-cercle", "Semicírculo", "Semicerchio"],
+  "Arc strip": ["Bogenstreifen", "Bande courbe", "Franja curva", "Fascia curva"],
+  "polygon": ["Polygon", "polygone", "polígono", "poligono"],
+  "circle": ["Kreis", "cercle", "círculo", "cerchio"],
+  "arc": ["Bogen", "arc", "arco", "arco"],
+  "Board {name}": [
+    "Grundplatte {name}",
+    "Plateau {name}",
+    "Tablero {name}",
+    "Piano di base {name}"
+  ],
+  "Select baseboard {shape}": [
+    "Grundplatte {shape} auswählen",
+    "Sélectionner le plateau {shape}",
+    "Seleccionar tablero {shape}",
+    "Seleziona piano di base {shape}"
+  ],
+  "Board {index}: {shape}": [
+    "Grundplatte {index}: {shape}",
+    "Plateau {index} : {shape}",
+    "Tablero {index}: {shape}",
+    "Piano di base {index}: {shape}"
+  ],
+  "250 mm right triangle": [
+    "250 mm rechtwinkliges Dreieck",
+    "Triangle rectangle de 250 mm",
+    "Triángulo rectángulo de 250 mm",
+    "Triangolo rettangolo da 250 mm"
+  ],
+  "Select / pan boards": [
+    "Grundplatten auswählen / verschieben",
+    "Sélectionner / déplacer la vue",
+    "Seleccionar / desplazar vista",
+    "Seleziona / sposta vista"
+  ],
+  "Baseboard shape": [
+    "Grundplattenform",
+    "Forme du plateau",
+    "Forma del tablero",
+    "Forma del piano di base"
+  ],
+  "Select baseboard shape": [
+    "Grundplattenform auswählen",
+    "Sélectionner la forme du plateau",
+    "Seleccionar forma del tablero",
+    "Seleziona forma del piano di base"
+  ],
+  "New shape": ["Neue Form", "Nouvelle forme", "Nueva forma", "Nuova forma"],
+  "Board angle (degrees)": [
+    "Grundplattenwinkel (Grad)",
+    "Angle du plateau (degrés)",
+    "Ángulo del tablero (grados)",
+    "Angolo del piano (gradi)"
+  ],
+  "Outer radius (mm)": [
+    "Außenradius (mm)",
+    "Rayon extérieur (mm)",
+    "Radio exterior (mm)",
+    "Raggio esterno (mm)"
+  ],
+  "Inner radius (mm)": [
+    "Innenradius (mm)",
+    "Rayon intérieur (mm)",
+    "Radio interior (mm)",
+    "Raggio interno (mm)"
+  ],
+  "Arc sweep (degrees)": [
+    "Bogenwinkel (Grad)",
+    "Angle de l'arc (degrés)",
+    "Ángulo del arco (grados)",
+    "Ampiezza dell'arco (gradi)"
+  ],
+  "Add shape at coordinates": [
+    "Form an Koordinaten hinzufügen",
+    "Ajouter la forme aux coordonnées",
+    "Añadir forma en coordenadas",
+    "Aggiungi forma alle coordinate"
+  ],
+  "Apply board changes": [
+    "Grundplattenänderungen anwenden",
+    "Appliquer les modifications du plateau",
+    "Aplicar cambios del tablero",
+    "Applica modifiche al piano"
+  ],
+  "Remove board shape": [
+    "Grundplattenform entfernen",
+    "Retirer la forme du plateau",
+    "Eliminar forma del tablero",
+    "Rimuovi forma del piano"
+  ],
+  "Polygon corners": [
+    "Polygonecken",
+    "Sommets du polygone",
+    "Vértices del polígono",
+    "Vertici del poligono"
+  ],
+  "Apply corners": [
+    "Ecken anwenden",
+    "Appliquer les sommets",
+    "Aplicar vértices",
+    "Applica vertici"
+  ],
+  "Corner {index} {axis} (mm)": [
+    "Ecke {index} {axis} (mm)",
+    "Sommet {index} {axis} (mm)",
+    "Vértice {index} {axis} (mm)",
+    "Vertice {index} {axis} (mm)"
+  ],
+  "Place board: drag from the palette or tap the canvas.": [
+    "Grundplatte platzieren: aus der Palette ziehen oder auf die Zeichenfläche tippen.",
+    "Placer le plateau : glissez depuis la palette ou touchez le plan.",
+    "Colocar tablero: arrastre desde la paleta o toque el plano.",
+    "Posiziona il piano: trascina dalla tavolozza o tocca il disegno."
+  ],
+  "Select a board to move, rotate or reshape it.": [
+    "Eine Grundplatte zum Verschieben, Drehen oder Umformen auswählen.",
+    "Sélectionnez un plateau pour le déplacer, le tourner ou le déformer.",
+    "Seleccione un tablero para moverlo, girarlo o modificar su forma.",
+    "Seleziona un piano per spostarlo, ruotarlo o modificarne la forma."
+  ],
+  "Choose shapes or module presets. Boards move independently of track; planning checks show gaps and track outside the board.": [
+    "Formen oder Modulvorlagen wählen. Grundplatten bewegen sich unabhängig vom Gleis; Prüfungen zeigen Lücken und Gleise außerhalb der Platte.",
+    "Choisissez des formes ou des modules. Les plateaux bougent indépendamment des voies ; les contrôles indiquent les écarts et les voies hors plateau.",
+    "Elija formas o módulos. Los tableros se mueven independientemente de las vías; las comprobaciones muestran huecos y vías fuera del tablero.",
+    "Scegli forme o moduli. I piani si muovono indipendentemente dai binari; i controlli mostrano spazi e binari fuori dal piano."
+  ],
+  "Tabletop dimensions from": [
+    "Plattenmaße von",
+    "Dimensions des plateaux de",
+    "Dimensiones de tableros de",
+    "Dimensioni dei piani di"
+  ],
+  ". Fixings and frame clearance are not modelled.": [
+    ". Befestigungen und Rahmenabstände werden nicht modelliert.",
+    ". Les fixations et le dégagement du cadre ne sont pas modélisés.",
+    ". No se modelan fijaciones ni espacio del bastidor.",
+    ". Fissaggi e spazio del telaio non sono modellati."
+  ],
+  "Drag a corner handle, or enter local corner coordinates. Keep the polygon convex and its edges uncrossed.": [
+    "Einen Eckgriff ziehen oder lokale Eckkoordinaten eingeben. Das Polygon muss konvex bleiben und seine Kanten dürfen sich nicht kreuzen.",
+    "Glissez un sommet ou saisissez ses coordonnées locales. Gardez le polygone convexe, sans croisement des côtés.",
+    "Arrastre un vértice o introduzca sus coordenadas locales. Mantenga el polígono convexo y sin cruces.",
+    "Trascina un vertice o inserisci le sue coordinate locali. Mantieni il poligono convesso e senza incroci."
+  ],
+  "Baseboard updated": [
+    "Grundplatte aktualisiert",
+    "Plateau mis à jour",
+    "Tablero actualizado",
+    "Piano di base aggiornato"
+  ],
+  "Baseboard shapes are disconnected. Snap or move them together.": [
+    "Grundplattenformen sind getrennt. Zusammenrasten lassen oder zusammenschieben.",
+    "Les plateaux sont séparés. Rapprochez-les ou utilisez l'aimantation.",
+    "Los tableros están separados. Únalos con ajuste o movimiento.",
+    "I piani sono separati. Uniscili con aggancio o movimento."
+  ],
+  "Select a baseboard shape.": [
+    "Eine Grundplattenform auswählen.",
+    "Sélectionnez une forme de plateau.",
+    "Seleccione una forma de tablero.",
+    "Seleziona una forma del piano."
+  ],
+  "Choose a baseboard shape first.": [
+    "Zuerst eine Grundplattenform wählen.",
+    "Choisissez d'abord une forme de plateau.",
+    "Elija primero una forma de tablero.",
+    "Scegli prima una forma del piano."
+  ],
+  "Select a polygon corner.": [
+    "Eine Polygonecke auswählen.",
+    "Sélectionnez un sommet du polygone.",
+    "Seleccione un vértice del polígono.",
+    "Seleziona un vertice del poligono."
+  ],
+  "Enter finite baseboard dimensions and coordinates.": [
+    "Endliche Grundplattenmaße und Koordinaten eingeben.",
+    "Saisissez des dimensions et coordonnées finies.",
+    "Introduzca dimensiones y coordenadas finitas.",
+    "Inserisci dimensioni e coordinate finite."
+  ],
+  "Invalid baseboard identifier or position.": [
+    "Ungültige Grundplattenkennung oder Position.",
+    "Identifiant ou position de plateau invalide.",
+    "Identificador o posición del tablero no válido.",
+    "Identificatore o posizione del piano non valido."
+  ],
+  "Baseboard radius must be between 1 and 100000 mm.": [
+    "Der Grundplattenradius muss zwischen 1 und 100000 mm liegen.",
+    "Le rayon doit être compris entre 1 et 100000 mm.",
+    "El radio debe estar entre 1 y 100000 mm.",
+    "Il raggio deve essere tra 1 e 100000 mm."
+  ],
+  "Arc needs an inner radius below its outer radius and a sweep from 1 to 360 degrees.": [
+    "Ein Bogen braucht einen kleineren Innenradius und einen Winkel von 1 bis 360 Grad.",
+    "L'arc nécessite un rayon intérieur inférieur au rayon extérieur et un angle de 1 à 360 degrés.",
+    "El arco necesita un radio interior menor que el exterior y un ángulo de 1 a 360 grados.",
+    "L'arco richiede un raggio interno inferiore all'esterno e un angolo da 1 a 360 gradi."
+  ],
+  "Baseboard polygons need 3 to 16 finite corners.": [
+    "Grundplattenpolygone benötigen 3 bis 16 endliche Eckpunkte.",
+    "Les polygones nécessitent de 3 à 16 sommets finis.",
+    "Los polígonos necesitan de 3 a 16 vértices finitos.",
+    "I poligoni richiedono da 3 a 16 vertici finiti."
+  ],
+  "Baseboard corners must form a non-collapsed convex polygon.": [
+    "Die Ecken müssen ein nicht entartetes konvexes Polygon bilden.",
+    "Les sommets doivent former un polygone convexe non dégénéré.",
+    "Los vértices deben formar un polígono convexo no degenerado.",
+    "I vertici devono formare un poligono convesso non degenere."
+  ],
+  "Baseboard edges cannot cross.": [
+    "Grundplattenkanten dürfen sich nicht kreuzen.",
+    "Les côtés du plateau ne peuvent pas se croiser.",
+    "Los bordes del tablero no pueden cruzarse.",
+    "I bordi del piano non possono incrociarsi."
+  ],
+  "A layout can contain at most 50 baseboard shapes.": [
+    "Ein Plan kann höchstens 50 Grundplattenformen enthalten.",
+    "Un plan peut contenir au maximum 50 plateaux.",
+    "Un plano puede contener como máximo 50 tableros.",
+    "Un disegno può contenere al massimo 50 piani."
+  ],
+  "Duplicate baseboard identifiers.": [
+    "Doppelte Grundplattenkennungen.",
+    "Identifiants de plateau en double.",
+    "Identificadores de tablero duplicados.",
+    "Identificatori di piano duplicati."
+  ],
+  "Unknown baseboard shape.": [
+    "Unbekannte Grundplattenform.",
+    "Forme de plateau inconnue.",
+    "Forma de tablero desconocida.",
+    "Forma del piano sconosciuta."
+  ],
   "Attach {code} {name}": [
     "{code} {name} anbringen",
     "Fixer {code} {name}",
@@ -65,11 +319,11 @@
     "Accesorios no validos en la copia de seguridad.",
     "Accessori non validi nel backup."
   ],
-  "Accessories require backup format 3.": [
-    "Zubehoer erfordert Sicherungsformat 3.",
-    "Les accessoires necessitent le format de sauvegarde 3.",
-    "Los accesorios requieren el formato de copia 3.",
-    "Gli accessori richiedono il formato di backup 3."
+  "Accessories require backup format 3 or newer.": [
+    "Zubehör erfordert Sicherungsformat 3 oder neuer.",
+    "Les accessoires nécessitent le format de sauvegarde 3 ou plus récent.",
+    "Los accesorios requieren el formato de copia 3 o más reciente.",
+    "Gli accessori richiedono il formato di backup 3 o successivo."
   ],
   "Locked {description}": [
     "Gesperrt {description}",

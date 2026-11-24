@@ -336,6 +336,57 @@ hr {
 .track {
   cursor: pointer;
 }
+
+.board-palette {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.board-palette button {
+  touch-action: none;
+}
+
+.board-surface {
+  fill: #e9dfc8;
+  stroke: #a79570;
+  stroke-width: 2;
+}
+
+.editing-boards #tracks {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.editing-boards .baseboard {
+  cursor: move;
+}
+
+.selected-board .board-surface {
+  stroke: #167c99;
+  stroke-width: 3;
+}
+
+.board-corner {
+  fill: #fff;
+  stroke: #167c99;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  cursor: crosshair;
+}
+
+.baseboard-preview {
+  fill: #b9d9e2;
+  fill-opacity: 0.65;
+  stroke: #167c99;
+  stroke-width: 2;
+  stroke-dasharray: 8 4;
+}
+
+.baseboard-preview.invalid {
+  stroke: #ce5945;
+}
 .track.selected {
   cursor: grab;
 }

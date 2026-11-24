@@ -1,5 +1,6 @@
 import { definition } from './catalog';
 import type { Board, Piece, Pose, Problem, Route, Segment, Vec } from './model';
+import { containsBoard } from './baseboards';
 
 const radians = (degrees: number) => (degrees * Math.PI) / 180;
 export const distance = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -183,33 +184,7 @@ export function snapGroup(
 }
 
 function inBoard(p: Vec, boards: readonly Board[]): boolean {
-  return boards.some(
-    (board) =>
-      p.x >= board.x &&
-      p.x <= board.x + board.width &&
-      p.y >= board.y &&
-      p.y <= board.y + board.height,
-  );
-}
-
-export function joinedBoards(boards: readonly Board[]): boolean {
-  if (boards.length < 2) return true;
-  const seen = new Set<number>([0]);
-  for (let changed = true; changed;) {
-    changed = false;
-    boards.forEach((a, i) => {
-      if (!seen.has(i)) return;
-      boards.forEach((b, j) => {
-        const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-        const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-        if (!seen.has(j) && overlapX >= 0 && overlapY >= 0 && (overlapX > 0 || overlapY > 0)) {
-          seen.add(j);
-          changed = true;
-        }
-      });
-    });
-  }
-  return seen.size === boards.length;
+  return boards.some((board) => containsBoard(board, p));
 }
 
 function pointSegment(p: Vec, a: Vec, b: Vec): number {
