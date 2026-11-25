@@ -1,6 +1,7 @@
 import { catalog, definition } from './catalog';
 import { pathData, ports, samples } from './geometry';
 import { boardBounds, boardPath } from './baseboards';
+import { trackWidth } from './profiles';
 import type { Layout, Piece, PlannerState, Room } from './model';
 import {
   activeLayout,
@@ -21,7 +22,7 @@ export function accessoryMarks(piece: Piece): { id: string; d: string }[] {
   }));
 }
 
-export function drawingLayers(missing = false, locked = false) {
+export function drawingLayers(missing = false, locked = false, gaugeMm = 16.5) {
   let bed = '#81745d';
   if (missing) bed = '#db843b';
   else if (locked) bed = '#6874ab';
@@ -35,7 +36,7 @@ export function drawingLayers(missing = false, locked = false) {
     { name: 'sleepers', stroke: '#4e5045', width: 30, dash: '3 7' },
     { name: 'rails', stroke: '#c8c9bd', width: 19.5, dash: '' },
     { name: 'centre-line', stroke: missing ? '#85521f' : '#354338', width: 13.5, dash: '' },
-  ];
+  ].map((layer) => ({ ...layer, width: (layer.width * gaugeMm) / 16.5 }));
 }
 
 export function layoutBounds(layout: Layout, room?: Room) {
@@ -50,7 +51,9 @@ export function layoutBounds(layout: Layout, room?: Room) {
     maxY = Math.max(maxY, y + padding);
   };
   for (const piece of layout.pieces)
-    for (const route of samples(piece)) for (const point of route) include(point.x, point.y, 20);
+    for (const route of samples(piece))
+      for (const point of route)
+        include(point.x, point.y, Math.max(20, trackWidth(definition(piece.trackId)) / 2));
   for (const board of [...layout.boards, ...(room?.shapes.map((entry) => entry.shape) ?? [])]) {
     const bounds = boardBounds(board);
     include(bounds.x, bounds.y, 0);
@@ -96,7 +99,7 @@ function validatePixelSize(pixels?: { width: number; height: number }): void {
 
 function piecePaths(piece: Piece, missing: boolean): string[] {
   return definition(piece.trackId).routes.flatMap((route) =>
-    drawingLayers(missing, piece.locked).map(
+    drawingLayers(missing, piece.locked, definition(piece.trackId).gaugeMm).map(
       (layer) =>
         `<path d="${pathData(route)}" fill="none" stroke="${layer.stroke}" stroke-width="${layer.width}" stroke-dasharray="${layer.dash}"/>`,
     ),

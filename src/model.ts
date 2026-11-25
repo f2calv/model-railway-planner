@@ -24,7 +24,7 @@ export interface TrackDefinition {
   profileId: string;
   scale: string;
   gaugeMm: number;
-  centresMm: number;
+  centresMm: number | null;
   routes: readonly Route[];
   source: string;
   category: TrackCategory;

@@ -4,7 +4,8 @@ A free, browser-only **model railway track planner** for designing **Hornby OO g
 Drag and snap track pieces, try baseboard shapes, save alternative ideas and calculate a shopping
 list for the extra track you need. No account, backend or cloud database is required.
 
-The catalog targets Hornby, Peco Setrack and Bachmann OO (16.5 mm gauge). TypeScript, Vite and D3/SVG power the
+The main catalog targets Hornby, Peco Setrack and Bachmann OO (16.5 mm gauge), with small sourced
+starter catalogs for Z, N, TT, O and G. TypeScript, Vite and D3/SVG power the
 zoomable editor; the progressive web app supports offline use and installation where available.
 
 [Open the planner](https://f2calv.github.io/model-railway-planner/) or [run it locally](#run-locally).
@@ -48,7 +49,8 @@ design rationale, tradeoffs and significant evolution behind the application.
 - Shared inventory, multiple layout ideas and shopping lists for pieces still to buy.
 - Unbounded canvas or draggable polygon, circular and arc-strip baseboards, with module presets.
 - Named rooms and furniture beneath baseboards and track; choose a room independently for each idea.
-- Pan and zoom, touch placement, keyboard controls and exact-coordinate editing.
+- Explicit Select/Pan modes, zoom, separate layer fits, touch placement and exact-coordinate editing.
+- Gauge-filtered manufacturers and pieces, plus a searchable full-catalog page.
 - Planning warnings for overlaps, baseboard boundaries and nominal parallel spacing.
 - Optional DC/DCC power checks, explicit feeds, self-isolating point positions and bypass clips.
 - Local autosave and JSON backup import/export, without accounts or cloud storage.
@@ -70,14 +72,20 @@ npm run dev
 Open the Vite URL printed in the terminal (normally port 5173). Choose a piece and click or tap the
 plan, or drag it from the catalog with a moving track preview. Enter your quantities in **Track
 inventory** whenever you're ready. The compact catalog groups straights, curves, points and
-miscellaneous pieces in collapsible sections; search by code or name.
+miscellaneous pieces in collapsible sections. **Wildcard filter** searches codes, names and track
+types, so `curve` also finds radius-named curves. Use `*` for any text and `?` for one character;
+plain text matches anywhere. Names and categories are searchable in all five supported languages,
+independently of the interface language. Choose a **Gauge** dropdown above **Brand** to filter available pieces.
+Both catalog views default to **OO/H0**, which groups 16.5 mm track for browsing,
+not identical model scales. The **Track catalog** page lists every registered piece with dimensions,
+sources and owned/used quantities, independently of the placement palette's filters.
 
 Drag a placed piece to move it, or select several and move them together. Each idea uses the owned collection independently. Extra pieces
 remain placeable and appear as orange dashed track, with quantities under **Shopping list**.
 Increasing inventory or removing pieces updates the shortfall immediately. Where several identical
 pieces are placed, the earliest ones count as owned; moving one does not change this ordering.
 
-Use **New idea**, **Duplicate** and the layout selector to explore alternatives. Changes autosave
+Use **New layout**, **Rename layout**, **Duplicate** and the layout selector to explore alternatives. Changes autosave
 after a successful browser-storage write. **Export backup** downloads all inventory and layouts;
 **Import backup** validates a file and asks before replacing existing data.
 
@@ -91,8 +99,12 @@ after a successful browser-storage write. **Export backup** downloads all invent
   Ctrl/Command+A selects all. Groups move rigidly and snap at exposed, direction-compatible ends.
 - The inspector edits the selected piece or group around its anchor. Arrow keys move 5 mm;
   Shift + arrows move 1 mm. `R` rotates 22.5 degrees; Delete removes; Escape cancels a gesture.
-- **Space + drag** pans on desktop; touch background drag pans. Wheel/pinch and zoom controls zoom.
-  A second finger cancels an in-progress track drag before pinch zooming. **Fit plan** frames the layout.
+- **Switch to Pan** enables canvas dragging over tracks and shapes without moving them;
+  **Switch to Select** restores selection. Choosing a piece or shape returns to editing.
+  **Space + drag** temporarily pans on desktop; touch background drag also pans.
+  Wheel/pinch and zoom controls zoom. A second finger cancels an in-progress track drag before pinch
+  zooming. **Fit railway**, **Fit baseboards** and **Fit room** frame each layer independently;
+  room fit includes furniture. Empty-layer fit controls are disabled.
 - Right-click a piece/group for lock actions, or use **Lock selection** / **Unlock selection**.
   Locked pieces show a padlock and different bed colour. Any locked member prevents group move/delete.
 - Delete asks for confirmation by default. Its skip checkbox and the **Confirm piece deletion** setting
@@ -111,6 +123,12 @@ after a successful browser-storage write. **Export backup** downloads all invent
   theme follows the browser's system preference.
 - **Language**, optional **Track sounds** (off initially) and delete preferences persist separately
   from the document. User layout names and product codes are never translated.
+- Page settings also survive reloads and future visits: each catalog's gauge/brand/filter, collapsed
+  sections, Snap, power overlay, Select/Pan or editing layer, sidebar scroll and a separate canvas
+  view per layout. **Reset page settings** restores the page defaults without changing layouts,
+  inventory, language, theme or audio preferences. Selections, unfinished placement/drag operations,
+  dialogs, undo history and unapplied form edits remain temporary. Page settings are local to this
+  browser origin, excluded from backups, and the last-used tab's settings win across visits.
 - **Reset entire inventory** zeroes all quantities after confirmation, keeps layouts and is undoable.
 - **Print / PDF** creates a page-fit overview, not a calibrated 1:1 construction template.
   SVG retains millimetre dimensions; PNG is capped at 4096 pixels per dimension. Inventory CSV covers
@@ -119,8 +137,10 @@ after a successful browser-storage write. **Export backup** downloads all invent
 Clearance is a conservative planning aid, not a guarantee that trains can pass. The nominal
 Hornby set-track spacing is 67 mm centre-to-centre, supported by its official track geometry diagram.
 This is the project's OO planning envelope, not a universal Peco/Bachmann or other-scale standard.
-Parallel checks allow 0.5 mm for rounded catalog geometry. A 30 mm planning footprint is used for
+Parallel checks allow 0.5 mm for rounded catalog geometry. A 30 mm OO planning footprint is used for
 same-level overlap and board containment, with sampled curves (at most 5 mm between samples).
+Other gauges scale that schematic footprint in proportion to gauge; their parallel-spacing targets
+are unverified and not enforced. Check actual track beds, vehicles and curve overhang physically.
 Valid connector neighbourhoods and the local fan between standard point exits are exempt from
 parallel checks, not entire connected components. Points and curved stock overhang still require
 physical validation. Diamond crossings contain two independent routes and four connectors; their
@@ -142,7 +162,9 @@ the six supplier-size presets, editing rules and physical limitations.
 
 ## Rooms and Furniture
 
-Use **New room** to save a named room, then choose it under **Room** for each layout.
+Use **New room** beside the **Room** selector to save and assign a named room.
+**Rename room** renames that shared room, not the layout. **No room** means no room is assigned;
+it is not a room name to rename. Choose a saved room independently for each layout.
 The drawing layers are room/furniture, baseboards, then track. Set **Room shape role** to
 **Room outline**, enter dimensions and use **Add room rectangle**. For a table, choose
 **Furniture**, enter its name and dimensions, and add another rectangle.
@@ -155,8 +177,8 @@ See the [room planning guide](docs/rooms.md) for sharing, saving and limitations
 
 ## Track Catalogs
 
-The catalog contains 47 entries: 31 Hornby (including R645 and three power accessories), seven Peco Setrack
-and nine Bachmann OO pieces.
+The catalog contains 52 entries: 47 OO entries (31 Hornby including R645 and three power accessories,
+seven Peco Setrack and nine Bachmann), plus one sourced starter piece each for Z, N, TT, O and G.
 See the [track catalog guide](docs/catalog.md) for supported dimensions, manufacturer sources,
 geometric compatibility rules and deliberately deferred furniture. Mixed-brand snapping is a planning
 aid, not certification of rail heights, joiners or rolling-stock clearance.

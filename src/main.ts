@@ -2,7 +2,7 @@ import './style.css';
 import { select } from 'd3-selection';
 import { zoom, zoomIdentity, type ZoomTransform } from 'd3-zoom';
 import { registerSW } from 'virtual:pwa-register';
-import { catalog, definition, trackSize } from './catalog';
+import { catalogBrands, catalogCategories, definition, filterCatalog, trackSize } from './catalog';
 import { connected, normalize, pathData, ports, samples, snapPiece, snapGroup } from './geometry';
 import {
   activeLayout,
@@ -46,7 +46,16 @@ import {
   type Preferences,
 } from './preferences';
 import { playSound } from './sound';
-import { manufacturerProfiles } from './profiles';
+import { gaugeGroups, trackWidth } from './profiles';
+import { CatalogBrowser } from './catalog-browser';
+import {
+  defaultPageSettings,
+  loadPageSettings,
+  pagePanels,
+  pageSettingsKey,
+  savePageSettings,
+  type PageSettings,
+} from './page-settings';
 import { ShapeEditor } from './shape-editor';
 import { roomProblems } from './rooms';
 import { analyzePower, attachPowerAccessory, type PowerRoute } from './power';
@@ -79,11 +88,19 @@ element<HTMLDivElement>('#app').innerHTML = `
     <button id="import">Import backup</button>
     <input id="import-file" type="file" accept=".json,application/json" hidden />
   </header>
+  <nav class="page-navigation" aria-label="Application pages"><a id="planner-page-link" href="#planner" aria-current="page">Planner</a><a id="catalog-page-link" href="#catalog">Track catalog</a></nav>
+  <section id="catalog-page" class="catalog-page" hidden aria-label="Track catalog"></section>
+  <div id="planner-page">
   <div class="layout-bar">
-    <label>Layout <select id="layouts" aria-label="Saved layouts"></select></label>
-    <label>Room <select id="layout-room" aria-label="Room for this layout"><option value="">No room</option></select></label>
-    <button id="new-layout">New idea</button><button id="duplicate-layout">Duplicate</button>
-    <button id="rename-layout">Rename</button><button id="delete-layout">Delete layout</button>
+    <div class="document-actions" role="group" aria-label="Layout actions">
+      <label>Layout <select id="layouts" aria-label="Saved layouts"></select></label>
+      <button id="new-layout">New layout</button><button id="duplicate-layout">Duplicate</button>
+      <button id="rename-layout">Rename layout</button><button id="delete-layout">Delete layout</button>
+    </div>
+    <div class="document-actions" role="group" aria-label="Room actions">
+      <label>Room <select id="layout-room" aria-label="Room for this layout"><option value="">No room</option></select></label>
+      <button id="new-room">New room</button><button id="rename-room">Rename room</button><button id="delete-room">Delete room</button>
+    </div>
     <button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button>
     <button id="print">Print / PDF</button><button id="export-svg">Export SVG</button><button id="export-png">Export PNG</button><button id="export-inventory-csv">Inventory CSV</button><button id="export-shopping-csv">Shopping list CSV</button>
     <span id="save-state" class="save-state">Autosave ready</span>
@@ -92,21 +109,23 @@ element<HTMLDivElement>('#app').innerHTML = `
     <aside class="inventory-panel">
       <div class="panel-heading"><span class="eyebrow">YOUR COLLECTION</span><h2>Track inventory</h2></div>
       <p>Plan with any piece. Missing stock appears on this idea's shopping list.</p>
-      <label class="search-label">Find a piece<input id="search" type="search" placeholder="Code or track type..." /></label>
-      <label>Manufacturer / scale<select id="catalog-profile" aria-label="Manufacturer / scale"><option value="">All OO manufacturers</option>${manufacturerProfiles.map((p) => `<option value="${p.id}">${p.brand} / OO</option>`).join('')}</select></label>
-      <div class="catalog-heading"><span>OO / 16.5 mm</span><span>Owned / left</span></div>
+      <label class="search-label">Wildcard filter<input id="search" type="search" maxlength="256" placeholder="Code or type; * any text, ? one character" /></label>
+      <label>Gauge<select id="catalog-gauge">${gaugeGroups.map((g) => `<option value="${g.id}" ${g.id === 'oo-ho' ? 'selected' : ''}>${g.label}</option>`).join('')}</select></label>
+      <label>Brand<select id="catalog-profile"></select></label>
+      <div class="catalog-heading"><span id="catalog-gauge-label">OO/H0 / 16.5 mm</span><span>Owned / left</span></div>
       <div id="catalog"></div>
+      <p id="catalog-empty" hidden>No registered pieces match these filters.</p>
       <button id="reset-inventory">Reset entire inventory</button>
       <p class="subtle">Drag a piece onto the plan, or choose it and tap an empty spot. No sample stock is added.</p>
     </aside>
     <section class="editor" aria-label="Layout editor">
       <div class="editor-toolbar">
-        <button id="cancel-tool">Select / pan</button>
+        <button id="cancel-tool" aria-pressed="false">Switch to Pan</button>
         <button id="tool-rotate">Rotate new</button><button id="tool-flip">Reverse new curve</button>
         <span id="tool-label">Select a track piece to begin</span>
         <label><input id="snap" type="checkbox" checked /> Snap</label>
         <button id="zoom-out" aria-label="Zoom out">-</button><output id="zoom-level">60%</output>
-        <button id="zoom-in" aria-label="Zoom in">+</button><button id="fit">Fit plan</button>
+        <button id="zoom-in" aria-label="Zoom in">+</button><button id="fit">Fit railway</button><button id="fit-boards">Fit baseboards</button><button id="fit-room">Fit room</button>
       </div>
       <svg id="canvas" role="group" tabindex="0" aria-label="Track plan. Drag blank space to select; Space and drag to pan; Ctrl selects multiple pieces. Use controls for keyboard editing.">
         <defs>
@@ -143,7 +162,6 @@ element<HTMLDivElement>('#app').innerHTML = `
       <div id="baseboard-editor"></div>
       <hr /><h2>Room & furniture</h2>
       <p>Choose a named room for this layout. Room shapes are shared by all layouts using that room; furniture is a visual reference only.</p>
-      <button id="new-room">New room</button><button id="rename-room">Rename room</button><button id="delete-room">Delete room</button>
       <div id="room-controls">
         <label>Room shape role<select id="room-role"><option value="outline">Room outline</option><option value="furniture">Furniture</option></select></label>
         <label>Room shape name<input id="room-shape-name" maxlength="120" value="Room outline" data-user-text /></label>
@@ -151,14 +169,18 @@ element<HTMLDivElement>('#app').innerHTML = `
       </div>
       <hr /><h2>Planning checks</h2><div id="checks"></div>
       <p class="subtle">67 mm nominal Hornby track centres. Curves and turnout fans still need physical checks with your longest trains. This is not a clearance certificate.</p>
-      <details><summary>Controls & mobile</summary><p>Tap to place track. Drag blank space to select enclosed pieces; Ctrl-click toggles selection. Drag selected pieces as a group. Space + drag pans; scroll or pinch zooms. On touch screens, drag blank space to pan. Arrows move 5 mm; Shift + arrows move 1 mm. R rotates; Delete removes; Escape cancels. Ctrl+A selects all; Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y redoes. Right-click a piece for lock actions, or use the buttons.</p><p>For offline installation, open a production build over HTTPS (or localhost). Use your browser's Install app / Add to Home Screen option. Browser support varies.</p></details>
+      <details id="controls-help"><summary>Controls & mobile</summary><p>Use Switch to Pan to drag the canvas without moving pieces; Switch to Select restores selection. Choosing a piece or shape returns to editing. Space + drag temporarily pans; scroll or pinch zooms. Fit railway, Fit baseboards and Fit room frame each layer independently.</p><p>Tap to place track. Drag blank space to select enclosed pieces; Ctrl-click toggles selection. Drag selected pieces as a group. Space + drag pans; scroll or pinch zooms. On touch screens, drag blank space to pan. Arrows move 5 mm; Shift + arrows move 1 mm. R rotates; Delete removes; Escape cancels. Ctrl+A selects all; Ctrl+Z undoes; Ctrl+Shift+Z or Ctrl+Y redoes. Right-click a piece for lock actions, or use the buttons.</p><p>For offline installation, open a production build over HTTPS (or localhost). Use your browser's Install app / Add to Home Screen option. Browser support varies.</p></details>
       <button id="update-app" hidden>Update app</button>
       <hr /><h2>Preferences</h2>
       <label class="check-label"><input id="sounds" type="checkbox" /> Track sounds</label>
       <label class="check-label"><input id="confirm-delete" type="checkbox" checked /> Confirm piece deletion</label>
+      <p class="subtle">Page settings stay on this device, separately from layouts and backups. Temporary selections and unapplied edits are not restored.</p>
+      <button id="reset-page-settings">Reset page settings</button>
+      <p id="page-settings-status" class="check-warning" role="status" hidden></p>
       <details id="activity"><summary>Activity & history (this session)</summary><p id="history-count"></p><h3>Undo history</h3><ol id="undo-history"></ol><h3>Local activity</h3><ol id="activity-list"></ol><p>History is session-only: 100 undo steps and 300 activity entries. Nothing is uploaded.</p></details>
     </aside>
   </main>
+  </div>
   <footer id="status" role="status" aria-label="Planner status" aria-live="polite">Welcome. Choose any track to start planning; enter your inventory whenever you're ready.</footer>
   <div id="track-tooltip" role="tooltip" hidden></div>
   <div id="palette-ghost" aria-hidden="true" hidden></div>
@@ -188,6 +210,13 @@ let drag: { pointerId: number; pieces: Piece[]; start: Vec; moved: boolean } | n
 let marquee: { pointerId: number; start: Vec; end: Vec; additive: boolean; moved: boolean } | null =
   null;
 let spaceDown = false;
+let panMode = false;
+let pageSettings: PageSettings = defaultPageSettings();
+let pageSettingsReady = false;
+let pageSettingsWritable = true;
+let restoringPageSettings = false;
+let pageSettingsFrame = 0;
+let lastPageSettings = '';
 const touches = new Set<number>();
 let multiTouch = false;
 let suppressClick = false;
@@ -201,6 +230,11 @@ let paletteDrag: {
 const openCategories = new Set<TrackCategory>(['straights', 'curves', 'points', 'misc']);
 const svg = element<SVGSVGElement>('#canvas');
 const svgSelection = select(svg);
+const catalogBrowser = new CatalogBrowser(
+  element<HTMLElement>('#catalog-page'),
+  () => state,
+  () => preferences.language,
+);
 const powerEditor = new PowerEditor(element<HTMLElement>('#power-editor'), {
   state: () => state,
   selected,
@@ -222,6 +256,7 @@ const boardEditor = new ShapeEditor(
     scale: () => transform.k,
     snap: () => element<HTMLInputElement>('#snap').checked,
     modeChanged: () => {
+      panMode = false;
       roomEditor.leave();
       clearPaletteDrag();
       cancelGesture();
@@ -229,7 +264,7 @@ const boardEditor = new ShapeEditor(
       selectOnly('');
       render();
     },
-    fit,
+    fit: () => fit('boards'),
   },
 );
 const roomEditor = new ShapeEditor(
@@ -244,6 +279,7 @@ const roomEditor = new ShapeEditor(
     scale: () => transform.k,
     snap: () => element<HTMLInputElement>('#snap').checked,
     modeChanged: () => {
+      panMode = false;
       boardEditor.leave();
       clearPaletteDrag();
       cancelGesture();
@@ -251,7 +287,7 @@ const roomEditor = new ShapeEditor(
       selectOnly('');
       render();
     },
-    fit,
+    fit: () => fit('room'),
   },
   {
     shapes: (state) =>
@@ -396,6 +432,15 @@ try {
 } catch (error) {
   status(error instanceof Error ? error.message : String(error), true);
 }
+try {
+  pageSettings = loadPageSettings(localStorage);
+  lastPageSettings = JSON.stringify(pageSettings);
+} catch (error) {
+  pageSettingsWritable = false;
+  pageSettingsError(
+    `Could not read page settings: ${error instanceof Error ? error.message : String(error)} Use Reset page settings to recover. Layouts and inventory are unchanged.`,
+  );
+}
 let history = createHistory(state);
 
 function countJoins(pieces: readonly Piece[]): number {
@@ -455,6 +500,10 @@ function commit(
     return false;
   }
   const previous = state;
+  const changedLayout = previous.activeLayoutId !== next.activeLayoutId || replacing;
+  if (changedLayout) rememberPageSettings();
+  const wasRestoring = restoringPageSettings;
+  if (changedLayout) restoringPageSettings = true;
   history =
     restored ?? (replacing && recovery ? createHistory(next) : recordHistory(history, next));
   state = next;
@@ -465,6 +514,9 @@ function commit(
   status(message ?? `${summary}. Saved on this device.`);
   playChangeSound(previous, next);
   render();
+  if (changedLayout) restoreLayoutView();
+  restoringPageSettings = wasRestoring;
+  rememberPageSettings();
   return true;
 }
 
@@ -502,6 +554,7 @@ function drawTrack(
   power: readonly PowerRoute[] = [],
 ): void {
   const entry = definition(piece.trackId);
+  group.style.setProperty('--track-selection-width', `${(38 * entry.gaugeMm) / 16.5}px`);
   group.setAttribute(
     'transform',
     `translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})`,
@@ -511,7 +564,7 @@ function drawTrack(
     `track${selectedIds.has(piece.id) ? ' selected' : ''}${piece.locked ? ' locked' : ''}${drag?.pieces.some((p) => p.id === piece.id) && !ghost ? ' drag-source' : ''}${ghost ? ' ghost' : ''}${missing ? ' missing-stock' : ''}`,
   );
   const layers = entry.routes.flatMap((route, index) =>
-    drawingLayers(missing, piece.locked).map((layer) => ({
+    drawingLayers(missing, piece.locked, entry.gaugeMm).map((layer) => ({
       ...layer,
       d: pathData(route),
       key: `${index}-${layer.name}`,
@@ -552,10 +605,22 @@ function drawTrack(
     .selectAll<SVGLineElement, (typeof localPorts)[number]>('line.track-join')
     .data(localPorts)
     .join('line')
-    .attr('x1', (port) => port.x - 19 * Math.sin((port.angle * Math.PI) / 180))
-    .attr('y1', (port) => port.y + 19 * Math.cos((port.angle * Math.PI) / 180))
-    .attr('x2', (port) => port.x + 19 * Math.sin((port.angle * Math.PI) / 180))
-    .attr('y2', (port) => port.y - 19 * Math.cos((port.angle * Math.PI) / 180))
+    .attr(
+      'x1',
+      (port) => port.x - ((19 * entry.gaugeMm) / 16.5) * Math.sin((port.angle * Math.PI) / 180),
+    )
+    .attr(
+      'y1',
+      (port) => port.y + ((19 * entry.gaugeMm) / 16.5) * Math.cos((port.angle * Math.PI) / 180),
+    )
+    .attr(
+      'x2',
+      (port) => port.x + ((19 * entry.gaugeMm) / 16.5) * Math.sin((port.angle * Math.PI) / 180),
+    )
+    .attr(
+      'y2',
+      (port) => port.y - ((19 * entry.gaugeMm) / 16.5) * Math.cos((port.angle * Math.PI) / 180),
+    )
     .attr('class', 'track-join');
   drawing
     .selectAll<SVGPathElement, PowerRoute>('path.power-route')
@@ -700,6 +765,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
     boardEditor.leave();
     roomEditor.leave();
     toolId = trackId;
+    panMode = false;
     selectOnly('');
     preview(null);
     render();
@@ -708,6 +774,7 @@ function bindPaletteDrag(pick: HTMLButtonElement, trackId: string): void {
     if (event.button !== 0) return;
     boardEditor.leave();
     roomEditor.leave();
+    panMode = false;
     paletteDrag = {
       pointerId: event.pointerId,
       source: pick,
@@ -778,6 +845,17 @@ function render(): void {
   const focused = document.activeElement;
   const focusedLabel = focused?.getAttribute('aria-label');
   const layout = activeLayout(state);
+  if (!assignedRoom(state) && roomEditor.editing) roomEditor.leave();
+  const panButton = element<HTMLButtonElement>('#cancel-tool');
+  panButton.replaceChildren(
+    document.createTextNode(panMode ? 'Switch to Select' : 'Switch to Pan'),
+  );
+  panButton.setAttribute('aria-pressed', String(panMode));
+  svg.classList.toggle('pan-mode', panMode);
+  element<HTMLButtonElement>('#fit').disabled = layout.pieces.length === 0;
+  element<HTMLButtonElement>('#fit-boards').disabled = layout.boards.length === 0;
+  element<HTMLButtonElement>('#fit-room').disabled = !assignedRoom(state)?.shapes.length;
+  catalogBrowser.render();
   if (!selectedIds.has(selectedId)) selectOnly(selectedId);
   selectedIds = new Set([...selectedIds].filter((id) => layout.pieces.some((p) => p.id === id)));
   if (!selectedIds.has(selectedId)) selectedId = [...selectedIds][0] ?? '';
@@ -800,24 +878,26 @@ function render(): void {
   element<HTMLButtonElement>('#rename-room').disabled = !room;
   element<HTMLButtonElement>('#delete-room').disabled = !room;
   const query = element<HTMLInputElement>('#search').value.toLowerCase();
+  const gaugeInput = element<HTMLSelectElement>('#catalog-gauge');
+  const gauge = gaugeGroups.find((group) => group.id === gaugeInput.value);
+  if (!gauge) throw new Error('Unknown catalog gauge.');
+  const profileSelect = element<HTMLSelectElement>('#catalog-profile');
+  const oldProfile = profileSelect.value;
+  const brands = catalogBrands(gauge.id);
+  profileSelect.replaceChildren(
+    new Option(translate(`All ${gauge.label} brands`, preferences.language), ''),
+    ...brands.map((brand) => new Option(brand, brand)),
+  );
+  profileSelect.value = brands.includes(oldProfile) ? oldProfile : '';
+  element<HTMLElement>('#catalog-gauge-label').replaceChildren(
+    document.createTextNode(`${gauge.label} / ${gauge.gaugeMm} mm`),
+  );
+  const filtered = filterCatalog({ gauge: gauge.id, brand: profileSelect.value, query });
+  element<HTMLElement>('#catalog-empty').hidden = filtered.length > 0;
   const catalogRoot = element<HTMLElement>('#catalog');
   catalogRoot.replaceChildren();
-  const categories: { id: TrackCategory; label: string }[] = [
-    { id: 'straights', label: 'Straights' },
-    { id: 'curves', label: 'Curves' },
-    { id: 'points', label: 'Points' },
-    { id: 'misc', label: 'Misc / crossings' },
-  ];
-  for (const category of categories) {
-    const entries = catalog.filter(
-      (entry) =>
-        entry.category === category.id &&
-        (!element<HTMLSelectElement>('#catalog-profile').value ||
-          entry.profileId === element<HTMLSelectElement>('#catalog-profile').value) &&
-        `${entry.brand} ${entry.code} ${entry.name} ${translate(entry.name, preferences.language)}`
-          .toLowerCase()
-          .includes(query),
-    );
+  for (const category of catalogCategories) {
+    const entries = filtered.filter((entry) => entry.category === category.id);
     if (!entries.length) continue;
     const section = document.createElement('details');
     section.className = 'catalog-group';
@@ -829,6 +909,7 @@ function render(): void {
       if (query || !section.isConnected) return;
       if (section.open) openCategories.add(category.id);
       else openCategories.delete(category.id);
+      rememberPageSettings();
     });
     catalogRoot.append(section);
     for (const entry of entries) {
@@ -881,6 +962,7 @@ function render(): void {
       else bindPaletteDrag(pick, entry.id);
       const quantity = document.createElement('input');
       quantity.type = 'number';
+      quantity.inputMode = 'numeric';
       quantity.min = '0';
       quantity.max = '9999';
       quantity.step = '1';
@@ -1006,6 +1088,10 @@ function render(): void {
     issues.push(
       'This OO project uses a conservative Hornby 67 mm clearance target, not a universal manufacturer standard. Mixed-brand planning is geometric only; rail code and joiner fit need physical verification.',
     );
+  if (layout.pieces.some((p) => definition(p.trackId).centresMm === null))
+    issues.push(
+      'Starter gauge catalog: track widths are schematic and parallel clearance is not verified. Check actual track and rolling-stock envelopes physically.',
+    );
   element<HTMLElement>('#checks').replaceChildren(
     ...(issues.length ? issues : ['No definite placement violations found.']).map((issue) => {
       const paragraph = document.createElement('p');
@@ -1043,6 +1129,7 @@ function render(): void {
   renderActivity();
   document.documentElement.lang = preferences.language;
   translateUi(element<HTMLElement>('#app'), preferences.language);
+  rememberPageSettings();
   if (focusedLabel && focused && !focused.isConnected) {
     [...document.querySelectorAll<HTMLElement>('[aria-label]')]
       .find((node) => node.getAttribute('aria-label') === focusedLabel)
@@ -1051,13 +1138,14 @@ function render(): void {
 }
 
 const zoomer = zoom<SVGSVGElement, unknown>()
-  .scaleExtent([0.08, 4])
+  .scaleExtent([0.00001, 4])
   .filter((event: Event) => {
     if (event.type === 'wheel') return !drag && !marquee && !shapeEditor().busy;
     if (event.type.startsWith('touch')) {
       const target = event.target;
       return (
         touches.size > 1 ||
+        (panMode && !drag && !marquee && !shapeEditor().busy) ||
         (!toolId &&
           !drag &&
           !marquee &&
@@ -1070,7 +1158,7 @@ const zoomer = zoom<SVGSVGElement, unknown>()
       );
     }
     return (
-      spaceDown &&
+      (panMode || spaceDown) &&
       !drag &&
       !marquee &&
       !shapeEditor().busy &&
@@ -1083,7 +1171,8 @@ const zoomer = zoom<SVGSVGElement, unknown>()
     element<HTMLOutputElement>('#zoom-level').textContent = `${Math.round(transform.k * 100)}%`;
     boardEditor.render();
     roomEditor.render();
-  });
+  })
+  .on('end', () => rememberPageSettings());
 svgSelection.call(zoomer).on('dblclick.zoom', null);
 svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
 
@@ -1117,6 +1206,7 @@ function toggleSelection(id: string): void {
 svg.addEventListener('pointerdown', (event) => {
   suppressClick = false;
   if (beginMultiTouch(event)) return;
+  if (panMode || spaceDown) return;
   if (shapeEditor().editing) {
     if (!spaceDown) shapeEditor().pointerDown(event);
     return;
@@ -1190,7 +1280,7 @@ function previewMarquee(position: Vec): void {
 }
 
 svg.addEventListener('pointermove', (event) => {
-  if (multiTouch || spaceDown) return;
+  if (multiTouch || spaceDown || panMode) return;
   if (shapeEditor().editing) {
     shapeEditor().pointerMove(event);
     return;
@@ -1236,10 +1326,10 @@ function finishMarquee(pointerId: number): void {
           .flat()
           .every(
             (point) =>
-              point.x - 15 >= minX &&
-              point.x + 15 <= maxX &&
-              point.y - 15 >= minY &&
-              point.y + 15 <= maxY,
+              point.x - trackWidth(definition(p.trackId)) / 2 >= minX &&
+              point.x + trackWidth(definition(p.trackId)) / 2 <= maxX &&
+              point.y - trackWidth(definition(p.trackId)) / 2 >= minY &&
+              point.y + trackWidth(definition(p.trackId)) / 2 <= maxY,
           )
       )
         selectedIds.add(p.id);
@@ -1288,6 +1378,7 @@ svg.addEventListener('pointerleave', () => {
   if (!drag && !marquee) preview(null);
 });
 svg.addEventListener('click', (event) => {
+  if (panMode || spaceDown) return;
   if (suppressClick) {
     suppressClick = false;
     return;
@@ -1389,6 +1480,7 @@ function handlePieceKey(event: KeyboardEvent): void {
 }
 
 document.addEventListener('keydown', (event) => {
+  if (location.hash === '#catalog') return;
   if (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLSelectElement ||
@@ -1474,6 +1566,126 @@ function removePiece(): void {
     );
   else remove();
 }
+
+function pageSettingsError(message: string): void {
+  const target = element<HTMLElement>('#page-settings-status');
+  target.textContent = message;
+  target.hidden = false;
+  translateUi(target, preferences.language);
+}
+
+function rememberPageSettings(): void {
+  if (!pageSettingsReady || restoringPageSettings) return;
+  const planner = !element<HTMLElement>('#planner-page').hidden;
+  const scroll = { ...pageSettings.scroll };
+  if (planner) {
+    scroll.inventory = element<HTMLElement>('.inventory-panel').scrollTop;
+    scroll.details = element<HTMLElement>('.details-panel').scrollTop;
+    scroll.planner = window.scrollY;
+  } else {
+    scroll.table = element<HTMLElement>('.catalog-table-scroll').scrollLeft;
+    scroll.catalog = window.scrollY;
+  }
+  const views = recovery
+    ? Object.entries(pageSettings.viewports)
+    : state.layouts.flatMap((layout) => {
+        const view =
+          planner && layout.id === state.activeLayoutId
+            ? { x: transform.x, y: transform.y, k: transform.k }
+            : Object.hasOwn(pageSettings.viewports, layout.id)
+              ? pageSettings.viewports[layout.id]
+              : undefined;
+        return view ? [[layout.id, view] as const] : [];
+      });
+  const next: PageSettings = {
+    version: 1,
+    page: planner ? 'planner' : 'catalog',
+    catalog: {
+      gauge: element<HTMLSelectElement>('#catalog-gauge').value,
+      brand: element<HTMLSelectElement>('#catalog-profile').value,
+      query: element<HTMLInputElement>('#search').value,
+    },
+    browser: catalogBrowser.filters,
+    openCategories: [...openCategories],
+    openPanels: pagePanels.filter((id) => element<HTMLDetailsElement>(`#${id}`).open),
+    snap: element<HTMLInputElement>('#snap').checked,
+    powerOverlay: element<HTMLInputElement>('#power-overlay').checked,
+    mode: panMode ? 'pan' : roomEditor.editing ? 'room' : boardEditor.editing ? 'boards' : 'select',
+    viewports: Object.fromEntries(views),
+    scroll,
+  };
+  const text = JSON.stringify(next);
+  pageSettings = next;
+  if (!pageSettingsWritable || text === lastPageSettings) return;
+  try {
+    savePageSettings(localStorage, next);
+    lastPageSettings = text;
+  } catch (error) {
+    pageSettingsWritable = false;
+    pageSettingsError(
+      `Could not save page settings: ${error instanceof Error ? error.message : String(error)} Changes remain in this tab only. Use Reset page settings to retry. Layouts and inventory are unchanged.`,
+    );
+  }
+}
+
+function restorePageControls(): void {
+  restoringPageSettings = true;
+  clearPaletteDrag();
+  cancelGesture();
+  boardEditor.leave();
+  roomEditor.leave();
+  toolId = '';
+  selectOnly('');
+  panMode = pageSettings.mode === 'pan';
+  element<HTMLInputElement>('#edit-boards').checked = pageSettings.mode === 'boards';
+  element<HTMLInputElement>('#room-edit-boards').checked =
+    pageSettings.mode === 'room' && !!assignedRoom(state);
+  element<HTMLInputElement>('#snap').checked = pageSettings.snap;
+  element<HTMLInputElement>('#power-overlay').checked = pageSettings.powerOverlay;
+  element<HTMLSelectElement>('#catalog-gauge').value = pageSettings.catalog.gauge;
+  element<HTMLInputElement>('#search').value = pageSettings.catalog.query;
+  openCategories.clear();
+  for (const id of pageSettings.openCategories) openCategories.add(id);
+  catalogBrowser.restore(pageSettings.browser);
+  render();
+  element<HTMLSelectElement>('#catalog-profile').value = catalogBrands(
+    pageSettings.catalog.gauge,
+  ).includes(pageSettings.catalog.brand)
+    ? pageSettings.catalog.brand
+    : '';
+  for (const id of pagePanels)
+    element<HTMLDetailsElement>(`#${id}`).open = pageSettings.openPanels.includes(id);
+  render();
+}
+
+function restoreLayoutView(): void {
+  if (element<HTMLElement>('#planner-page').hidden) return;
+  const view = Object.hasOwn(pageSettings.viewports, state.activeLayoutId)
+    ? pageSettings.viewports[state.activeLayoutId]
+    : undefined;
+  if (view)
+    svgSelection.call(zoomer.transform, zoomIdentity.translate(view.x, view.y).scale(view.k));
+  else fit();
+}
+
+button('#reset-page-settings', () => {
+  try {
+    localStorage.removeItem(pageSettingsKey);
+  } catch (error) {
+    pageSettingsError(
+      `Could not reset page settings: ${error instanceof Error ? error.message : String(error)} Layouts and inventory are unchanged.`,
+    );
+    return;
+  }
+  pageSettings = defaultPageSettings();
+  pageSettingsWritable = true;
+  lastPageSettings = '';
+  element<HTMLElement>('#page-settings-status').hidden = true;
+  restorePageControls();
+  window.history.replaceState(null, '', '#planner');
+  showPage();
+  status('Page settings reset. Layouts and inventory are unchanged.');
+});
 
 function updatePreferences(next: Preferences): void {
   try {
@@ -1599,9 +1811,16 @@ window.addEventListener('unhandledrejection', (event) => {
   unexpected(event.reason);
 });
 
-function fit(): void {
+function fit(layer: 'all' | 'railway' | 'boards' | 'room' = 'all'): void {
   const layout = activeLayout(state);
-  const bounds = layoutBounds(layout, assignedRoom(state));
+  const bounds = layoutBounds(
+    {
+      ...layout,
+      pieces: layer === 'all' || layer === 'railway' ? layout.pieces : [],
+      boards: layer === 'all' || layer === 'boards' ? layout.boards : [],
+    },
+    layer === 'all' || layer === 'room' ? assignedRoom(state) : undefined,
+  );
   if (!bounds) {
     svgSelection.call(zoomer.transform, zoomIdentity.translate(90, 110).scale(0.6));
     return;
@@ -1611,7 +1830,7 @@ function fit(): void {
   const maxX = bounds.x + bounds.width + 20;
   const maxY = bounds.y + bounds.height + 20;
   const rect = svg.getBoundingClientRect();
-  const k = Math.max(0.08, Math.min(4, rect.width / (maxX - minX), rect.height / (maxY - minY)));
+  const k = Math.min(4, rect.width / (maxX - minX), rect.height / (maxY - minY));
   svgSelection.call(
     zoomer.transform,
     zoomIdentity
@@ -1622,11 +1841,16 @@ function fit(): void {
 
 button('#zoom-in', () => svgSelection.call(zoomer.scaleBy, 1.3));
 button('#zoom-out', () => svgSelection.call(zoomer.scaleBy, 1 / 1.3));
-button('#fit', fit);
+button('#fit', () => fit('railway'));
+button('#fit-boards', () => fit('boards'));
+button('#fit-room', () => fit('room'));
 button('#cancel-tool', () => {
   clearPaletteDrag();
   cancelGesture();
+  boardEditor.leave();
+  roomEditor.leave();
   toolId = '';
+  panMode = !panMode;
   preview(null);
   render();
 });
@@ -1679,10 +1903,22 @@ button('#apply-position', () =>
   })),
 );
 element<HTMLInputElement>('#search').addEventListener('input', render);
-element<HTMLSelectElement>('#catalog-profile').addEventListener('change', render);
+element<HTMLSelectElement>('#catalog-gauge').addEventListener('change', () => {
+  clearPaletteDrag();
+  cancelGesture();
+  toolId = '';
+  render();
+});
+element<HTMLSelectElement>('#catalog-profile').addEventListener('change', () => {
+  clearPaletteDrag();
+  cancelGesture();
+  toolId = '';
+  render();
+});
 element<HTMLSelectElement>('#piece-select').addEventListener('change', (event) => {
   boardEditor.leave();
   roomEditor.leave();
+  panMode = false;
   selectOnly((event.currentTarget as HTMLSelectElement).value);
   toolId = '';
   render();
@@ -1696,7 +1932,6 @@ element<HTMLSelectElement>('#layouts').addEventListener('change', () => {
     toolId = '';
     preview(null);
     render();
-    fit();
   }
 });
 element<HTMLSelectElement>('#layout-room').addEventListener('change', () =>
@@ -1778,7 +2013,7 @@ function askName(title: string, initial: string, operation: (name: string) => vo
 }
 
 button('#new-layout', () =>
-  askName('New layout idea', `Idea ${state.layouts.length + 1}`, (name) => {
+  askName('New layout', `Idea ${state.layouts.length + 1}`, (name) => {
     const id = uuid();
     commit({
       ...state,
@@ -1788,7 +2023,6 @@ button('#new-layout', () =>
     selectOnly('');
     toolId = '';
     render();
-    fit();
   }),
 );
 button('#duplicate-layout', () =>
@@ -1822,7 +2056,6 @@ button('#delete-layout', () =>
       commit({ ...state, layouts, activeLayoutId: layouts[0].id });
       selectOnly('');
       render();
-      fit();
     },
   ),
 );
@@ -1901,7 +2134,6 @@ element<HTMLInputElement>('#import-file').addEventListener('change', async () =>
           toolId = '';
           preview(null);
           render();
-          fit();
         }
       },
     );
@@ -1942,7 +2174,83 @@ button('#update-app', () => {
   if (drag || marquee || paletteDrag || previewPiece)
     throw new Error('Finish the current gesture before updating.');
   if (!recovery) saveState(localStorage, state);
+  rememberPageSettings();
   void updateSW(true).catch((error: unknown) => status(`Update failed: ${String(error)}`, true));
 });
 
-render();
+function showPage(focus = false): void {
+  rememberPageSettings();
+  restoringPageSettings = true;
+  const browsing = location.hash === '#catalog';
+  clearPaletteDrag();
+  cancelGesture();
+  toolId = '';
+  element<HTMLElement>('#planner-page').hidden = browsing;
+  element<HTMLElement>('#catalog-page').hidden = !browsing;
+  for (const [id, active] of [
+    ['#planner-page-link', !browsing],
+    ['#catalog-page-link', browsing],
+  ] as const) {
+    const link = element<HTMLAnchorElement>(id);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  render();
+  if (!browsing) restoreLayoutView();
+  if (focus) {
+    if (browsing) element<HTMLHeadingElement>('#catalog-page h2').focus();
+    else element<HTMLButtonElement>('#cancel-tool').focus();
+  }
+  cancelAnimationFrame(pageSettingsFrame);
+  const scroll = { ...pageSettings.scroll };
+  pageSettingsFrame = requestAnimationFrame(() => {
+    if (browsing) element<HTMLElement>('.catalog-table-scroll').scrollLeft = scroll.table;
+    else {
+      element<HTMLElement>('.inventory-panel').scrollTop = scroll.inventory;
+      element<HTMLElement>('.details-panel').scrollTop = scroll.details;
+    }
+    window.scrollTo(0, browsing ? scroll.catalog : scroll.planner);
+    restoringPageSettings = false;
+    rememberPageSettings();
+  });
+}
+window.addEventListener('hashchange', () => showPage(true));
+document.addEventListener('input', (event) => {
+  if (event.target instanceof HTMLInputElement && event.target.id === 'browser-search')
+    rememberPageSettings();
+});
+document.addEventListener('change', (event) => {
+  if (
+    event.target instanceof Element &&
+    ['browser-gauge', 'browser-manufacturer', 'snap', 'power-overlay'].includes(event.target.id)
+  )
+    rememberPageSettings();
+});
+document.addEventListener(
+  'toggle',
+  (event) => {
+    const target = event.target;
+    if (target instanceof HTMLDetailsElement && pagePanels.some((id) => id === target.id))
+      rememberPageSettings();
+  },
+  true,
+);
+document.addEventListener(
+  'scroll',
+  (event) => {
+    if (
+      event.target === document ||
+      (event.target instanceof Element &&
+        event.target.matches('.inventory-panel, .details-panel, .catalog-table-scroll'))
+    )
+      rememberPageSettings();
+  },
+  true,
+);
+window.addEventListener('pagehide', rememberPageSettings);
+window.history.scrollRestoration = 'manual';
+restorePageControls();
+if (location.hash !== '#planner' && location.hash !== '#catalog')
+  window.history.replaceState(null, '', `#${pageSettings.page}`);
+pageSettingsReady = true;
+showPage();

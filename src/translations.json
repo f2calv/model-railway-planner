@@ -1,4 +1,155 @@
 {
+  "Reset page settings": [
+    "Seiteneinstellungen zurücksetzen",
+    "Réinitialiser les réglages de la page",
+    "Restablecer ajustes de página",
+    "Ripristina impostazioni pagina"
+  ],
+  "Page settings stay on this device, separately from layouts and backups. Temporary selections and unapplied edits are not restored.": [
+    "Seiteneinstellungen bleiben auf diesem Gerät, getrennt von Gleisplänen und Backups. Temporäre Auswahlen und nicht übernommene Änderungen werden nicht wiederhergestellt.",
+    "Les réglages de la page restent sur cet appareil, séparément des réseaux et sauvegardes. Les sélections temporaires et modifications non appliquées ne sont pas restaurées.",
+    "Los ajustes de página permanecen en este dispositivo, separados de trazados y copias. No se restauran selecciones temporales ni cambios sin aplicar.",
+    "Le impostazioni pagina restano su questo dispositivo, separate da plastici e backup. Selezioni temporanee e modifiche non applicate non vengono ripristinate."
+  ],
+  "Page settings reset. Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen zurückgesetzt. Gleispläne und Bestand sind unverändert.",
+    "Réglages de la page réinitialisés. Réseaux et stock inchangés.",
+    "Ajustes de página restablecidos. Trazados e inventario sin cambios.",
+    "Impostazioni pagina ripristinate. Plastici e inventario invariati."
+  ],
+  "Could not read page settings: {reason} Use Reset page settings to recover. Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen konnten nicht gelesen werden: {reason} Zum Wiederherstellen Seiteneinstellungen zurücksetzen. Gleispläne und Bestand sind unverändert.",
+    "Lecture des réglages de la page impossible : {reason} Réinitialisez les réglages de la page pour récupérer. Réseaux et stock inchangés.",
+    "No se pudieron leer los ajustes de página: {reason} Restablézcalos para recuperar. Trazados e inventario sin cambios.",
+    "Impossibile leggere le impostazioni pagina: {reason} Ripristinale per recuperare. Plastici e inventario invariati."
+  ],
+  "Could not save page settings: {reason} Changes remain in this tab only. Use Reset page settings to retry. Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen konnten nicht gespeichert werden: {reason} Änderungen bleiben nur in diesem Tab. Zum erneuten Versuchen Seiteneinstellungen zurücksetzen. Gleispläne und Bestand sind unverändert.",
+    "Enregistrement des réglages de la page impossible : {reason} Les changements restent dans cet onglet seulement. Réinitialisez les réglages pour réessayer. Réseaux et stock inchangés.",
+    "No se pudieron guardar los ajustes de página: {reason} Los cambios permanecen solo en esta pestaña. Restablézcalos para reintentar. Trazados e inventario sin cambios.",
+    "Impossibile salvare le impostazioni pagina: {reason} Le modifiche restano solo in questa scheda. Ripristinale per riprovare. Plastici e inventario invariati."
+  ],
+  "Could not reset page settings: {reason} Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen konnten nicht zurückgesetzt werden: {reason} Gleispläne und Bestand sind unverändert.",
+    "Réinitialisation des réglages de la page impossible : {reason} Réseaux et stock inchangés.",
+    "No se pudieron restablecer los ajustes de página: {reason} Trazados e inventario sin cambios.",
+    "Impossibile ripristinare le impostazioni pagina: {reason} Plastici e inventario invariati."
+  ],
+  "Switch to Pan": [
+    "Zum Verschieben wechseln",
+    "Passer au déplacement",
+    "Cambiar a desplazar",
+    "Passa a panoramica"
+  ],
+  "Switch to Select": [
+    "Zur Auswahl wechseln",
+    "Passer à la sélection",
+    "Cambiar a selección",
+    "Passa a selezione"
+  ],
+  "Fit railway": ["Gleise einpassen", "Cadrer les voies", "Ajustar vías", "Inquadra binari"],
+  "Fit baseboards": [
+    "Grundplatten einpassen",
+    "Cadrer les plateaux",
+    "Ajustar tableros",
+    "Inquadra basi"
+  ],
+  "Fit room": ["Raum einpassen", "Cadrer la pièce", "Ajustar habitación", "Inquadra stanza"],
+  "Planner": ["Planer", "Planificateur", "Planificador", "Pianificatore"],
+  "Track catalog": ["Gleiskatalog", "Catalogue des voies", "Catálogo de vías", "Catalogo binari"],
+  "Application pages": [
+    "Anwendungsseiten",
+    "Pages de l’application",
+    "Páginas de la aplicación",
+    "Pagine dell’applicazione"
+  ],
+  "Gauge": ["Spurweite", "Écartement", "Ancho de vía", "Scartamento"],
+  "Brand": ["Marke", "Marque", "Marca", "Marca"],
+  "All brands": ["Alle Marken", "Toutes les marques", "Todas las marcas", "Tutte le marche"],
+  "All {gauge} brands": [
+    "Alle {gauge}-Marken",
+    "Toutes les marques {gauge}",
+    "Todas las marcas {gauge}",
+    "Tutte le marche {gauge}"
+  ],
+  "Layout actions": [
+    "Gleisplan-Aktionen",
+    "Actions du réseau",
+    "Acciones del trazado",
+    "Azioni del plastico"
+  ],
+  "Room actions": [
+    "Raum-Aktionen",
+    "Actions de la pièce",
+    "Acciones de la habitación",
+    "Azioni della stanza"
+  ],
+  "All gauges": [
+    "Alle Spurweiten",
+    "Tous les écartements",
+    "Todos los anchos",
+    "Tutti gli scartamenti"
+  ],
+  "All registered pieces, not just owned stock. Filters do not change your layouts or inventory.": [
+    "Alle registrierten Teile, nicht nur der eigene Bestand. Filter ändern weder Gleispläne noch Bestand.",
+    "Toutes les pièces enregistrées, pas seulement celles possédées. Les filtres ne modifient ni réseaux ni stock.",
+    "Todas las piezas registradas, no solo las propias. Los filtros no cambian trazados ni inventario.",
+    "Tutti i pezzi registrati, non solo quelli posseduti. I filtri non modificano plastici o inventario."
+  ],
+  "Registered track pieces": [
+    "Registrierte Gleisstücke",
+    "Pièces de voie enregistrées",
+    "Piezas de vía registradas",
+    "Binari registrati"
+  ],
+  "No registered pieces match these filters.": [
+    "Keine registrierten Teile entsprechen den Filtern.",
+    "Aucune pièce ne correspond aux filtres.",
+    "Ninguna pieza coincide con los filtros.",
+    "Nessun pezzo corrisponde ai filtri."
+  ],
+  "{count} registered pieces": [
+    "{count} registrierte Teile",
+    "{count} pièces enregistrées",
+    "{count} piezas registradas",
+    "{count} pezzi registrati"
+  ],
+  "Code": ["Artikelnummer", "Référence", "Código", "Codice"],
+  "Scale / gauge": [
+    "Maßstab / Spurweite",
+    "Échelle / écartement",
+    "Escala / ancho",
+    "Scala / scartamento"
+  ],
+  "Description": ["Beschreibung", "Description", "Descripción", "Descrizione"],
+  "Dimensions": ["Abmessungen", "Dimensions", "Dimensiones", "Dimensioni"],
+  "Owned": ["Im Bestand", "Possédées", "Propias", "Posseduti"],
+  "Used in this idea": [
+    "In dieser Idee verwendet",
+    "Utilisées dans cette idée",
+    "Usadas en esta idea",
+    "Usati in questa idea"
+  ],
+  "Source": ["Quelle", "Source", "Fuente", "Fonte"],
+  "Product source": [
+    "Produktquelle",
+    "Source produit",
+    "Fuente del producto",
+    "Fonte del prodotto"
+  ],
+  "Standard curve": ["Standardkurve", "Courbe standard", "Curva estándar", "Curva standard"],
+  "Starter gauge catalog: track widths are schematic and parallel clearance is not verified. Check actual track and rolling-stock envelopes physically.": [
+    "Einstiegskatalog: Gleisbreiten sind schematisch und Parallelabstände ungeprüft. Tatsächliche Gleise und Fahrzeugfreiräume prüfen.",
+    "Catalogue initial : largeurs schématiques et dégagement parallèle non vérifié. Vérifiez physiquement voies et véhicules.",
+    "Catálogo inicial: anchuras esquemáticas y separación paralela sin verificar. Compruebe físicamente vías y vehículos.",
+    "Catalogo iniziale: larghezze schematiche e distanze parallele non verificate. Controlla fisicamente binari e veicoli."
+  ],
+  "Use Switch to Pan to drag the canvas without moving pieces; Switch to Select restores selection. Choosing a piece or shape returns to editing. Space + drag temporarily pans; scroll or pinch zooms. Fit railway, Fit baseboards and Fit room frame each layer independently.": [
+    "Mit Zum Verschieben wechseln die Zeichenfläche bewegen, ohne Teile zu verschieben. Zur Auswahl wechseln aktiviert die Auswahl. Eine Teile- oder Formwahl aktiviert Bearbeitung. Leertaste + Ziehen verschiebt vorübergehend; Scrollen oder Aufziehen zoomt. Gleise, Grundplatten und Raum lassen sich getrennt einpassen.",
+    "Passer au déplacement déplace la vue sans déplacer les pièces ; Passer à la sélection rétablit la sélection. Choisir une pièce ou forme réactive l’édition. Espace + glisser déplace temporairement ; défilement ou pincement zoome. Chaque couche dispose de son cadrage.",
+    "Cambiar a desplazar mueve el lienzo sin mover piezas; Cambiar a selección restaura la selección. Elegir pieza o forma activa la edición. Espacio + arrastrar desplaza temporalmente; rueda o pellizco amplía. Cada capa se ajusta por separado.",
+    "Passa a panoramica sposta la vista senza muovere i pezzi; Passa a selezione ripristina la selezione. Scegliere pezzi o forme riattiva la modifica. Spazio + trascina sposta temporaneamente; rotella o pizzico cambia zoom. Ogni livello si inquadra separatamente."
+  ],
   "Track power": [
     "Stromversorgung",
     "Alimentation des voies",
@@ -1225,7 +1376,7 @@
     "Trazados guardados",
     "Plastici salvati"
   ],
-  "New idea": ["Neue Idee", "Nouvelle idée", "Nueva idea", "Nuova idea"],
+  "New layout": ["Neuer Gleisplan", "Nouveau réseau", "Nuevo trazado", "Nuovo plastico"],
   "Duplicate": ["Duplizieren", "Dupliquer", "Duplicar", "Duplica"],
   "Rename": ["Umbenennen", "Renommer", "Renombrar", "Rinomina"],
   "Delete layout": [
@@ -1267,12 +1418,17 @@
     "Planifica con cualquier pieza. Las piezas que faltan aparecen en la lista de compras de esta idea.",
     "Progetta con qualsiasi pezzo. I pezzi mancanti compaiono nella lista della spesa di questa idea."
   ],
-  "Find a piece": ["Gleis suchen", "Rechercher une pièce", "Buscar una pieza", "Cerca un pezzo"],
-  "Code or track type...": [
-    "Artikelnummer oder Gleisart...",
-    "Référence ou type de voie...",
-    "Código o tipo de vía...",
-    "Codice o tipo di binario..."
+  "Wildcard filter": [
+    "Platzhalterfilter",
+    "Filtre à jokers",
+    "Filtro con comodines",
+    "Filtro con caratteri jolly"
+  ],
+  "Code or type; * any text, ? one character": [
+    "Nummer oder Typ; * beliebiger Text, ? ein Zeichen",
+    "Référence ou type ; * tout texte, ? un caractère",
+    "Código o tipo; * cualquier texto, ? un carácter",
+    "Codice o tipo; * qualsiasi testo, ? un carattere"
   ],
   "Manufacturer / scale": [
     "Hersteller / Maßstab",
@@ -1632,6 +1788,8 @@
     "Errore imprevisto. Esporta un backup prima di ricaricare."
   ],
   "Straight": ["Gerade", "Droit", "Recta", "Dritto"],
+  "Curve": ["Kurve", "Courbe", "Curva", "Curva"],
+  "Point": ["Weiche", "Aiguillage", "Desvío", "Scambio"],
   "Double straight": ["Doppelte Gerade", "Double droit", "Recta doble", "Dritto doppio"],
   "Long straight": ["Lange Gerade", "Long droit", "Recta larga", "Dritto lungo"],
   "Quarter straight": ["Viertelgerade", "Quart de droit", "Cuarto de recta", "Quarto di dritto"],
@@ -1708,29 +1866,20 @@
     "Cruce derecho",
     "Incrocio destro"
   ],
-  "Straights ({count})": [
-    "Geraden ({count})",
-    "Droits ({count})",
-    "Rectas ({count})",
-    "Dritti ({count})"
+  "Straights": ["Geraden", "Droits", "Rectas", "Dritti"],
+  "Curves": ["Kurven", "Courbes", "Curvas", "Curve"],
+  "Points": ["Weichen", "Aiguillages", "Desvíos", "Scambi"],
+  "Misc / crossings": [
+    "Sonstiges / Kreuzungen",
+    "Divers / croisements",
+    "Varios / cruces",
+    "Varie / incroci"
   ],
-  "Curves ({count})": [
-    "Kurven ({count})",
-    "Courbes ({count})",
-    "Curvas ({count})",
-    "Curve ({count})"
-  ],
-  "Points ({count})": [
-    "Weichen ({count})",
-    "Aiguillages ({count})",
-    "Desvíos ({count})",
-    "Scambi ({count})"
-  ],
-  "Misc / crossings ({count})": [
-    "Sonstiges / Kreuzungen ({count})",
-    "Divers / croisements ({count})",
-    "Varios / cruces ({count})",
-    "Varie / incroci ({count})"
+  "{category} ({count})": [
+    "{category} ({count})",
+    "{category} ({count})",
+    "{category} ({count})",
+    "{category} ({count})"
   ],
   "Place {code} {name}": [
     "{code} {name} platzieren",

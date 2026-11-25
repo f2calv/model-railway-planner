@@ -501,6 +501,8 @@ describe('group transactions and history', () => {
     it('translates dynamic quantities and geometry while rejecting malformed persisted preferences', () => {
       expect(translate('Place R600 Straight', 'de')).toBe('R600 Gerade platzieren');
       expect(translate('R438 mm / 22.5 degrees', 'fr')).toBe('R438 mm / 22.5 degrés');
+      expect(translate('Curves (3)', 'it')).toBe('Curve (3)');
+      expect(translate('Points (2)', 'de')).toBe('Weichen (2)');
       expect(translate('Removed: R600. Saved on this device.', 'it')).toBe(
         'Rimosso: R600. Salvato su questo dispositivo.',
       );

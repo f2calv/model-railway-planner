@@ -23,9 +23,16 @@ const templates = Object.entries(messages)
   });
 
 export function translate(text: string, language: Language, depth = 0): string {
-  if (language === 'en' || !text.trim() || depth > 4) return text;
+  return language === 'en' ? text : translateAtIndex(text, languageIndex[language], depth);
+}
+
+export function translationsFor(text: string): readonly string[] {
+  return [text, ...Object.values(languageIndex).map((index) => translateAtIndex(text, index))];
+}
+
+function translateAtIndex(text: string, index: number, depth = 0): string {
+  if (!text.trim() || depth > 4) return text;
   const source = text.trim();
-  const index = languageIndex[language];
   let translated = messages[source]?.[index];
   if (!translated) {
     for (const template of templates) {
@@ -37,7 +44,7 @@ export function translate(text: string, language: Language, depth = 0): string {
         const position = template.keys.indexOf(key);
         const value = match[position + 1];
         if (position < 0 || value === undefined) throw new Error('Missing translation parameter.');
-        return translate(value, language, depth + 1);
+        return translateAtIndex(value, index, depth + 1);
       });
       break;
     }

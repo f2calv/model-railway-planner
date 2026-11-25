@@ -2,6 +2,596 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+test('page settings restore catalog choices, disclosures, toggles, layout views and page independently of document data', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  await page.locator('#catalog-profile').selectOption('Hornby');
+  const straights = page
+    .locator('.catalog-group')
+    .filter({ has: page.locator('summary', { hasText: /^Straights/ }) });
+  await straights.locator('summary').click();
+  await expect(straights).not.toHaveAttribute('open');
+  await page.locator('#snap').uncheck();
+  await page.locator('#power-overlay').uncheck();
+  await page.locator('#controls-help > summary').click();
+  await page.locator('#activity > summary').click();
+  await page.locator('#zoom-in').click();
+  await page.locator('#cancel-tool').click();
+  const firstView = await page.locator('#world').getAttribute('transform');
+  await createIdea(page);
+  await page.locator('#zoom-out').click();
+  const secondId = await page.locator('#layouts').inputValue();
+  const secondView = await page.locator('#world').getAttribute('transform');
+  expect(secondView).not.toBe(firstView);
+  await page.locator('#layouts').selectOption('idea');
+  await expect(page.locator('#world')).toHaveAttribute('transform', firstView ?? '');
+  await page.locator('#search').fill('R60?');
+  await expect(straights).toHaveAttribute('open');
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await page.reload();
+  await expect(page.locator('#catalog-profile')).toHaveValue('Hornby');
+  await expect(page.locator('#search')).toHaveValue('R60?');
+  await expect(page.locator('#snap')).not.toBeChecked();
+  await expect(page.locator('#power-overlay')).not.toBeChecked();
+  await expect(page.locator('#controls-help')).toHaveAttribute('open');
+  await expect(page.locator('#activity')).toHaveAttribute('open');
+  await expect(page.locator('#cancel-tool')).toHaveText('Switch to Select');
+  await expect(page.locator('#piece-select')).toHaveValue('');
+  await expect(page.locator('#world')).toHaveAttribute('transform', firstView ?? '');
+  await page.locator('#search').fill('');
+  await expect(straights).not.toHaveAttribute('open');
+  await page.locator('#layouts').selectOption(secondId);
+  await expect(page.locator('#world')).toHaveAttribute('transform', secondView ?? '');
+  await page.locator('#layouts').selectOption('idea');
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+  await page.locator('#catalog-page-link').click();
+  await page.locator('#browser-gauge').selectOption('n');
+  await page.locator('#browser-manufacturer').selectOption('Peco');
+  await page.locator('#browser-search').fill('Gerade');
+  await page.goto('./');
+  await expect(page.locator('#catalog-page')).toBeVisible();
+  await expect(page.locator('#browser-gauge')).toHaveValue('n');
+  await expect(page.locator('#browser-manufacturer')).toHaveValue('Peco');
+  await expect(page.locator('#browser-search')).toHaveValue('Gerade');
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(1);
+  await page.goto('./#planner');
+  await expect(page.locator('#planner-page')).toBeVisible();
+  await page.locator('#reset-page-settings').click();
+  await expect(page.locator('#catalog-gauge')).toHaveValue('oo-ho');
+  await expect(page.locator('#catalog-profile')).toHaveValue('');
+  await expect(page.locator('#search')).toHaveValue('');
+  await expect(straights).toHaveAttribute('open');
+  await expect(page.locator('#snap')).toBeChecked();
+  await expect(page.locator('#power-overlay')).toBeChecked();
+  await expect(page.locator('#controls-help')).not.toHaveAttribute('open');
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+});
+
+test('page settings restore sidebar scroll and a safe editing layer without restoring placement drafts', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  await page.locator('#edit-boards').check();
+  await page.getByRole('button', { name: 'Board Circle', exact: true }).click();
+  await page.locator('#board-radius').fill('777');
+  await page.evaluate(() => {
+    const inventory = document.querySelector('.inventory-panel');
+    const details = document.querySelector('.details-panel');
+    if (!(inventory instanceof HTMLElement) || !(details instanceof HTMLElement))
+      throw new Error('Missing panels.');
+    inventory.scrollTop = 180;
+    details.scrollTop = 220;
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const value: unknown = JSON.parse(
+          localStorage.getItem('model-railway-planner.v1.page-settings') ?? 'null',
+        );
+        return typeof value === 'object' && value !== null && 'scroll' in value
+          ? value.scroll
+          : null;
+      }),
+    )
+    .toMatchObject({ inventory: 180, details: 220 });
+  await page.reload();
+  await expect(page.locator('#edit-boards')).toBeChecked();
+  await expect(page.locator('#board-radius')).toHaveValue('500');
+  await expect
+    .poll(() => page.locator('.inventory-panel').evaluate((node) => node.scrollTop))
+    .toBe(180);
+  await expect
+    .poll(() => page.locator('.details-panel').evaluate((node) => node.scrollTop))
+    .toBe(220);
+  await expect(page.locator('#board-add-shape')).toBeDisabled();
+  await expect(page.locator('#board-tool-status')).toHaveText(
+    'Select a board to move, rotate or reshape it.',
+  );
+});
+
+test('mobile page settings retain translated filters, page scroll and catalog horizontal scroll', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  await page.locator('#catalog-gauge').selectOption('n');
+  await page.locator('#catalog-profile').selectOption('Peco');
+  await page.locator('#search').fill('Gerade');
+  await page.locator('#language').selectOption('de');
+  await page.locator('#cancel-tool').click();
+  await page.evaluate(() => window.scrollTo(0, 550));
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const settings: unknown = JSON.parse(
+          localStorage.getItem('model-railway-planner.v1.page-settings') ?? 'null',
+        );
+        return typeof settings === 'object' && settings !== null && 'scroll' in settings
+          ? settings.scroll
+          : null;
+      }),
+    )
+    .toMatchObject({ planner: 550 });
+  await page.reload();
+  await expect(page.locator('#catalog-gauge')).toHaveValue('n');
+  await expect(page.locator('#catalog-profile')).toHaveValue('Peco');
+  await expect(page.locator('#search')).toHaveValue('Gerade');
+  await expect(page.locator('#cancel-tool')).toHaveText('Zur Auswahl wechseln');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(550);
+  await page.locator('#catalog-page-link').click();
+  await page.locator('#browser-gauge').selectOption('g');
+  await page.locator('#browser-manufacturer').selectOption('Peco');
+  await page.locator('#browser-search').fill('curva');
+  await page.locator('.catalog-table-scroll').evaluate((node) => {
+    node.scrollLeft = 80;
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const settings: unknown = JSON.parse(
+          localStorage.getItem('model-railway-planner.v1.page-settings') ?? 'null',
+        );
+        return typeof settings === 'object' && settings !== null && 'scroll' in settings
+          ? settings.scroll
+          : null;
+      }),
+    )
+    .toMatchObject({ table: 80 });
+  await page.reload();
+  await expect(page.locator('#browser-gauge')).toHaveValue('g');
+  await expect(page.locator('#browser-manufacturer')).toHaveValue('Peco');
+  await expect(page.locator('#browser-search')).toHaveValue('curva');
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(1);
+  await expect
+    .poll(() => page.locator('.catalog-table-scroll').evaluate((node) => node.scrollLeft))
+    .toBe(80);
+});
+
+test('invalid or unwritable page settings preserve planner data and offer an independent reset', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  const saved = await page.evaluate(() => {
+    localStorage.setItem('model-railway-planner.v1.page-settings', '{"version":99}');
+    return localStorage.getItem('model-railway-planner.v1');
+  });
+  await page.reload();
+  await expect(page.locator('#page-settings-status')).toContainText('Could not read page settings');
+  await page.locator('#catalog-gauge').selectOption('g');
+  expect(
+    await page.evaluate(() => localStorage.getItem('model-railway-planner.v1.page-settings')),
+  ).toBe('{"version":99}');
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+  await page.locator('#reset-page-settings').click();
+  await expect(page.locator('#page-settings-status')).toBeHidden();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('model-railway-planner.v1.page-settings')))
+    .not.toBe('{"version":99}');
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key === 'model-railway-planner.v1.page-settings')
+        throw new DOMException('Settings storage denied', 'QuotaExceededError');
+      original.call(this, key, value);
+    };
+  });
+  await page.locator('#catalog-gauge').selectOption('g');
+  await expect(page.locator('#page-settings-status')).toContainText('Could not save page settings');
+  await page.locator('#zoom-in').click();
+  const unsavedView = await page.locator('#world').getAttribute('transform');
+  await page.locator('#catalog-page-link').click();
+  await page.locator('#planner-page-link').click();
+  await expect(page.locator('#world')).toHaveAttribute('transform', unsavedView ?? '');
+  await stock(page, 'ST-905', 1);
+  await expect(page.getByRole('spinbutton', { name: 'Owned ST-905', exact: true })).toHaveValue(
+    '1',
+  );
+  await expect(page.locator('#save-state')).toHaveText('Saved on this device');
+  await page.reload();
+  await expect(page.locator('#page-settings-status')).toBeHidden();
+  await page.locator('#catalog-gauge').selectOption('g');
+  await expect(page.getByRole('spinbutton', { name: 'Owned ST-905', exact: true })).toHaveValue(
+    '1',
+  );
+  await page.locator('#reset-page-settings').click();
+  await expect(page.locator('#catalog-gauge')).toHaveValue('oo-ho');
+});
+
+test('Select/Pan toggles real mouse panning over empty space and track without document edits', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  const before = await page.locator('#world').getAttribute('transform');
+  await page.getByRole('button', { name: 'Switch to Pan', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Switch to Select', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  const start = await boardScreenPoint(page, 80, 0);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 95, start.y + 55, { steps: 8 });
+  await page.mouse.up();
+  expect(await page.locator('#world').getAttribute('transform')).not.toBe(before);
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+  const canvas = await page.locator('#canvas').boundingBox();
+  if (!canvas) throw new Error('Missing canvas.');
+  const panned = await page.locator('#world').getAttribute('transform');
+  await page.mouse.move(canvas.x + canvas.width - 100, canvas.y + 240);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width - 170, canvas.y + 280, { steps: 5 });
+  await page.mouse.up();
+  expect(await page.locator('#world').getAttribute('transform')).not.toBe(panned);
+  await page.getByRole('button', { name: 'Switch to Select', exact: true }).click();
+  const point = await boardScreenPoint(page, 80, 0);
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('#piece-select')).toHaveValue('a');
+  const stationary = await page.locator('#world').getAttribute('transform');
+  await page.mouse.move(canvas.x + canvas.width - 100, canvas.y + 300);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width - 170, canvas.y + 340, { steps: 4 });
+  await page.mouse.up();
+  expect(await page.locator('#world').getAttribute('transform')).toBe(stationary);
+  await page.getByRole('button', { name: 'Switch to Pan', exact: true }).click();
+  await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Switch to Pan', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+});
+
+test('layer fit controls frame railway, boards and room independently, including an empty layer', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#fit')).toBeDisabled();
+  await expect(page.locator('#fit-boards')).toBeDisabled();
+  await expect(page.locator('#fit-room')).toBeDisabled();
+  await page.evaluate(() => {
+    const rectangle = (id: string, x: number, y: number, width: number, height: number) => ({
+      id,
+      kind: 'polygon',
+      x,
+      y,
+      angle: 0,
+      points: [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: width, y: height },
+        { x: 0, y: height },
+      ],
+    });
+    localStorage.setItem(
+      'model-railway-planner.v1',
+      JSON.stringify({
+        version: 6,
+        inventory: {},
+        activeLayoutId: 'idea',
+        rooms: [
+          {
+            id: 'room',
+            name: 'Example room',
+            shapes: [
+              {
+                role: 'outline',
+                name: 'Room outline',
+                shape: rectangle('floor', -5000, -3000, 14000, 8000),
+              },
+            ],
+          },
+        ],
+        layouts: [
+          {
+            id: 'idea',
+            name: 'Example idea',
+            roomId: 'room',
+            boards: [rectangle('board', 1500, 1500, 1000, 600)],
+            pieces: [{ id: 'a', trackId: 'hornby-oo-r600', x: 0, y: 0, angle: 0, flipped: false }],
+          },
+        ],
+      }),
+    );
+  });
+  await page.reload();
+  const transforms: string[] = [];
+  for (const [button, layer, width, height] of [
+    ['#fit', '#tracks', 208, 40],
+    ['#fit-boards', '#boards', 1000, 600],
+    ['#fit-room', '#rooms', 14000, 8000],
+  ] as const) {
+    await page.locator(button).click();
+    transforms.push((await page.locator('#world').getAttribute('transform')) ?? '');
+    const framing = await page.locator(layer).evaluate((group: SVGGElement) => {
+      const bounds = group.getBoundingClientRect();
+      const viewport = document.querySelector('#canvas')?.getBoundingClientRect();
+      if (!viewport) throw new Error('Missing canvas bounds.');
+      return {
+        inside:
+          bounds.left >= viewport.left &&
+          bounds.right <= viewport.right &&
+          bounds.top >= viewport.top &&
+          bounds.bottom <= viewport.bottom,
+        width: bounds.width,
+        height: bounds.height,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        scale: group.getScreenCTM()?.a,
+      };
+    });
+    expect(framing.inside).toBe(true);
+    expect(framing.scale).toBeCloseTo(
+      Math.min(4, framing.viewportWidth / (width + 80), framing.viewportHeight / (height + 80)),
+      6,
+    );
+  }
+  expect(new Set(transforms).size).toBe(3);
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await page.getByRole('checkbox', { name: 'Edit baseboards', exact: true }).check();
+  await page.locator('#cancel-tool').click();
+  await expect(page.locator('#cancel-tool')).toHaveText('Switch to Select');
+  const board = await boardScreenPoint(page, 2000, 1800);
+  const before = await page.locator('#world').getAttribute('transform');
+  await page.mouse.move(board.x, board.y);
+  await page.mouse.down();
+  await page.mouse.move(board.x + 45, board.y + 30, { steps: 6 });
+  await page.mouse.up();
+  expect(await page.locator('#world').getAttribute('transform')).not.toBe(before);
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+});
+
+test('gauge filters derive manufacturers and the catalog page browses all registered inventory without edits', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await expect(page.locator('#catalog-gauge')).toHaveValue('oo-ho');
+  await expect(page.locator('#catalog-profile option')).toHaveText([
+    'All OO/H0 brands',
+    'Hornby',
+    'Peco',
+    'Bachmann',
+  ]);
+  await page.locator('#catalog-profile').selectOption('Hornby');
+  await page.getByRole('searchbox', { name: 'Wildcard filter', exact: true }).fill('curve');
+  await expect(page.getByRole('button', { name: /^Place R606 / })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Place R600 / })).toHaveCount(0);
+  await page.locator('#search').fill('R60?');
+  await expect(page.getByRole('button', { name: /^Place R600 / })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Place R610 / })).toHaveCount(0);
+  await page.locator('#search').fill('no-such-product');
+  await expect(page.locator('#catalog-empty')).toBeVisible();
+  await page.locator('#search').fill('');
+  await expect(page.locator('#catalog-empty')).toBeHidden();
+  await page.locator('#catalog-gauge').selectOption('g');
+  await expect(page.locator('#catalog-profile option')).toHaveText(['All G brands', 'Peco']);
+  await expect(page.locator('#catalog-profile')).toHaveValue('');
+  await expect(
+    page.getByRole('button', { name: 'Place ST-905 Standard curve', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('#catalog .track-choice')).toHaveCount(1);
+  await page.locator('#catalog-gauge').selectOption('tt');
+  await expect(page.locator('#catalog-profile option')).toHaveText(['All TT brands', 'Hornby']);
+  await expect(
+    page.getByRole('button', { name: 'Place TT8002 Straight', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Track catalog', exact: true }).click();
+  await expect(page.locator('#catalog-page')).toBeVisible();
+  await expect(page.locator('#planner-page')).toBeHidden();
+  await expect(page.locator('#browser-gauge')).toHaveValue('oo-ho');
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(47);
+  await expect(page.locator('[data-catalog-id="hornby-oo-r600"]')).toContainText('R600');
+  await page.locator('#browser-manufacturer').selectOption('Hornby');
+  await page.locator('#browser-search').fill('curve');
+  await expect(page.locator('[data-catalog-id="hornby-oo-r606"]')).toBeVisible();
+  await expect(page.locator('[data-catalog-id="hornby-oo-r600"]')).toHaveCount(0);
+  await page.locator('#browser-search').fill('');
+  await page.locator('#browser-gauge').selectOption('');
+  await page.locator('#browser-manufacturer').selectOption('Peco');
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(10);
+  await expect(page.locator('#browser-manufacturer option')).toHaveText([
+    'All brands',
+    'Hornby',
+    'Peco',
+    'Bachmann',
+    'Märklin',
+  ]);
+  await page.locator('#browser-gauge').selectOption('n');
+  await expect(page.locator('#browser-manufacturer option')).toHaveText(['All N brands', 'Peco']);
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(1);
+  await expect(page.locator('#browser-pieces')).toContainText('87 mm');
+  await page.locator('#browser-pieces a').evaluate((link) => {
+    if (
+      !(link instanceof HTMLAnchorElement) ||
+      link.protocol !== 'https:' ||
+      !link.rel.includes('noopener')
+    )
+      throw new Error('Unsafe catalog source link.');
+  });
+  await page.locator('#browser-search').fill('no-such-product');
+  await expect(page.locator('#browser-empty')).toBeVisible();
+  await page.locator('#browser-search').fill('');
+  await page.reload();
+  await expect(page.locator('#catalog-page')).toBeVisible();
+  await page.goBack();
+  await expect(page.locator('#planner-page')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+});
+
+test('inventory and catalog searches accept all supported languages independently of the UI language', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await page.locator('#catalog-profile').selectOption('Hornby');
+  for (const language of ['en', 'de', 'fr', 'es', 'it']) {
+    await page.locator('#language').selectOption(language);
+    for (const query of [
+      'curve',
+      'Kurve',
+      'courbe',
+      'curva',
+      'raggio 2',
+      'RADIO 2',
+      'rayon 2',
+      'rad?us 2',
+    ]) {
+      await page.locator('#search').fill(query);
+      await expect(
+        page
+          .locator('#catalog .track-choice')
+          .filter({ has: page.locator('strong', { hasText: /^R606$/ }) }),
+      ).toBeVisible();
+      await expect(
+        page
+          .locator('#catalog .track-choice')
+          .filter({ has: page.locator('strong', { hasText: /^R600$/ }) }),
+      ).toHaveCount(0);
+    }
+    await page.locator('#search').fill('digitale');
+    await expect(
+      page
+        .locator('#catalog .track-choice')
+        .filter({ has: page.locator('strong', { hasText: /^R8241$/ }) }),
+    ).toBeVisible();
+    await page.locator('#catalog-page-link').click();
+    await page.locator('#browser-manufacturer').selectOption('Hornby');
+    for (const query of [
+      'Kurven',
+      'courbes',
+      'curvas',
+      'curva',
+      'rayon 2',
+      'raggio 2',
+      'radio 2',
+      'rad?us 2',
+    ]) {
+      await page.locator('#browser-search').fill(query);
+      await expect(page.locator('[data-catalog-id="hornby-oo-r606"]')).toBeVisible();
+      await expect(page.locator('[data-catalog-id="hornby-oo-r600"]')).toHaveCount(0);
+    }
+    await page.locator('#browser-search').fill('desvío izquierdo');
+    await expect(page.locator('[data-catalog-id="hornby-oo-r8072"]')).toBeVisible();
+    await page.locator('#planner-page-link').click();
+  }
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+});
+
+test('new navigation remains translated, usable on mobile and readable in both themes', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  for (const [language, pan, select, count, brands, wildcard] of [
+    [
+      'de',
+      'Zum Verschieben wechseln',
+      'Zur Auswahl wechseln',
+      '52 registrierte Teile',
+      'Alle OO/H0-Marken',
+      'Platzhalterfilter',
+    ],
+    [
+      'fr',
+      'Passer au déplacement',
+      'Passer à la sélection',
+      '52 pièces enregistrées',
+      'Toutes les marques OO/H0',
+      'Filtre à jokers',
+    ],
+    [
+      'es',
+      'Cambiar a desplazar',
+      'Cambiar a selección',
+      '52 piezas registradas',
+      'Todas las marcas OO/H0',
+      'Filtro con comodines',
+    ],
+    [
+      'it',
+      'Passa a panoramica',
+      'Passa a selezione',
+      '52 pezzi registrati',
+      'Tutte le marche OO/H0',
+      'Filtro con caratteri jolly',
+    ],
+    [
+      'en',
+      'Switch to Pan',
+      'Switch to Select',
+      '52 registered pieces',
+      'All OO/H0 brands',
+      'Wildcard filter',
+    ],
+  ] as const) {
+    await page.locator('#language').selectOption(language);
+    await expect(page.locator('#catalog-profile option:checked')).toHaveText(brands);
+    await expect(page.getByRole('searchbox', { name: wildcard, exact: true })).toBeVisible();
+    await expect(page.locator('#cancel-tool')).toHaveText(pan);
+    await page.locator('#cancel-tool').click();
+    await expect(page.locator('#cancel-tool')).toHaveText(select);
+    await page.locator('#cancel-tool').click();
+    await page.locator('#catalog-page-link').click();
+    await expect(page.locator('#catalog-page h2')).toBeFocused();
+    await page.locator('#browser-gauge').selectOption('');
+    await expect(page.locator('#browser-count')).toHaveText(count);
+    await page.locator('#browser-gauge').selectOption('g');
+    await expect(page.locator('#browser-pieces tr')).toHaveCount(1);
+    await page.locator('#browser-gauge').selectOption('');
+    for (const dark of [true, false]) {
+      if ((await page.locator('#theme').getAttribute('aria-pressed')) !== String(dark))
+        await page.locator('#theme').click();
+      const links = await page.evaluate(() => {
+        const luminance = (color: string) => {
+          const [r, g, b] = [...color.matchAll(/\d+/g)].map((match) => {
+            const channel = Number(match[0]) / 255;
+            return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+          });
+          if (r === undefined || g === undefined || b === undefined)
+            throw new Error('Expected rendered RGB colors.');
+          return r * 0.2126 + g * 0.7152 + b * 0.0722;
+        };
+        return {
+          overflow: document.documentElement.scrollWidth - innerWidth,
+          contrasts: [...document.querySelectorAll('.page-navigation a, .catalog-table a')].map(
+            (link) => {
+              const background = link.closest('.page-navigation') ?? document.documentElement;
+              const a = luminance(getComputedStyle(link).color),
+                b = luminance(getComputedStyle(background).backgroundColor);
+              return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+            },
+          ),
+        };
+      });
+      expect(links.overflow).toBeLessThanOrEqual(1);
+      expect(Math.min(...links.contrasts)).toBeGreaterThanOrEqual(4.5);
+    }
+    await page.locator('#planner-page-link').click();
+    await expect(page.locator('#cancel-tool')).toBeFocused();
+  }
+});
+
 async function seedPowerIdea(page: Page): Promise<void> {
   await page.goto('./');
   await page.evaluate(() =>
@@ -147,7 +737,7 @@ async function stock(page: Page, code: string, quantity: number): Promise<void> 
 }
 
 async function createIdea(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'New idea', exact: true }).click();
+  await page.getByRole('button', { name: 'New layout', exact: true }).click();
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Second idea');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 }
@@ -196,6 +786,40 @@ async function boardScreenPoint(
     { x, y },
   );
 }
+
+test('room actions beside the selector create and rename rooms independently of layouts', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  const rooms = page.getByRole('group', { name: 'Room actions', exact: true });
+  const layouts = page.getByRole('group', { name: 'Layout actions', exact: true });
+  await expect(rooms.locator('#layout-room')).toHaveValue('');
+  await expect(rooms.getByRole('button', { name: 'Rename room', exact: true })).toBeDisabled();
+  await rooms.getByRole('button', { name: 'New room', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Example room');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const roomId = await rooms.locator('#layout-room').inputValue();
+  expect(roomId).not.toBe('');
+  await rooms.getByRole('button', { name: 'Rename room', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Renamed room');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(rooms.locator('#layout-room option:checked')).toHaveText('Renamed room');
+  await expect(layouts.locator('#layouts option:checked')).toHaveText('Example idea');
+  await layouts.getByRole('button', { name: 'Rename layout', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Renamed layout');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(rooms.locator('#layout-room option:checked')).toHaveText('Renamed room');
+  await createIdea(page);
+  await expect(rooms.locator('#layout-room')).toHaveValue('');
+  await expect(rooms.getByRole('button', { name: 'Rename room', exact: true })).toBeDisabled();
+  await rooms.locator('#layout-room').selectOption(roomId);
+  await page.reload();
+  await expect(page.locator('#layout-room option:checked')).toHaveText('Renamed room');
+  await expect(page.locator('#layouts option:checked')).toHaveText('Second idea');
+  await page.locator('#layouts').selectOption('idea');
+  await expect(page.locator('#layouts option:checked')).toHaveText('Renamed layout');
+  await expect(page.locator('#tracks > g')).toHaveCount(3);
+});
 
 test('room furniture sits below independent boards and track, with undo and exported layers', async ({
   page,
@@ -649,7 +1273,7 @@ test('touch and keyboard alternatives work at mobile size', async ({ browser, ba
   await page.getByRole('button', { name: 'Place R600 Straight', exact: true }).tap();
   await page.locator('#canvas').tap({ position: { x: 100, y: 200 } });
   await expect(page.locator('#tracks > g')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Select / pan', exact: true }).tap();
+  await page.getByRole('button', { name: 'Switch to Pan', exact: true }).tap();
   await page
     .getByRole('combobox', { name: 'Select placed piece', exact: true })
     .selectOption({ index: 1 });
@@ -799,6 +1423,54 @@ test('unowned pieces form a per-idea shopping list that responds to inventory an
   await expect(page.locator('#shopping-list')).toContainText('2 x R600');
   await createIdea(page);
   await expect(page.locator('#shopping-list')).toContainText('You own all');
+});
+
+test('compact inventory counts leave space for track names and retain four-digit editing', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.locator('#search').fill('R600');
+    await stock(page, 'R600', 9999);
+    await expect(page.getByLabel('Remaining R600', { exact: true })).toHaveText('9996');
+    const dimensions = await page
+      .getByRole('spinbutton', { name: 'Owned R600', exact: true })
+      .evaluate((input) => {
+        if (!(input instanceof HTMLInputElement)) throw new Error('Missing inventory input.');
+        const row = input.closest('.catalog-row');
+        const name = row?.querySelector('.track-choice > span');
+        const remaining = row?.querySelector(':scope > span');
+        if (!row || !name || !remaining) throw new Error('Missing catalog row controls.');
+        const style = getComputedStyle(input);
+        const context = document.createElement('canvas').getContext('2d');
+        if (!context) throw new Error('Missing text measurement context.');
+        context.font = `${style.fontSize} ${style.fontFamily}`;
+        return {
+          inputWidth: input.getBoundingClientRect().width,
+          digitsFit:
+            context.measureText(input.value).width <=
+            input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+          remainingFits: remaining.scrollWidth <= remaining.clientWidth,
+          nameWidth: name.getBoundingClientRect().width,
+          rowWidth: row.getBoundingClientRect().width,
+          rowFits: row.scrollWidth <= row.clientWidth,
+        };
+      });
+    expect(dimensions.inputWidth).toBeLessThanOrEqual(36);
+    expect(dimensions.digitsFit).toBe(true);
+    expect(dimensions.remainingFits).toBe(true);
+    expect(dimensions.rowFits).toBe(true);
+    expect(dimensions.nameWidth).toBeGreaterThanOrEqual(dimensions.rowWidth - 116);
+    const quantity = page.getByRole('spinbutton', { name: 'Owned R600', exact: true });
+    await quantity.focus();
+    await quantity.press('ArrowDown');
+    await quantity.press('Tab');
+    await expect(quantity).toHaveValue('9998');
+    await expect(page.getByLabel('Remaining R600', { exact: true })).toHaveText('9995');
+    await page.reload();
+    await expect(quantity).toHaveValue('9998');
+  }
 });
 
 test('grouped palette is compact and searchable; dark mode persists', async ({ page }) => {
@@ -1114,7 +1786,7 @@ test('optional audio emits distinct snap, disconnect and deletion tones only aft
   await page.locator('#sounds').check();
   await page.locator('#canvas').click({ position: { x: 302, y: 200 } });
   await expect(page.locator('html')).toHaveAttribute('data-tones', '660,');
-  await page.getByRole('button', { name: 'Select / pan', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to Pan', exact: true }).click();
   await page.locator('#piece-select').selectOption({ index: 2 });
   const y = page.locator('#piece-y');
   await y.fill(String(Number(await y.inputValue()) + 200));
@@ -1134,7 +1806,8 @@ test('hover identifies dimensions, unselected track uses a pointer and joins sta
   await page.goto('./');
   await page.getByRole('button', { name: 'Place R603 Long straight', exact: true }).click();
   await page.locator('#canvas').click({ position: { x: 130, y: 200 } });
-  await page.getByRole('button', { name: 'Select / pan', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to Pan', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to Select', exact: true }).click();
   await page.locator('#canvas').click({ position: { x: 150, y: 350 } });
   const track = page.locator('#tracks > g').first();
   await track.hover();
@@ -1144,7 +1817,8 @@ test('hover identifies dimensions, unselected track uses a pointer and joins sta
   await track.hover();
   await expect(page.getByRole('tooltip')).toContainText('R603');
   await expect(page.locator('#preview > g')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Select / pan', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to Pan', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to Select', exact: true }).click();
   const join = track.locator('.track-join').first();
   await expect(join).toHaveCSS('stroke-width', '1.5px');
   await expect(join).toHaveCSS('vector-effect', 'non-scaling-stroke');

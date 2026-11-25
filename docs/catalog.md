@@ -1,8 +1,9 @@
 # Track Catalogs
 
 Reference information for the planner's supported track catalogs, organised by manufacturer and
-scale. There are 47 entries across Hornby, Peco Setrack and Bachmann OO, including four accessories. Other scales require their
-own verified geometry and clearance profile, not merely a new display label.
+scale. There are 52 entries: 47 across Hornby, Peco Setrack and Bachmann OO, including four
+accessories, plus five starter entries across Z, N, TT, O and G. Starter geometry has manufacturer
+dimension sources, but not verified rolling-stock clearance profiles.
 
 Return to the [planner README](../README.md) for installation and editing instructions.
 
@@ -88,16 +89,63 @@ These are simple straights/arcs, not a claim that the whole range has been model
 | 36-606 / 36-607 / 36-643          | 438 mm radius, 22.5 / 45 / 11.25 degrees |
 | 36-608 / 36-609                   | 505 mm radius, 22.5 / 45 degrees         |
 
+## Other-Gauge Starter Catalogs
+
+The palette's **Gauge** dropdown filters brands to those with registered pieces in that gauge;
+the **Brand** selection then filters the pieces. Both catalog views default to **OO/H0**.
+The first brand option names the selected gauge, for example **All OO/H0 brands**; individual
+brand names do not repeat it. Switching gauge resets an unavailable
+brand and cancels pending track placement. The separate **Track catalog** page shows
+all registered pieces with gauge/brand filters, dimensions, product sources and
+owned/active-idea quantities. Browsing does not modify inventory or layout data.
+Each view remembers its gauge, brand and wildcard filter across reloads and future visits on this
+browser/device. Collapsed palette categories are remembered independently of the filter: searching
+temporarily opens matching groups without changing their saved collapsed state. An unavailable
+saved brand resets to **All** for its gauge. **Reset page settings** restores these defaults without
+changing inventory, layouts or backups.
+
+Both views share a case-insensitive **Wildcard filter** across codes, brands, names, scales and
+track categories. Plain text matches anywhere; `*` matches any text and `?` one character.
+For example, `curve` includes Hornby's radius-named curves, and `R60?` finds matching product codes.
+Search derives each piece's name and category terms from the shared English, German, French,
+Spanish and Italian translations, regardless of the interface language. For example, `curve`,
+`Kurve`, `courbe` and `curva` find radius-named curves; `Rayon 2` and `Raggio 2` find the translated
+second-radius names. Category labels are the same metadata used for palette grouping, with singular
+and plural translations, not per-product keyword exceptions. Product names and saved IDs are unchanged.
+Other punctuation is literal, not a regular expression. Choose **All gauges** on the full catalog
+page to browse every gauge; a brand then includes its registered products across those gauges.
+
+| Group     | Profile                             | Starter piece | Nominal geometry               | Manufacturer source                                                                              |
+| --------- | ----------------------------------- | ------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Z, 6.5 mm | Märklin Z, 1:220                    | 8500          | 110 mm straight                | [Märklin 8500](https://www.marklin.com/products/details/article/8500)                            |
+| N, 9 mm   | Peco Setrack UK N, 1:148, Code 80   | ST-1          | 87 mm straight                 | [Peco ST-1](https://peco-uk.com/products/st1-peco-setrack-n-track-c80-standard-straight)         |
+| TT, 12 mm | Hornby TT, 1:120, Code 80           | TT8002        | 166 mm straight                | [Hornby TT8002](https://uk.hornby.com/products/straight-track-tt8002)                            |
+| O, 32 mm  | Peco Setrack UK O, 1:43.5, Code 124 | ST-700        | 394 mm straight                | [Peco ST-700](https://peco-uk.com/products/st700-peco-setrack-o-track-bh-c124-standard-straight) |
+| G, 45 mm  | Peco Setrack G45, Code 250          | ST-905        | 600 mm radius, 30-degree curve | [Peco ST-905](https://peco-uk.com/products/st905-peco-setrack-g45-track-c250-standard-curve)     |
+
+These are deliberately small starter catalogs, not complete ranges. Inventory counts individual
+track sections even where a supplier sells a multi-pack, including Märklin 8500.
+G45 is used at multiple scales, so its scale ratio is unspecified rather than guessed.
+**OO/H0** is the 16.5 mm browsing group: OO and H0 do not have the same scale ratio.
+The current entries in that group retain the project's OO envelope; no H0-specific range is claimed.
+
 ## Compatibility and Clearance
 
 Profiles declare gauge, scale ratio, electrical system, known rail code and the planning envelope.
-All current entries use OO, 1:76, 16.5 mm gauge and two-rail planning. Peco Setrack specifies Code
-100; Hornby/Bachmann rail codes remain unspecified in these profiles.
+All current entries use two-rail planning. The OO entries use the project's 1:76, 16.5 mm profile.
+Peco Setrack OO specifies Code 100; Hornby OO, Bachmann OO and Märklin Z rail codes remain
+unspecified in these profiles. Other known rail codes appear in the starter table.
 
 Snapping rejects mismatched gauge/electrical systems and conflicting known rail codes. An unknown
 rail code permits geometric planning, not a certified physical connection. Verify actual joiners,
 rail heights, sleepers and electrical behaviour before buying or assembling mixed brands. The
 interface displays this warning for non-Hornby layouts.
+
+New-gauge track widths are schematic: the OO 30 mm footprint is scaled by gauge for drawing,
+overlap and board/room containment checks. No verified parallel-spacing targets are available for
+these starter profiles, so parallel-spacing enforcement is skipped and the planner warns about the
+limitation. This is not a measured sleeper or rolling-stock envelope. Different gauges can be
+stored in one idea but cannot snap together.
 
 Hornby's standard track centres are 67 mm apart. Other current OO catalogs deliberately reuse this
 conservative project envelope; it is not advertised as a Peco/Bachmann standard. Matching connectors

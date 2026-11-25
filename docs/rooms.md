@@ -12,7 +12,7 @@ and is not included in the track shopping list.
 
 ## Create a Room and Table
 
-1. Choose **New room**, enter a name and save.
+1. Choose **New room** beside the **Room** selector at the top, enter a name and save.
 2. Select **Room outline** in **Room shape role** and give the outline a name.
 3. Enter its width and height in millimetres, normally with X/Y zero, then **Add room rectangle**.
 4. Select **Furniture**, enter a name such as `Table`, its position, width and height, and add
@@ -42,7 +42,10 @@ and pointer cancellation discard previews. Successful shape edits are one save a
 ## Share Rooms Between Ideas
 
 The **Room** selector assigns a named room to the current layout. **No room** hides the room layer
-without deleting the room. New ideas start unassigned; duplicated ideas retain their room assignment.
+without deleting the room; it means no assignment, not a room named "No room".
+The adjacent **New room**, **Rename room** and **Delete room** actions manage rooms, separately
+from **New layout** and **Rename layout**. Rename/delete room are disabled without an assignment.
+New layouts start unassigned; duplicated layouts retain their room assignment.
 Switching the assignment never changes board or track coordinates, so room outlines should use
 consistent origins when comparing ideas.
 
