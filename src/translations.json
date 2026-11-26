@@ -124,11 +124,13 @@
   "Description": ["Beschreibung", "Description", "Descripción", "Descrizione"],
   "Dimensions": ["Abmessungen", "Dimensions", "Dimensiones", "Dimensioni"],
   "Owned": ["Im Bestand", "Possédées", "Propias", "Posseduti"],
-  "Used in this idea": [
-    "In dieser Idee verwendet",
-    "Utilisées dans cette idée",
-    "Usadas en esta idea",
-    "Usati in questa idea"
+  "Owned only": ["Nur im Bestand", "Possédées uniquement", "Solo propias", "Solo posseduti"],
+  "Preview": ["Vorschau", "Aperçu", "Vista previa", "Anteprima"],
+  "Schematic previews are individually scaled; accessories use a symbol, not a physical footprint.": [
+    "Schematische Vorschauen sind einzeln skaliert; Zubehör wird als Symbol ohne physische Grundfläche dargestellt.",
+    "Les aperçus schématiques sont mis à l'échelle individuellement ; les accessoires utilisent un symbole, pas une empreinte physique.",
+    "Las vistas esquemáticas se escalan individualmente; los accesorios usan un símbolo, no una huella física.",
+    "Le anteprime schematiche sono scalate singolarmente; gli accessori usano un simbolo, non un ingombro fisico."
   ],
   "Source": ["Quelle", "Source", "Fuente", "Fonte"],
   "Product source": [

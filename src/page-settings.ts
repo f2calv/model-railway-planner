@@ -18,6 +18,10 @@ export interface CatalogPageSettings {
   query: string;
 }
 
+export interface BrowserPageSettings extends CatalogPageSettings {
+  ownedOnly: boolean;
+}
+
 export interface ViewportSettings {
   x: number;
   y: number;
@@ -28,7 +32,7 @@ export interface PageSettings {
   version: 1;
   page: 'planner' | 'catalog';
   catalog: CatalogPageSettings;
-  browser: CatalogPageSettings;
+  browser: BrowserPageSettings;
   openCategories: TrackCategory[];
   openPanels: (typeof pagePanels)[number][];
   snap: boolean;
@@ -49,7 +53,7 @@ export function defaultPageSettings(): PageSettings {
     version: 1,
     page: 'planner',
     catalog: { gauge: 'oo-ho', brand: '', query: '' },
-    browser: { gauge: 'oo-ho', brand: '', query: '' },
+    browser: { gauge: 'oo-ho', brand: '', query: '', ownedOnly: false },
     openCategories: catalogCategories.map((category) => category.id),
     openPanels: [],
     snap: true,
@@ -140,6 +144,9 @@ export function parsePageSettings(text: string): PageSettings {
   const mode = value['mode'];
   if (mode !== 'select' && mode !== 'pan' && mode !== 'boards' && mode !== 'room')
     throw new Error('Invalid saved editing mode.');
+  const browser = value['browser'];
+  const ownedOnly = 'ownedOnly' in browser ? browser.ownedOnly : false;
+  if (typeof ownedOnly !== 'boolean') throw new Error('Invalid saved owned-only filter.');
   return {
     version: 1,
     page: value['page'],
@@ -152,6 +159,7 @@ export function parsePageSettings(text: string): PageSettings {
       gauge: value['browser'].gauge,
       brand: value['browser'].brand,
       query: value['browser'].query,
+      ownedOnly,
     },
     openCategories: [...new Set(value['openCategories'])],
     openPanels: [...new Set(value['openPanels'])],

@@ -361,6 +361,92 @@ test('layer fit controls frame railway, boards and room independently, including
   expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
 });
 
+test('catalog previews show track geometry and owned-only filtering persists without changing railway data', async ({
+  page,
+}) => {
+  await seedIdea(page);
+  for (const code of ['R606', 'R8072', 'R636', 'R645', 'R8232']) await stock(page, code, 1);
+  const saved = await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'));
+  await page.locator('#catalog-page-link').click();
+  await expect(
+    page.getByRole('columnheader', { name: 'Used in this idea', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'Preview', exact: true })).toBeVisible();
+  await page.locator('#browser-gauge').selectOption('');
+  await expect(page.locator('#browser-pieces svg[role="img"]')).toHaveCount(52);
+  await expect(page.locator('[data-catalog-id="hornby-oo-r606"] path').first()).toHaveAttribute(
+    'd',
+    / A/,
+  );
+  await expect(page.locator('[data-catalog-id="hornby-oo-r8072"] path')).toHaveCount(8);
+  await expect(page.locator('[data-catalog-id="hornby-oo-r636"] path')).toHaveCount(8);
+  await expect(page.locator('[data-catalog-id="hornby-oo-r645"] path')).toHaveCount(1);
+  await expect(page.locator('[data-catalog-id="hornby-oo-r8232"] path')).toHaveCount(1);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const dark of [true, false]) {
+      if ((await page.locator('#theme').getAttribute('aria-pressed')) !== String(dark))
+        await page.locator('#theme').click();
+      const previews = await page.locator('.catalog-preview').evaluateAll((nodes) =>
+        nodes.every((node) => {
+          if (!(node instanceof SVGSVGElement)) return false;
+          const box = node.getBBox();
+          const view = node.viewBox.baseVal;
+          const size = node.getBoundingClientRect();
+          return (
+            size.width >= 90 &&
+            size.height >= 50 &&
+            box.width > 0 &&
+            box.height >= 0 &&
+            box.x >= view.x &&
+            box.y >= view.y &&
+            box.x + box.width <= view.x + view.width &&
+            box.y + box.height <= view.y + view.height
+          );
+        }),
+      );
+      expect(previews).toBe(true);
+    }
+  }
+  await page.getByRole('checkbox', { name: 'Owned only', exact: true }).check();
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(6);
+  // The seeded R600 is overused, but is still owned.
+  await expect(page.locator('[data-catalog-id="hornby-oo-r600"]')).toBeVisible();
+  await page.locator('#browser-manufacturer').selectOption('Peco');
+  await expect(page.locator('#browser-empty')).toBeVisible();
+  await page.locator('#browser-manufacturer').selectOption('Hornby');
+  await page.locator('#browser-search').fill('curve');
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(1);
+  await expect(page.locator('[data-catalog-id="hornby-oo-r606"]')).toBeVisible();
+  await page.locator('#browser-gauge').selectOption('n');
+  await expect(page.locator('#browser-empty')).toBeVisible();
+  await page.locator('#browser-gauge').selectOption('oo-ho');
+  await page.locator('#browser-search').fill('');
+  await page.reload();
+  await expect(page.locator('#browser-owned')).toBeChecked();
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(6);
+  for (const [language, label] of [
+    ['de', 'Nur im Bestand'],
+    ['fr', 'Possédées uniquement'],
+    ['es', 'Solo propias'],
+    ['it', 'Solo posseduti'],
+    ['en', 'Owned only'],
+  ] as const) {
+    await page.locator('#language').selectOption(language);
+    await expect(page.getByRole('checkbox', { name: label, exact: true })).toBeChecked();
+  }
+  await page.locator('#browser-owned').uncheck();
+  await expect(page.locator('#browser-pieces tr')).toHaveCount(47);
+  await page.reload();
+  await expect(page.locator('#browser-owned')).not.toBeChecked();
+  await page.locator('#browser-owned').check();
+  await page.locator('#planner-page-link').click();
+  await page.locator('#reset-page-settings').click();
+  await page.locator('#catalog-page-link').click();
+  await expect(page.locator('#browser-owned')).not.toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('model-railway-planner.v1'))).toBe(saved);
+});
+
 test('gauge filters derive manufacturers and the catalog page browses all registered inventory without edits', async ({
   page,
 }) => {

@@ -21,7 +21,7 @@ describe('remembered page settings', () => {
     };
     const settings = defaultPageSettings();
     settings.catalog = { gauge: 'oo-ho', brand: 'Hornby', query: 'Kurve' };
-    settings.browser = { gauge: '', brand: 'Peco', query: 'ST-?' };
+    settings.browser = { gauge: '', brand: 'Peco', query: 'ST-?', ownedOnly: true };
     settings.openCategories = ['curves', 'points'];
     settings.openPanels = ['activity', 'board-module-presets'];
     settings.snap = false;
@@ -41,6 +41,7 @@ describe('remembered page settings', () => {
       { ...defaults, catalog: { ...defaults.catalog, gauge: 'unknown' } },
       { ...defaults, catalog: { ...defaults.catalog, query: 'x'.repeat(257) } },
       { ...defaults, snap: 'false' },
+      { ...defaults, browser: { ...defaults.browser, ownedOnly: 'false' } },
       { ...defaults, mode: 'delete' },
       { ...defaults, openPanels: ['#arbitrary-element'] },
       { ...defaults, openCategories: ['unknown'] },
@@ -84,5 +85,13 @@ describe('remembered page settings', () => {
     expect(parsed.catalog).not.toHaveProperty('command');
     expect(Object.hasOwn(parsed.viewports, '__proto__')).toBe(true);
     expect(Object.getPrototypeOf(parsed.viewports)).toBe(Object.prototype);
+  });
+
+  it('restores older page settings without restricting the catalog to owned pieces', () => {
+    const settings = defaultPageSettings();
+    const { gauge, brand, query } = settings.browser;
+    expect(
+      parsePageSettings(JSON.stringify({ ...settings, browser: { gauge, brand, query } })).browser,
+    ).toEqual({ gauge, brand, query, ownedOnly: false });
   });
 });

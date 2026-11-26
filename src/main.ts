@@ -2222,7 +2222,9 @@ document.addEventListener('input', (event) => {
 document.addEventListener('change', (event) => {
   if (
     event.target instanceof Element &&
-    ['browser-gauge', 'browser-manufacturer', 'snap', 'power-overlay'].includes(event.target.id)
+    ['browser-gauge', 'browser-manufacturer', 'browser-owned', 'snap', 'power-overlay'].includes(
+      event.target.id,
+    )
   )
     rememberPageSettings();
 });

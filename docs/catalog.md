@@ -96,8 +96,13 @@ the **Brand** selection then filters the pieces. Both catalog views default to *
 The first brand option names the selected gauge, for example **All OO/H0 brands**; individual
 brand names do not repeat it. Switching gauge resets an unavailable
 brand and cancels pending track placement. The separate **Track catalog** page shows
-all registered pieces with gauge/brand filters, dimensions, product sources and
-owned/active-idea quantities. Browsing does not modify inventory or layout data.
+all registered pieces with gauge/brand filters, schematic previews, dimensions, product sources and
+owned quantities. **Owned only** shows pieces with an inventory count above zero, even when all
+owned pieces are already placed. It combines with the gauge, brand and wildcard filters and is
+remembered across visits. Browsing does not modify inventory or layout data.
+Previews reuse the planner's track geometry and drawing styles, with each piece scaled to fit its
+thumbnail, not a common physical scale. Accessories without track geometry use a generic attachment
+symbol rather than an invented physical footprint; no product artwork is copied.
 Each view remembers its gauge, brand and wildcard filter across reloads and future visits on this
 browser/device. Collapsed palette categories are remembered independently of the filter: searching
 temporarily opens matching groups without changing their saved collapsed state. An unavailable

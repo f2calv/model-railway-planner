@@ -204,6 +204,23 @@ hr {
   flex: 1 1 180px;
   max-width: 360px;
 }
+.catalog-filters .catalog-owned-filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+.catalog-owned-filter input {
+  width: auto;
+}
+.catalog-preview {
+  display: block;
+  width: 96px;
+  height: 56px;
+}
 .catalog-table-scroll {
   overflow-x: auto;
 }
