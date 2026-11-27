@@ -872,7 +872,7 @@ function render(): void {
     new Option(translate('No room', preferences.language), ''),
     ...state.rooms.map((room) => new Option(room.name, room.id)),
   );
-  roomSelect.setAttribute('data-user-text', '');
+  roomSelect.dataset['userText'] = '';
   roomSelect.value = room?.id ?? '';
   element<HTMLElement>('#room-controls').hidden = !room;
   element<HTMLButtonElement>('#rename-room').disabled = !room;
@@ -1238,6 +1238,10 @@ svg.addEventListener('pointerdown', (event) => {
     render();
     return;
   }
+  beginTrackDrag(piece, event);
+});
+
+function beginTrackDrag(piece: Piece, event: PointerEvent): void {
   if (!selectedIds.has(piece.id)) selectOnly(piece.id);
   selectedId = piece.id;
   toolId = '';
@@ -1254,7 +1258,7 @@ svg.addEventListener('pointerdown', (event) => {
   };
   svg.setPointerCapture(event.pointerId);
   render();
-});
+}
 function snappedGroup(candidates: Piece[]): Piece[] {
   if (candidates.length === 1 && candidates[0]) return [snapped(candidates[0])];
   if (!element<HTMLInputElement>('#snap').checked) return candidates;
@@ -1479,22 +1483,28 @@ function handlePieceKey(event: KeyboardEvent): void {
   }
 }
 
+function isTextInput(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLTextAreaElement
+  );
+}
+
+function cancelEditing(event: KeyboardEvent): void {
+  clearPaletteDrag();
+  cancelGesture();
+  toolId = '';
+  if (shapeEditor().editing) shapeEditor().key(event);
+  preview(null);
+  render();
+}
+
 document.addEventListener('keydown', (event) => {
   if (location.hash === '#catalog') return;
-  if (
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLSelectElement ||
-    event.target instanceof HTMLTextAreaElement ||
-    document.querySelector('dialog[open]')
-  )
-    return;
+  if (isTextInput(event.target) || document.querySelector('dialog[open]')) return;
   if (event.key === 'Escape') {
-    clearPaletteDrag();
-    cancelGesture();
-    toolId = '';
-    if (shapeEditor().editing) shapeEditor().key(event);
-    preview(null);
-    render();
+    cancelEditing(event);
     return;
   }
   if (

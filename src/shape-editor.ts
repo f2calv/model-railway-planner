@@ -95,44 +95,51 @@ export class ShapeEditor {
       <button id="board-apply">Apply board changes</button><button id="board-remove">Remove board shape</button>
       <details id="board-corner-details"><summary>Polygon corners</summary><div id="board-corners"></div><button id="board-apply-corners">Apply corners</button><p>Drag a corner handle, or enter local corner coordinates. Keep the polygon convex and its edges uncrossed.</p></details>
       <button id="unbounded">Use unbounded area</button>`;
-    if (layer) {
-      for (const node of root.querySelectorAll<HTMLElement>('[id]')) node.id = `room-${node.id}`;
-      this.control<HTMLElement>('#board-module-presets').remove();
-      const intro = root.querySelector('p');
-      if (intro)
-        intro.textContent =
-          'Edit the room outline and named furniture. Changes affect every layout assigned to this room.';
-      const check = this.control<HTMLInputElement>('#edit-boards');
-      const label = check.parentElement;
-      if (!label) throw new Error('Missing room editing label.');
-      label.lastChild?.remove();
-      label.append(' Edit room shapes');
-      this.control<HTMLButtonElement>('#board-select-tool').textContent = 'Select / pan room';
-      this.control<HTMLSelectElement>('#board-select').setAttribute(
-        'aria-label',
-        'Select room shape',
-      );
-      const shapeLabel = this.control<HTMLSelectElement>('#board-select').parentElement?.firstChild;
-      if (!shapeLabel) throw new Error('Missing room shape label.');
-      shapeLabel.textContent = 'Room shape';
-      const angleLabel = this.control<HTMLInputElement>('#board-angle').parentElement?.firstChild;
-      if (!angleLabel) throw new Error('Missing room angle label.');
-      angleLabel.textContent = 'Shape angle (degrees)';
-      this.control<HTMLButtonElement>('#add-board').textContent = 'Add room rectangle';
-      this.control<HTMLButtonElement>('#board-add-shape').textContent =
-        'Add room shape at coordinates';
-      this.control<HTMLButtonElement>('#board-apply').textContent = 'Apply room shape changes';
-      this.control<HTMLButtonElement>('#board-remove').textContent = 'Remove room shape';
-      this.control<HTMLButtonElement>('#unbounded').textContent = 'Clear room shapes';
-      this.control<HTMLButtonElement>('#board-apply-corners').textContent = 'Apply room corners';
-      const summary = this.control<HTMLElement>('#board-corner-details').querySelector('summary');
-      if (!summary) throw new Error('Missing room corner summary.');
-      summary.textContent = 'Room polygon corners';
-    }
+    if (layer) this.configureRoomControls();
     this.preview = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.preview.id = layer ? 'room-preview' : 'board-preview';
     this.preview.setAttribute('pointer-events', 'none');
     boards.after(this.preview);
+    this.configureTools(layer);
+  }
+
+  private configureRoomControls(): void {
+    const root = this.root;
+    for (const node of root.querySelectorAll<HTMLElement>('[id]')) node.id = `room-${node.id}`;
+    this.control<HTMLElement>('#board-module-presets').remove();
+    const intro = root.querySelector('p');
+    if (intro)
+      intro.textContent =
+        'Edit the room outline and named furniture. Changes affect every layout assigned to this room.';
+    const check = this.control<HTMLInputElement>('#edit-boards');
+    const label = check.parentElement;
+    if (!label) throw new Error('Missing room editing label.');
+    label.lastChild?.remove();
+    label.append(' Edit room shapes');
+    this.control<HTMLButtonElement>('#board-select-tool').textContent = 'Select / pan room';
+    this.control<HTMLSelectElement>('#board-select').setAttribute(
+      'aria-label',
+      'Select room shape',
+    );
+    const shapeLabel = this.control<HTMLSelectElement>('#board-select').parentElement?.firstChild;
+    if (!shapeLabel) throw new Error('Missing room shape label.');
+    shapeLabel.textContent = 'Room shape';
+    const angleLabel = this.control<HTMLInputElement>('#board-angle').parentElement?.firstChild;
+    if (!angleLabel) throw new Error('Missing room angle label.');
+    angleLabel.textContent = 'Shape angle (degrees)';
+    this.control<HTMLButtonElement>('#add-board').textContent = 'Add room rectangle';
+    this.control<HTMLButtonElement>('#board-add-shape').textContent =
+      'Add room shape at coordinates';
+    this.control<HTMLButtonElement>('#board-apply').textContent = 'Apply room shape changes';
+    this.control<HTMLButtonElement>('#board-remove').textContent = 'Remove room shape';
+    this.control<HTMLButtonElement>('#unbounded').textContent = 'Clear room shapes';
+    this.control<HTMLButtonElement>('#board-apply-corners').textContent = 'Apply room corners';
+    const summary = this.control<HTMLElement>('#board-corner-details').querySelector('summary');
+    if (!summary) throw new Error('Missing room corner summary.');
+    summary.textContent = 'Room polygon corners';
+  }
+
+  private configureTools(layer: ShapeLayer | undefined): void {
     const shapes: { shape: Shape; label: string }[] = [
       { shape: 'rectangle', label: 'Rectangle' },
       { shape: 'triangle', label: 'Right triangle' },
@@ -466,7 +473,7 @@ export class ShapeEditor {
       if (!board) return;
       this.selectedId = board.id;
       const handle =
-        event.target instanceof Element ? event.target.getAttribute('data-corner') : null;
+        event.target instanceof SVGElement ? event.target.dataset['corner'] : undefined;
       this.gesture = {
         pointerId: event.pointerId,
         original: board,
@@ -475,7 +482,7 @@ export class ShapeEditor {
         moved: false,
         invalid: false,
         source: this.svg,
-        ...(handle !== null ? { corner: Number(handle) } : {}),
+        ...(handle !== undefined ? { corner: Number(handle) } : {}),
       };
       this.svg.setPointerCapture(event.pointerId);
       event.stopPropagation();
@@ -665,7 +672,7 @@ export class ShapeEditor {
           this.layer ? this.layer.label(b) : `Board ${i + 1}: ${b.kind}`,
           b.id,
         );
-        if (this.layer) option.setAttribute('data-user-text', '');
+        if (this.layer) option.dataset['userText'] = '';
         return option;
       }),
     );
@@ -688,6 +695,10 @@ export class ShapeEditor {
     this.control<HTMLElement>('#board-corner-details').hidden =
       !this.selectedId || board?.kind !== 'polygon';
     if (!board) return;
+    this.renderShapeFields(board);
+  }
+
+  private renderShapeFields(board: Board): void {
     const values: Record<string, number> = { x: board.x, y: board.y, angle: board.angle };
     if (board.kind === 'polygon') {
       const local = { ...board, x: 0, y: 0, angle: 0 };

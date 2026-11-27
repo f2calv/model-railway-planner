@@ -103,6 +103,11 @@ export class PowerEditor {
     const layout = activeLayout(this.port.state());
     this.select('#power-mode').value = layout.powerMode ?? '';
     this.select('#power-mode').disabled = this.port.readonly();
+    this.renderSummary(analysis, layout.powerMode);
+    this.renderPiece(analysis);
+  }
+
+  private renderSummary(analysis: PowerAnalysis, powerMode: 'dc' | 'dcc' | undefined): void {
     const summary = this.get('#power-summary', HTMLDivElement);
     const counts = (status: string) =>
       analysis.routes.filter((route) => route.status === status).length;
@@ -110,12 +115,12 @@ export class PowerEditor {
       !!analysis.routes.length &&
       analysis.routes.every((route) => route.status === 'powered') &&
       !analysis.warnings.length;
-    const messages = layout.powerMode
+    const messages = powerMode
       ? [
           `Power routes: ${counts('powered')} powered / ${counts('unpowered')} unpowered / ${counts('partial')} partial / ${counts('unverified')} unverified.`,
           `Compatible connected feeds: ${analysis.feeds}.`,
           ...(complete ? ['All modelled routes powered.'] : []),
-          ...(layout.powerMode === 'dc' ? ['DC dead sidings may be intentional.'] : []),
+          ...(powerMode === 'dc' ? ['DC dead sidings may be intentional.'] : []),
           ...analysis.warnings,
         ]
       : ['Choose DC or DCC to check power connectivity.'];
@@ -126,7 +131,10 @@ export class PowerEditor {
         return paragraph;
       }),
     );
-    summary.className = complete ? 'check-ok' : layout.powerMode ? 'check-warning' : '';
+    summary.className = complete ? 'check-ok' : powerMode ? 'check-warning' : '';
+  }
+
+  private renderPiece(analysis: PowerAnalysis): void {
     const piece = this.port.single() ? this.port.selected() : undefined;
     this.get('#power-piece-controls', HTMLFieldSetElement).disabled =
       !piece || !!piece.locked || this.port.readonly();

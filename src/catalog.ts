@@ -443,6 +443,23 @@ export function catalogBrands(gauge = ''): readonly string[] {
   return [...new Set(catalogManufacturers(gauge).map((profile) => profile.brand))];
 }
 
+function trackElectricalBehavior(
+  profileId: string,
+  code: string,
+  category: TrackCategory,
+  routes: readonly Route[],
+): NonNullable<TrackDefinition['electrical']>['behavior'] {
+  if (code === 'R618') return 'isolating';
+  if (category === 'points')
+    return profileId === 'hornby-oo' && /^R807[2-8]$/.test(code) && routes.length === 2
+      ? 'turnout'
+      : 'unverified';
+  if (routes.length === 1) return 'continuous';
+  return routes.length === 2 && profileId === 'hornby-oo' && ['R636', 'R614', 'R615'].includes(code)
+    ? 'independent'
+    : 'unverified';
+}
+
 function profileTrack(
   profileId: string,
   code: string,
@@ -467,20 +484,7 @@ function profileTrack(
     source,
     category,
     electrical: {
-      behavior:
-        code === 'R618'
-          ? 'isolating'
-          : category === 'points'
-            ? profileId === 'hornby-oo' && /^R807[2-8]$/.test(code) && routes.length === 2
-              ? 'turnout'
-              : 'unverified'
-            : routes.length === 1
-              ? 'continuous'
-              : routes.length === 2 &&
-                  profileId === 'hornby-oo' &&
-                  ['R636', 'R614', 'R615'].includes(code)
-                ? 'independent'
-                : 'unverified',
+      behavior: trackElectricalBehavior(profileId, code, category, routes),
       ...(code === 'R8206'
         ? { nativeFeed: 'dc' as const }
         : code === 'R8241'

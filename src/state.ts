@@ -341,16 +341,18 @@ function parseElectrical(value: unknown, version: unknown): Pick<Piece, 'electri
       throw new Error('Choose a supported point bypass.');
     electrical.bypass = raw['bypass'];
   }
-  if (raw['feed'] !== undefined) {
-    const feed = record(raw['feed']);
-    const kind = feed['kind'],
-      connected = feed['connected'];
-    if (kind !== 'native' && kind !== 'r602' && kind !== 'r8242' && kind !== 'manual')
-      throw new Error('Choose a valid power feed.');
-    if (typeof connected !== 'boolean') throw new Error('Invalid power feed connection flag.');
-    electrical.feed = { kind, connected, port: number(feed['port']) };
-  }
+  if (raw['feed'] !== undefined) electrical.feed = parseFeed(raw['feed']);
   return { electrical };
+}
+
+function parseFeed(value: unknown): NonNullable<ElectricalSettings['feed']> {
+  const feed = record(value);
+  const kind = feed['kind'],
+    connected = feed['connected'];
+  if (kind !== 'native' && kind !== 'r602' && kind !== 'r8242' && kind !== 'manual')
+    throw new Error('Choose a valid power feed.');
+  if (typeof connected !== 'boolean') throw new Error('Invalid power feed connection flag.');
+  return { kind, connected, port: number(feed['port']) };
 }
 
 function parsePowerMode(value: unknown, version: unknown): Pick<Layout, 'powerMode'> {
@@ -358,6 +360,59 @@ function parsePowerMode(value: unknown, version: unknown): Pick<Layout, 'powerMo
   if (version !== 6) throw new Error('Power settings require backup format 6.');
   if (value !== 'dc' && value !== 'dcc') throw new Error('Choose DC or DCC power.');
   return { powerMode: value };
+}
+
+function parsePiece(value: unknown, version: unknown): Piece {
+  const p = record(value);
+  const trackId = text(p['trackId']);
+  definition(trackId);
+  if (typeof p['flipped'] !== 'boolean') throw new Error('Invalid track orientation.');
+  if (p['locked'] !== undefined && typeof p['locked'] !== 'boolean')
+    throw new Error('Invalid piece lock in backup.');
+  const piece: Piece = {
+    id: text(p['id']),
+    trackId,
+    x: number(p['x']),
+    y: number(p['y']),
+    angle: number(p['angle']),
+    flipped: p['flipped'],
+    ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
+    ...parseAccessories(p['accessories'], version),
+    ...parseElectrical(p['electrical'], version),
+  };
+  validateAccessories(piece);
+  return piece;
+}
+
+function parseLayout(value: unknown, version: unknown): Layout {
+  const raw = record(value);
+  const rawPieces = raw['pieces'];
+  const rawBoards = raw['boards'];
+  if (
+    !Array.isArray(rawPieces) ||
+    rawPieces.length > 2000 ||
+    !Array.isArray(rawBoards) ||
+    rawBoards.length > 50
+  )
+    throw new Error('Invalid or excessively large layout.');
+  const pieces = rawPieces.map((value) => parsePiece(value, version));
+  if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
+    throw new Error('Duplicate piece identifiers.');
+  const boards = rawBoards.map((value, index) => parseBoard(value, version, index));
+  if (new Set(boards.map((b) => b.id)).size !== boards.length)
+    throw new Error('Duplicate baseboard identifiers.');
+  const roomId = raw['roomId'];
+  if (roomId !== undefined && version !== 5 && version !== 6)
+    throw new Error('Rooms require backup format 5.');
+  const layout: Layout = {
+    id: text(raw['id']),
+    name: text(raw['name']),
+    pieces,
+    boards,
+    ...(roomId === undefined ? {} : { roomId: text(roomId) }),
+    ...parsePowerMode(raw['powerMode'], version),
+  };
+  return layout;
 }
 
 export function parseState(json: string): PlannerState {
@@ -384,56 +439,7 @@ export function parseState(json: string): PlannerState {
   const rawLayouts = data['layouts'];
   if (!Array.isArray(rawLayouts) || !rawLayouts.length || rawLayouts.length > 100)
     throw new Error('Backup must contain between 1 and 100 layouts.');
-  const layouts = rawLayouts.map((value): Layout => {
-    const raw = record(value);
-    const rawPieces = raw['pieces'];
-    const rawBoards = raw['boards'];
-    if (
-      !Array.isArray(rawPieces) ||
-      rawPieces.length > 2000 ||
-      !Array.isArray(rawBoards) ||
-      rawBoards.length > 50
-    )
-      throw new Error('Invalid or excessively large layout.');
-    const pieces = rawPieces.map((value): Piece => {
-      const p = record(value);
-      const trackId = text(p['trackId']);
-      definition(trackId);
-      if (typeof p['flipped'] !== 'boolean') throw new Error('Invalid track orientation.');
-      if (p['locked'] !== undefined && typeof p['locked'] !== 'boolean')
-        throw new Error('Invalid piece lock in backup.');
-      const piece: Piece = {
-        id: text(p['id']),
-        trackId,
-        x: number(p['x']),
-        y: number(p['y']),
-        angle: number(p['angle']),
-        flipped: p['flipped'],
-        ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
-        ...parseAccessories(p['accessories'], data['version']),
-        ...parseElectrical(p['electrical'], data['version']),
-      };
-      validateAccessories(piece);
-      return piece;
-    });
-    if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
-      throw new Error('Duplicate piece identifiers.');
-    const boards = rawBoards.map((value, index) => parseBoard(value, data['version'], index));
-    if (new Set(boards.map((b) => b.id)).size !== boards.length)
-      throw new Error('Duplicate baseboard identifiers.');
-    const roomId = raw['roomId'];
-    if (roomId !== undefined && data['version'] !== 5 && data['version'] !== 6)
-      throw new Error('Rooms require backup format 5.');
-    const layout: Layout = {
-      id: text(raw['id']),
-      name: text(raw['name']),
-      pieces,
-      boards,
-      ...(roomId === undefined ? {} : { roomId: text(roomId) }),
-      ...parsePowerMode(raw['powerMode'], data['version']),
-    };
-    return layout;
-  });
+  const layouts = rawLayouts.map((value) => parseLayout(value, data['version']));
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
@@ -443,39 +449,48 @@ export function parseState(json: string): PlannerState {
     layouts,
     activeLayoutId: text(data['activeLayoutId']),
   };
-  if (data['version'] === 5 || data['version'] === 6) {
-    const rooms = data['rooms'];
-    if (!Array.isArray(rooms) || rooms.length > 50) throw new Error('Invalid rooms in backup.');
-    for (const value of rooms) {
-      const raw = record(value);
-      const shapes = raw['shapes'];
-      if (!Array.isArray(shapes) || shapes.length > 50)
-        throw new Error('Invalid room shapes in backup.');
-      const room: Room = {
-        id: text(raw['id']),
-        name: text(raw['name']),
-        shapes: shapes.map((value) => {
-          const entry = record(value);
-          const role = entry['role'];
-          if (role !== 'outline' && role !== 'furniture')
-            throw new Error('Invalid room shape role.');
-          return {
-            name: text(entry['name']),
-            role,
-            shape: parseBoard(entry['shape'], data['version'], 0),
-          };
-        }),
-      };
-      if (state.rooms.some((entry) => entry.id === room.id))
-        throw new Error('Duplicate room identifiers.');
-      state.rooms = putRoom(state, room).rooms;
-    }
-    for (const layout of layouts)
-      if (layout.roomId && !state.rooms.some((room) => room.id === layout.roomId))
-        throw new Error('Selected room does not exist.');
-  } else if (data['rooms'] !== undefined) throw new Error('Rooms require backup format 5.');
+  loadRooms(state, data);
   activeLayout(state);
   return state;
+}
+
+function loadRooms(state: PlannerState, data: Record<string, unknown>): void {
+  if (data['version'] !== 5 && data['version'] !== 6) {
+    if (data['rooms'] !== undefined) throw new Error('Rooms require backup format 5.');
+    return;
+  }
+  const rooms = data['rooms'];
+  if (!Array.isArray(rooms) || rooms.length > 50) throw new Error('Invalid rooms in backup.');
+  for (const value of rooms) {
+    const room = parseRoom(value, data['version']);
+    if (state.rooms.some((entry) => entry.id === room.id))
+      throw new Error('Duplicate room identifiers.');
+    state.rooms = putRoom(state, room).rooms;
+  }
+  for (const layout of state.layouts)
+    if (layout.roomId && !state.rooms.some((room) => room.id === layout.roomId))
+      throw new Error('Selected room does not exist.');
+}
+
+function parseRoom(value: unknown, version: unknown): Room {
+  const raw = record(value);
+  const shapes = raw['shapes'];
+  if (!Array.isArray(shapes) || shapes.length > 50)
+    throw new Error('Invalid room shapes in backup.');
+  return {
+    id: text(raw['id']),
+    name: text(raw['name']),
+    shapes: shapes.map((value) => {
+      const entry = record(value);
+      const role = entry['role'];
+      if (role !== 'outline' && role !== 'furniture') throw new Error('Invalid room shape role.');
+      return {
+        name: text(entry['name']),
+        role,
+        shape: parseBoard(entry['shape'], version, 0),
+      };
+    }),
+  };
 }
 
 export function layoutProblems(layout: Layout): string[] {

@@ -69,7 +69,7 @@ export function translateUi(root: Element, language: Language): void {
     const previous =
       attributes.get(node) ?? new Map<string, { source: string; rendered: string }>();
     for (const key of ['aria-label', 'title', 'placeholder']) {
-      if (node.hasAttribute('data-user-label')) continue;
+      if (hasUserLabel(node)) continue;
       const current = node.getAttribute(key);
       if (current === null) continue;
       const record = previous.get(key);
@@ -77,6 +77,13 @@ export function translateUi(root: Element, language: Language): void {
       const rendered = translate(source, language);
       node.setAttribute(key, rendered);
       previous.set(key, { source, rendered });
+    }
+
+    function hasUserLabel(node: Element): boolean {
+      return (
+        (node instanceof HTMLElement || node instanceof SVGElement) &&
+        node.dataset['userLabel'] !== undefined
+      );
     }
     attributes.set(node, previous);
   }

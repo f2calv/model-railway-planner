@@ -129,32 +129,37 @@ export function svgExport(state: PlannerState, pixels?: { width: number; height:
     content.push(
       `<path data-board="${xml(board.id)}" transform="translate(${board.x},${board.y}) rotate(${board.angle})" d="${boardPath(board)}" fill="#e9dfc8" fill-rule="evenodd" stroke="#a79570" stroke-width="2"/>`,
     );
-  for (const piece of layout.pieces) {
-    content.push(
-      `<g transform="translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})">`,
-    );
-    content.push(...piecePaths(piece, missing.has(piece.id)));
-    for (const mark of accessoryMarks(piece))
-      content.push(
-        `<path data-accessory="${xml(mark.id)}" d="${mark.d}" fill="none" stroke="${missingAccessories.has(piece.id) ? '#db843b' : '#167c99'}" stroke-width="4"/>`,
-      );
-    for (const port of ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false })) {
-      const radians = (port.angle * Math.PI) / 180;
-      const dx = 19 * Math.sin(radians),
-        dy = 19 * Math.cos(radians);
-      content.push(
-        `<line x1="${port.x - dx}" y1="${port.y + dy}" x2="${port.x + dx}" y2="${port.y - dy}" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`,
-      );
-    }
-    if (piece.locked)
-      content.push(
-        '<path d="M9 -10V-15A5 5 0 0 1 19 -15V-10M7 -10H21V2H7Z" fill="#f7e7a4" stroke="#243c35" stroke-width="2"/>',
-      );
-    content.push('</g>');
-  }
+  for (const piece of layout.pieces)
+    content.push(...pieceSvg(piece, missing.has(piece.id), missingAccessories.has(piece.id)));
   const width = pixels ? pixels.width : `${bounds.width}mm`;
   const height = pixels ? pixels.height : `${bounds.height}mm`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"><title>${xml(layout.name)}</title><desc>Model railway planning overview in millimetres. Verify track geometry, rail joiners and rolling-stock clearance physically.</desc><rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="#fff"/>${content.join('')}</svg>`;
+}
+
+function pieceSvg(piece: Piece, missing: boolean, missingAccessories: boolean): string[] {
+  const content: string[] = [];
+  content.push(
+    `<g transform="translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})">`,
+  );
+  content.push(...piecePaths(piece, missing));
+  for (const mark of accessoryMarks(piece))
+    content.push(
+      `<path data-accessory="${xml(mark.id)}" d="${mark.d}" fill="none" stroke="${missingAccessories ? '#db843b' : '#167c99'}" stroke-width="4"/>`,
+    );
+  for (const port of ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false })) {
+    const radians = (port.angle * Math.PI) / 180;
+    const dx = 19 * Math.sin(radians),
+      dy = 19 * Math.cos(radians);
+    content.push(
+      `<line x1="${port.x - dx}" y1="${port.y + dy}" x2="${port.x + dx}" y2="${port.y - dy}" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`,
+    );
+  }
+  if (piece.locked)
+    content.push(
+      '<path d="M9 -10V-15A5 5 0 0 1 19 -15V-10M7 -10H21V2H7Z" fill="#f7e7a4" stroke="#243c35" stroke-width="2"/>',
+    );
+  content.push('</g>');
+  return content;
 }
 
 export function csvCell(value: string): string {

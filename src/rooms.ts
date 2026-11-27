@@ -18,27 +18,31 @@ function outlineSamples(board: Board): Vec[] {
       for (let j = 0; j <= 32; j++)
         include({ x: a.x + ((b.x - a.x) * j) / 32, y: a.y + ((b.y - a.y) * j) / 32 });
     });
-  } else {
-    const sweep = board.kind === 'circle' ? 360 : board.sweep;
-    const radii = board.kind === 'circle' ? [board.radius] : [board.radius, board.innerRadius];
-    for (const radius of radii)
-      for (let i = 0; i <= 72; i++) {
-        const radians = (((sweep * i) / 72) * Math.PI) / 180;
-        include({ x: radius * Math.cos(radians), y: radius * Math.sin(radians) });
-      }
-    if (board.kind === 'arc' && sweep < 360)
-      for (const degrees of [0, sweep])
-        for (let i = 0; i <= 32; i++) {
-          const radius = board.innerRadius + ((board.radius - board.innerRadius) * i) / 32;
-          include({
-            x: radius * Math.cos((degrees * Math.PI) / 180),
-            y: radius * Math.sin((degrees * Math.PI) / 180),
-          });
-        }
-  }
+  } else roundOutlineSamples(board).forEach(include);
   const bounds = boardBounds(board);
   const centre = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
   if (containsBoard(board, centre)) points.push(centre);
+  return points;
+}
+
+function roundOutlineSamples(board: Exclude<Board, { kind: 'polygon' }>): Vec[] {
+  const sweep = board.kind === 'circle' ? 360 : board.sweep;
+  const radii = board.kind === 'circle' ? [board.radius] : [board.radius, board.innerRadius];
+  const points = radii.flatMap((radius) =>
+    Array.from({ length: 73 }, (_, i) => {
+      const radians = (((sweep * i) / 72) * Math.PI) / 180;
+      return { x: radius * Math.cos(radians), y: radius * Math.sin(radians) };
+    }),
+  );
+  if (board.kind === 'arc' && sweep < 360)
+    for (const degrees of [0, sweep])
+      for (let i = 0; i <= 32; i++) {
+        const radius = board.innerRadius + ((board.radius - board.innerRadius) * i) / 32;
+        points.push({
+          x: radius * Math.cos((degrees * Math.PI) / 180),
+          y: radius * Math.sin((degrees * Math.PI) / 180),
+        });
+      }
   return points;
 }
 

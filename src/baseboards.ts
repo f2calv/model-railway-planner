@@ -56,20 +56,7 @@ export function validateBoard(board: Board): void {
   )
     throw new Error('Invalid baseboard identifier or position.');
   if (board.kind !== 'polygon') {
-    if (!Number.isFinite(board.radius) || board.radius < 1 || board.radius > 100000)
-      throw new Error('Baseboard radius must be between 1 and 100000 mm.');
-    if (
-      board.kind === 'arc' &&
-      (!Number.isFinite(board.innerRadius) ||
-        board.innerRadius < 0 ||
-        board.innerRadius >= board.radius ||
-        !Number.isFinite(board.sweep) ||
-        board.sweep < 1 ||
-        board.sweep > 360)
-    )
-      throw new Error(
-        'Arc needs an inner radius below its outer radius and a sweep from 1 to 360 degrees.',
-      );
+    validateRoundBoard(board);
     return;
   }
   const points = board.points;
@@ -79,6 +66,28 @@ export function validateBoard(board: Board): void {
     points.some((p) => ![p.x, p.y].every((n) => Number.isFinite(n) && Math.abs(n) <= 100000))
   )
     throw new Error('Baseboard polygons need 3 to 16 finite corners.');
+  validatePolygonTurns(points);
+  validatePolygonEdges(points);
+}
+
+function validateRoundBoard(board: Exclude<Board, { kind: 'polygon' }>): void {
+  if (!Number.isFinite(board.radius) || board.radius < 1 || board.radius > 100000)
+    throw new Error('Baseboard radius must be between 1 and 100000 mm.');
+  if (
+    board.kind === 'arc' &&
+    (!Number.isFinite(board.innerRadius) ||
+      board.innerRadius < 0 ||
+      board.innerRadius >= board.radius ||
+      !Number.isFinite(board.sweep) ||
+      board.sweep < 1 ||
+      board.sweep > 360)
+  )
+    throw new Error(
+      'Arc needs an inner radius below its outer radius and a sweep from 1 to 360 degrees.',
+    );
+}
+
+function validatePolygonTurns(points: readonly Vec[]): void {
   // Consistent strict turns also reject crossed, concave and collapsed corner edits.
   let sign = 0;
   for (let i = 0; i < points.length; i++) {
@@ -93,6 +102,9 @@ export function validateBoard(board: Board): void {
       throw new Error('Baseboard corners must form a non-collapsed convex polygon.');
     sign = Math.sign(turn);
   }
+}
+
+function validatePolygonEdges(points: readonly Vec[]): void {
   for (let i = 0; i < points.length; i++)
     for (let j = i + 2; j < points.length; j++) {
       if (i === 0 && j === points.length - 1) continue;
@@ -107,19 +119,7 @@ export function validateBoard(board: Board): void {
 
 export function containsBoard(board: Board, world: Vec): boolean {
   const point = boardLocal(board, world);
-  if (board.kind === 'polygon') {
-    let sign = 0;
-    for (let i = 0; i < board.points.length; i++) {
-      const a = board.points[i],
-        b = board.points[(i + 1) % board.points.length];
-      if (!a || !b) throw new Error('Missing baseboard corner.');
-      const turn = cross(a, b, point);
-      if (Math.abs(turn) < 1e-7) continue;
-      if (sign && Math.sign(turn) !== sign) return false;
-      sign = Math.sign(turn);
-    }
-    return true;
-  }
+  if (board.kind === 'polygon') return containsPolygon(board.points, point);
   const radius = Math.hypot(point.x, point.y);
   if (radius > board.radius + 1e-7) return false;
   if (board.kind === 'circle') return true;
@@ -129,6 +129,20 @@ export function containsBoard(board: Board, world: Vec): boolean {
     board.sweep === 360 ||
     degrees(Math.atan2(point.y, point.x)) <= board.sweep + 1e-7
   );
+}
+
+function containsPolygon(points: readonly Vec[], point: Vec): boolean {
+  let sign = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i],
+      b = points[(i + 1) % points.length];
+    if (!a || !b) throw new Error('Missing baseboard corner.');
+    const turn = cross(a, b, point);
+    if (Math.abs(turn) < 1e-7) continue;
+    if (sign && Math.sign(turn) !== sign) return false;
+    sign = Math.sign(turn);
+  }
+  return true;
 }
 
 type Boundary =
@@ -340,11 +354,17 @@ export function snapBoard(candidate: Board, others: readonly Board[], threshold:
     const target = boundaries(other);
     for (const a of own)
       for (const b of target) {
-        for (const point of boundaryFeatures(a)) consider(point, nearest(b, point));
-        for (const point of boundaryFeatures(b)) consider(nearest(a, point), point);
+        for (const [from, to] of boundarySnapPairs(a, b)) consider(from, to);
       }
   }
   return { ...candidate, x: candidate.x + offset.x, y: candidate.y + offset.y };
+}
+
+function boundarySnapPairs(a: Boundary, b: Boundary): [Vec, Vec][] {
+  return [
+    ...boundaryFeatures(a).map((point): [Vec, Vec] => [point, nearest(b, point)]),
+    ...boundaryFeatures(b).map((point): [Vec, Vec] => [nearest(a, point), point]),
+  ];
 }
 
 export function moveBoardCorner(board: Board, index: number, world: Vec): Board {
