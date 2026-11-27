@@ -1500,6 +1500,11 @@ function cancelEditing(event: KeyboardEvent): void {
   render();
 }
 
+function beginKeyboardPan(event: KeyboardEvent): void {
+  if (!drag && !marquee) spaceDown = true;
+  event.preventDefault();
+}
+
 document.addEventListener('keydown', (event) => {
   if (location.hash === '#catalog') return;
   if (isTextInput(event.target) || document.querySelector('dialog[open]')) return;
@@ -1517,12 +1522,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (event.code === 'Space') {
-    if (drag || marquee) {
-      event.preventDefault();
-      return;
-    }
-    spaceDown = true;
-    event.preventDefault();
+    beginKeyboardPan(event);
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
