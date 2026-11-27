@@ -1,6 +1,9 @@
 import { definition } from './catalog';
 import type { Board, Piece, Pose, Problem, Route, Segment, Vec } from './model';
+import { containsBoard } from './baseboards';
+import { planningCompatible, trackWidth } from './profiles';
 
+const sampleStepMm = 5;
 const radians = (degrees: number) => (degrees * Math.PI) / 180;
 export const distance = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 export const normalize = (angle: number) => ((angle % 360) + 360) % 360;
@@ -88,7 +91,7 @@ export function connected(a: Pose, b: Pose): boolean {
 export function samples(piece: Piece): Pose[][] {
   return definition(piece.trackId).routes.map((route) => {
     const length = routeLength(route);
-    const steps = Math.ceil(length / 5);
+    const steps = Math.ceil(length / sampleStepMm);
     return Array.from({ length: steps + 1 }, (_, i) => world(piece, routePose(route, i / steps)));
   });
 }
@@ -183,33 +186,7 @@ export function snapGroup(
 }
 
 function inBoard(p: Vec, boards: readonly Board[]): boolean {
-  return boards.some(
-    (board) =>
-      p.x >= board.x &&
-      p.x <= board.x + board.width &&
-      p.y >= board.y &&
-      p.y <= board.y + board.height,
-  );
-}
-
-export function joinedBoards(boards: readonly Board[]): boolean {
-  if (boards.length < 2) return true;
-  const seen = new Set<number>([0]);
-  for (let changed = true; changed;) {
-    changed = false;
-    boards.forEach((a, i) => {
-      if (!seen.has(i)) return;
-      boards.forEach((b, j) => {
-        const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-        const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-        if (!seen.has(j) && overlapX >= 0 && overlapY >= 0 && (overlapX > 0 || overlapY > 0)) {
-          seen.add(j);
-          changed = true;
-        }
-      });
-    });
-  }
-  return seen.size === boards.length;
+  return boards.some((board) => containsBoard(board, p));
 }
 
 function pointSegment(p: Vec, a: Vec, b: Vec): number {
@@ -236,12 +213,14 @@ export function placementProblem(
   boards: readonly Board[],
 ): Problem | null {
   const routes = samples(candidate);
+  const candidateEntry = definition(candidate.trackId);
+  const footprint = trackWidth(candidateEntry);
   if (
     boards.length &&
     routes.flat().some((p) =>
       Array.from({ length: 8 }, (_, i) => ({
-        x: p.x + 15 * Math.cos((i * Math.PI) / 4),
-        y: p.y + 15 * Math.sin((i * Math.PI) / 4),
+        x: p.x + (footprint / 2) * Math.cos((i * Math.PI) / 4),
+        y: p.y + (footprint / 2) * Math.sin((i * Math.PI) / 4),
       })).some((edge) => !inBoard(edge, boards)),
     )
   )
@@ -276,8 +255,8 @@ export function placementProblem(
     );
     const fanPorts = commonPoint ? ports(commonPoint) : [];
     const separation = Math.max(
-      definition(candidate.trackId).centresMm,
-      definition(other.trackId).centresMm,
+      candidateEntry.centresMm ?? footprint + sampleStepMm,
+      definition(other.trackId).centresMm ?? trackWidth(definition(other.trackId)) + sampleStepMm,
     );
     for (const aRoute of routes) {
       for (const bRoute of samples(other)) {
@@ -296,7 +275,7 @@ export function placementProblem(
                 Math.max(distance(c, port), distance(d, port)) <= separation,
             );
             if (nearJoint) continue;
-            if (gap < 29.9)
+            if (gap < (footprint + trackWidth(definition(other.trackId))) / 2 - 0.1)
               return {
                 kind: 'overlap',
                 message: 'Track overlaps another piece or crosses it at the same level.',
@@ -318,7 +297,14 @@ export function placementProblem(
             const nearFan =
               fanPorts.some((p) => distance(a, p) < separation * 3) &&
               fanPorts.some((p) => distance(c, p) < separation * 3);
-            if (parallel && gap < separation - 0.5 && !nearFan && !nearTurnout) {
+            if (
+              candidateEntry.centresMm !== null &&
+              definition(other.trackId).centresMm !== null &&
+              parallel &&
+              gap < separation - 0.5 &&
+              !nearFan &&
+              !nearTurnout
+            ) {
               return {
                 kind: 'spacing',
                 message: `Parallel tracks need ${separation} mm between centres. Check rolling-stock clearance on curves.`,
@@ -331,4 +317,3 @@ export function placementProblem(
   }
   return null;
 }
-import { planningCompatible } from './profiles';

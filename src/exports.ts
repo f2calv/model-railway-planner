@@ -1,9 +1,28 @@
-import { definition } from './catalog';
+import { catalog, definition } from './catalog';
 import { pathData, ports, samples } from './geometry';
-import type { Layout, Piece, PlannerState } from './model';
-import { activeLayout, missingPieceIds, parseState, shoppingList } from './state';
+import { boardBounds, boardPath } from './baseboards';
+import { trackWidth } from './profiles';
+import type { Layout, Piece, PlannerState, Room } from './model';
+import {
+  activeLayout,
+  assignedRoom,
+  missingPieceIds,
+  parseState,
+  shoppingList,
+  used,
+} from './state';
 
-export function drawingLayers(missing = false, locked = false) {
+export function accessoryMarks(piece: Piece): { id: string; d: string }[] {
+  const route = definition(piece.trackId).routes[0];
+  if (route?.kind !== 'straight') return [];
+  const centre = route.length / 2;
+  return (piece.accessories ?? []).map((id) => ({
+    id,
+    d: `M${centre - 8},-14V14M${centre + 8},-14V14M${centre - 8},0H${centre + 8}`,
+  }));
+}
+
+export function drawingLayers(missing = false, locked = false, gaugeMm = 16.5) {
   let bed = '#81745d';
   if (missing) bed = '#db843b';
   else if (locked) bed = '#6874ab';
@@ -17,10 +36,10 @@ export function drawingLayers(missing = false, locked = false) {
     { name: 'sleepers', stroke: '#4e5045', width: 30, dash: '3 7' },
     { name: 'rails', stroke: '#c8c9bd', width: 19.5, dash: '' },
     { name: 'centre-line', stroke: missing ? '#85521f' : '#354338', width: 13.5, dash: '' },
-  ];
+  ].map((layer) => ({ ...layer, width: (layer.width * gaugeMm) / 16.5 }));
 }
 
-export function layoutBounds(layout: Layout) {
+export function layoutBounds(layout: Layout, room?: Room) {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -32,10 +51,13 @@ export function layoutBounds(layout: Layout) {
     maxY = Math.max(maxY, y + padding);
   };
   for (const piece of layout.pieces)
-    for (const route of samples(piece)) for (const point of route) include(point.x, point.y, 20);
-  for (const board of layout.boards) {
-    include(board.x, board.y, 0);
-    include(board.x + board.width, board.y + board.height, 0);
+    for (const route of samples(piece))
+      for (const point of route)
+        include(point.x, point.y, Math.max(20, trackWidth(definition(piece.trackId)) / 2));
+  for (const board of [...layout.boards, ...(room?.shapes.map((entry) => entry.shape) ?? [])]) {
+    const bounds = boardBounds(board);
+    include(bounds.x, bounds.y, 0);
+    include(bounds.x + bounds.width, bounds.y + bounds.height, 0);
   }
   return minX === Infinity
     ? null
@@ -77,7 +99,7 @@ function validatePixelSize(pixels?: { width: number; height: number }): void {
 
 function piecePaths(piece: Piece, missing: boolean): string[] {
   return definition(piece.trackId).routes.flatMap((route) =>
-    drawingLayers(missing, piece.locked).map(
+    drawingLayers(missing, piece.locked, definition(piece.trackId).gaugeMm).map(
       (layer) =>
         `<path d="${pathData(route)}" fill="none" stroke="${layer.stroke}" stroke-width="${layer.width}" stroke-dasharray="${layer.dash}"/>`,
     ),
@@ -87,37 +109,57 @@ function piecePaths(piece: Piece, missing: boolean): string[] {
 export function svgExport(state: PlannerState, pixels?: { width: number; height: number }): string {
   const validated = parseState(JSON.stringify(state));
   const layout = activeLayout(validated);
-  const bounds = layoutBounds(layout);
+  const room = assignedRoom(validated);
+  const bounds = layoutBounds(layout, room);
   if (!bounds) throw new Error('Add track or a baseboard before exporting.');
   validatePixelSize(pixels);
   const missing = missingPieceIds(validated);
+  const missingAccessories = missingPieceIds(validated, 'hornby-oo-r645');
   const content: string[] = [];
+  for (const entry of [...(room?.shapes ?? [])].sort(
+    (a, b) => Number(a.role === 'furniture') - Number(b.role === 'furniture'),
+  )) {
+    const shape = entry.shape;
+    const local = boardBounds({ ...shape, x: 0, y: 0, angle: 0 });
+    content.push(
+      `<g data-room-shape="${xml(shape.id)}" transform="translate(${shape.x},${shape.y}) rotate(${shape.angle})"><title>${xml(entry.name)}</title><path d="${boardPath(shape)}" fill="${entry.role === 'outline' ? '#e9eef3' : '#a9bbcf'}" fill-rule="evenodd" stroke="#526a82" stroke-width="3"/><text x="${local.x + 12}" y="${local.y + 24}" font-size="20" fill="#243c55">${xml(entry.name)}</text></g>`,
+    );
+  }
   for (const board of layout.boards)
     content.push(
-      `<rect x="${board.x}" y="${board.y}" width="${board.width}" height="${board.height}" fill="#e9dfc8" stroke="#a79570" stroke-width="2"/>`,
+      `<path data-board="${xml(board.id)}" transform="translate(${board.x},${board.y}) rotate(${board.angle})" d="${boardPath(board)}" fill="#e9dfc8" fill-rule="evenodd" stroke="#a79570" stroke-width="2"/>`,
     );
-  for (const piece of layout.pieces) {
-    content.push(
-      `<g transform="translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})">`,
-    );
-    content.push(...piecePaths(piece, missing.has(piece.id)));
-    for (const port of ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false })) {
-      const radians = (port.angle * Math.PI) / 180;
-      const dx = 19 * Math.sin(radians),
-        dy = 19 * Math.cos(radians);
-      content.push(
-        `<line x1="${port.x - dx}" y1="${port.y + dy}" x2="${port.x + dx}" y2="${port.y - dy}" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`,
-      );
-    }
-    if (piece.locked)
-      content.push(
-        '<path d="M9 -10V-15A5 5 0 0 1 19 -15V-10M7 -10H21V2H7Z" fill="#f7e7a4" stroke="#243c35" stroke-width="2"/>',
-      );
-    content.push('</g>');
-  }
+  for (const piece of layout.pieces)
+    content.push(...pieceSvg(piece, missing.has(piece.id), missingAccessories.has(piece.id)));
   const width = pixels ? pixels.width : `${bounds.width}mm`;
   const height = pixels ? pixels.height : `${bounds.height}mm`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"><title>${xml(layout.name)}</title><desc>Model railway planning overview in millimetres. Verify track geometry, rail joiners and rolling-stock clearance physically.</desc><rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="#fff"/>${content.join('')}</svg>`;
+}
+
+function pieceSvg(piece: Piece, missing: boolean, missingAccessories: boolean): string[] {
+  const content: string[] = [];
+  content.push(
+    `<g transform="translate(${piece.x},${piece.y}) rotate(${piece.angle}) scale(1,${piece.flipped ? -1 : 1})">`,
+  );
+  content.push(...piecePaths(piece, missing));
+  for (const mark of accessoryMarks(piece))
+    content.push(
+      `<path data-accessory="${xml(mark.id)}" d="${mark.d}" fill="none" stroke="${missingAccessories ? '#db843b' : '#167c99'}" stroke-width="4"/>`,
+    );
+  for (const port of ports({ ...piece, x: 0, y: 0, angle: 0, flipped: false })) {
+    const radians = (port.angle * Math.PI) / 180;
+    const dx = 19 * Math.sin(radians),
+      dy = 19 * Math.cos(radians);
+    content.push(
+      `<line x1="${port.x - dx}" y1="${port.y + dy}" x2="${port.x + dx}" y2="${port.y - dy}" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`,
+    );
+  }
+  if (piece.locked)
+    content.push(
+      '<path d="M9 -10V-15A5 5 0 0 1 19 -15V-10M7 -10H21V2H7Z" fill="#f7e7a4" stroke="#243c35" stroke-width="2"/>',
+    );
+  content.push('</g>');
+  return content;
 }
 
 export function csvCell(value: string): string {
@@ -132,16 +174,16 @@ export function csvExport(state: PlannerState, shoppingOnly = false): string {
     shoppingList(validated).map((entry) => [entry.trackId, entry.quantity]),
   );
   const rows = [['Manufacturer', 'Scale', 'Code', 'Piece', 'Owned', 'In layout', 'To buy']];
-  for (const [id, quantity] of Object.entries(validated.inventory)) {
+  for (const entry of catalog) {
+    const id = entry.id;
     if (shoppingOnly && !shortfalls.has(id)) continue;
-    const entry = definition(id);
     rows.push([
       entry.brand,
       entry.scale,
       entry.code,
       entry.name,
-      String(quantity),
-      String(layout.pieces.filter((piece) => piece.trackId === id).length),
+      String(validated.inventory[id] ?? 0),
+      String(used(layout, id)),
       String(shortfalls.get(id) ?? 0),
     ]);
   }
@@ -149,8 +191,9 @@ export function csvExport(state: PlannerState, shoppingOnly = false): string {
 }
 
 export async function pngExport(state: PlannerState): Promise<Blob> {
-  const layout = activeLayout(parseState(JSON.stringify(state)));
-  const bounds = layoutBounds(layout);
+  const validated = parseState(JSON.stringify(state));
+  const layout = activeLayout(validated);
+  const bounds = layoutBounds(layout, assignedRoom(validated));
   if (!bounds) throw new Error('Add track or a baseboard before exporting.');
   const scale = Math.min(2, 4096 / Math.max(bounds.width, bounds.height));
   const width = Math.max(1, Math.round(bounds.width * scale));

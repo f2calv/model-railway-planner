@@ -1,10 +1,13 @@
-import { catalog, definition } from './catalog';
-import { joinedBoards, placementProblem } from './geometry';
-import type { Layout, Piece, PlannerState } from './model';
+import { accessoryFits, catalog, definition } from './catalog';
+import { placementProblem } from './geometry';
+import { joinedBoards, rectangleBoard, validateBoard } from './baseboards';
+import { powerSupplies, validateElectrical } from './power';
+import type { Board, ElectricalSettings, Layout, Piece, PlannerState, Room } from './model';
 
 export function emptyState(id: string): PlannerState {
   return {
-    version: 2,
+    version: 6,
+    rooms: [],
     inventory: Object.fromEntries(catalog.map((track) => [track.id, 0])),
     layouts: [{ id, name: 'My first layout', pieces: [], boards: [] }],
     activeLayoutId: id,
@@ -17,8 +20,87 @@ export function activeLayout(state: PlannerState): Layout {
   return layout;
 }
 
+export function assignedRoom(state: PlannerState): Room | undefined {
+  const id = activeLayout(state).roomId;
+  if (!id) return undefined;
+  const room = state.rooms.find((room) => room.id === id);
+  if (!room) throw new Error('Selected room does not exist.');
+  return room;
+}
+
+export function putRoom(state: PlannerState, room: Room): PlannerState {
+  text(room.id);
+  text(room.name);
+  if (room.shapes.length > 50 || room.shapes.filter((entry) => entry.role === 'outline').length > 1)
+    throw new Error('A room supports one outline and at most 50 shapes.');
+  if (new Set(room.shapes.map((entry) => entry.shape.id)).size !== room.shapes.length)
+    throw new Error('Duplicate room shape identifiers.');
+  for (const entry of room.shapes) {
+    text(entry.name);
+    if (entry.role !== 'outline' && entry.role !== 'furniture')
+      throw new Error('Invalid room shape role.');
+    validateBoard(entry.shape);
+  }
+  const exists = state.rooms.some((entry) => entry.id === room.id);
+  if (!exists && state.rooms.length >= 50) throw new Error('Keep at most 50 named rooms.');
+  return {
+    ...state,
+    rooms: exists
+      ? state.rooms.map((entry) => (entry.id === room.id ? room : entry))
+      : [...state.rooms, room],
+  };
+}
+
+export function assignRoom(state: PlannerState, id: string): PlannerState {
+  if (id && !state.rooms.some((room) => room.id === id))
+    throw new Error('Selected room does not exist.');
+  const layout = { ...activeLayout(state) };
+  delete layout.roomId;
+  return updateLayout(state, id ? { ...layout, roomId: id } : layout);
+}
+
+export function removeRoom(state: PlannerState, id: string): PlannerState {
+  if (!state.rooms.some((room) => room.id === id)) throw new Error('Selected room does not exist.');
+  return {
+    ...state,
+    rooms: state.rooms.filter((room) => room.id !== id),
+    layouts: state.layouts.map((layout) => {
+      if (layout.roomId !== id) return layout;
+      const remaining = { ...layout };
+      delete remaining.roomId;
+      return remaining;
+    }),
+  };
+}
+
 export function used(layout: Layout, trackId: string): number {
-  return layout.pieces.filter((piece) => piece.trackId === trackId).length;
+  return layout.pieces.reduce((total, piece) => total + requirement(piece, trackId), 0);
+}
+
+function requirement(piece: Piece, id: string): number {
+  return (
+    Number(piece.trackId === id || !!piece.accessories?.includes(id)) +
+    (powerSupplies(piece).find((entry) => entry.id === id)?.quantity ?? 0)
+  );
+}
+
+export function setElectrical(
+  state: PlannerState,
+  id: string,
+  settings: ElectricalSettings,
+): PlannerState {
+  const piece = selection(state, [id])[0];
+  if (!piece) throw new Error('Select one track piece.');
+  if (piece.locked) throw new Error('Unlock the selected pieces before moving or deleting them.');
+  const next = { ...piece };
+  if (Object.keys(settings).length) next.electrical = settings;
+  else delete next.electrical;
+  validateElectrical(next);
+  const layout = activeLayout(state);
+  return updateLayout(state, {
+    ...layout,
+    pieces: layout.pieces.map((entry) => (entry.id === id ? next : entry)),
+  });
 }
 
 export function available(state: PlannerState, trackId: string): number {
@@ -33,15 +115,47 @@ export function shoppingList(state: PlannerState): { trackId: string; quantity: 
   });
 }
 
-export function missingPieceIds(state: PlannerState): Set<string> {
+export function missingPieceIds(state: PlannerState, accessoryId?: string): Set<string> {
   const usedCounts = new Map<string, number>();
   return new Set(
     activeLayout(state).pieces.flatMap((piece) => {
-      const count = (usedCounts.get(piece.trackId) ?? 0) + 1;
-      usedCounts.set(piece.trackId, count);
-      return count > (state.inventory[piece.trackId] ?? 0) ? [piece.id] : [];
+      const id = accessoryId ?? piece.trackId;
+      const quantity = requirement(piece, id);
+      if (!quantity) return [];
+      const count = (usedCounts.get(id) ?? 0) + quantity;
+      usedCounts.set(id, count);
+      return count > (state.inventory[id] ?? 0) ? [piece.id] : [];
     }),
   );
+}
+
+function validateAccessories(piece: Piece): void {
+  validateElectrical(piece);
+  if (definition(piece.trackId).attachment)
+    throw new Error('Accessories must be attached to a compatible straight.');
+  const accessories = piece.accessories ?? [];
+  if (
+    new Set(accessories).size !== accessories.length ||
+    accessories.length > 1 ||
+    accessories.some((id) => !accessoryFits(piece.trackId, id))
+  )
+    throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+}
+
+export function setAccessory(
+  state: PlannerState,
+  pieceId: string,
+  accessoryId: string,
+  attached: boolean,
+): PlannerState {
+  const piece = selection(state, [pieceId])[0];
+  if (!piece) throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+  if (piece.locked) throw new Error('Unlock the selected pieces before moving or deleting them.');
+  if (!accessoryFits(piece.trackId, accessoryId))
+    throw new Error('Select one compatible Hornby straight at least 168 mm long.');
+  const accessories = (piece.accessories ?? []).filter((id) => id !== accessoryId);
+  if (attached) accessories.push(accessoryId);
+  return putPiece(state, { ...piece, accessories });
 }
 
 export function putPiece(state: PlannerState, piece: Piece): PlannerState {
@@ -54,7 +168,7 @@ export function putPieces(state: PlannerState, pieces: readonly Piece[]): Planne
   const layout = activeLayout(state);
   const replacements = new Map(pieces.map((piece) => [piece.id, piece]));
   for (const piece of pieces) {
-    definition(piece.trackId);
+    validateAccessories(piece);
     if (![piece.x, piece.y, piece.angle].every(Number.isFinite))
       throw new Error('Position must be finite.');
     const existing = layout.pieces.find((entry) => entry.id === piece.id);
@@ -66,7 +180,9 @@ export function putPieces(state: PlannerState, pieces: readonly Piece[]): Planne
         existing.y !== piece.y ||
         existing.angle !== piece.angle ||
         existing.flipped !== piece.flipped ||
-        existing.locked !== piece.locked)
+        existing.locked !== piece.locked ||
+        JSON.stringify(existing.electrical) !== JSON.stringify(piece.electrical) ||
+        JSON.stringify(existing.accessories ?? []) !== JSON.stringify(piece.accessories ?? []))
     )
       throw new Error('Unlock the selected pieces before moving or deleting them.');
   }
@@ -154,6 +270,29 @@ export function updateLayout(state: PlannerState, layout: Layout): PlannerState 
   };
 }
 
+export function putBoard(state: PlannerState, board: Board): PlannerState {
+  validateBoard(board);
+  const layout = activeLayout(state);
+  const exists = layout.boards.some((b) => b.id === board.id);
+  if (!exists && layout.boards.length >= 50)
+    throw new Error('A layout can contain at most 50 baseboard shapes.');
+  return updateLayout(state, {
+    ...layout,
+    boards: exists
+      ? layout.boards.map((b) => (b.id === board.id ? board : b))
+      : [...layout.boards, board],
+  });
+}
+
+export function removeBoard(state: PlannerState, id: string): PlannerState {
+  const layout = activeLayout(state);
+  if (!layout.boards.some((board) => board.id === id)) throw new Error('Select a baseboard shape.');
+  return updateLayout(state, {
+    ...layout,
+    boards: layout.boards.filter((board) => board.id !== id),
+  });
+}
+
 export function setInventory(state: PlannerState, id: string, quantity: number): PlannerState {
   definition(id);
   if (!Number.isSafeInteger(quantity) || quantity < 0 || quantity > 9999)
@@ -179,10 +318,114 @@ function number(value: unknown): number {
   return value;
 }
 
+function parseAccessories(value: unknown, version: unknown): Pick<Piece, 'accessories'> {
+  if (value === undefined) return {};
+  if (version !== 3 && version !== 4 && version !== 5 && version !== 6)
+    throw new Error('Accessories require backup format 3 or newer.');
+  if (!Array.isArray(value) || value.length > 1) throw new Error('Invalid accessories in backup.');
+  return { accessories: value.map(text) };
+}
+
+function parseElectrical(value: unknown, version: unknown): Pick<Piece, 'electrical'> {
+  if (value === undefined) return {};
+  if (version !== 6) throw new Error('Power settings require backup format 6.');
+  const raw = record(value);
+  const electrical: ElectricalSettings = {};
+  if (raw['pointRoute'] !== undefined) {
+    if (raw['pointRoute'] !== 0 && raw['pointRoute'] !== 1)
+      throw new Error('Choose a supported point route.');
+    electrical.pointRoute = raw['pointRoute'];
+  }
+  if (raw['bypass'] !== undefined) {
+    if (raw['bypass'] !== 'clips' && raw['bypass'] !== 'soldered')
+      throw new Error('Choose a supported point bypass.');
+    electrical.bypass = raw['bypass'];
+  }
+  if (raw['feed'] !== undefined) electrical.feed = parseFeed(raw['feed']);
+  return { electrical };
+}
+
+function parseFeed(value: unknown): NonNullable<ElectricalSettings['feed']> {
+  const feed = record(value);
+  const kind = feed['kind'],
+    connected = feed['connected'];
+  if (kind !== 'native' && kind !== 'r602' && kind !== 'r8242' && kind !== 'manual')
+    throw new Error('Choose a valid power feed.');
+  if (typeof connected !== 'boolean') throw new Error('Invalid power feed connection flag.');
+  return { kind, connected, port: number(feed['port']) };
+}
+
+function parsePowerMode(value: unknown, version: unknown): Pick<Layout, 'powerMode'> {
+  if (value === undefined) return {};
+  if (version !== 6) throw new Error('Power settings require backup format 6.');
+  if (value !== 'dc' && value !== 'dcc') throw new Error('Choose DC or DCC power.');
+  return { powerMode: value };
+}
+
+function parsePiece(value: unknown, version: unknown): Piece {
+  const p = record(value);
+  const trackId = text(p['trackId']);
+  definition(trackId);
+  if (typeof p['flipped'] !== 'boolean') throw new Error('Invalid track orientation.');
+  if (p['locked'] !== undefined && typeof p['locked'] !== 'boolean')
+    throw new Error('Invalid piece lock in backup.');
+  const piece: Piece = {
+    id: text(p['id']),
+    trackId,
+    x: number(p['x']),
+    y: number(p['y']),
+    angle: number(p['angle']),
+    flipped: p['flipped'],
+    ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
+    ...parseAccessories(p['accessories'], version),
+    ...parseElectrical(p['electrical'], version),
+  };
+  validateAccessories(piece);
+  return piece;
+}
+
+function parseLayout(value: unknown, version: unknown): Layout {
+  const raw = record(value);
+  const rawPieces = raw['pieces'];
+  const rawBoards = raw['boards'];
+  if (
+    !Array.isArray(rawPieces) ||
+    rawPieces.length > 2000 ||
+    !Array.isArray(rawBoards) ||
+    rawBoards.length > 50
+  )
+    throw new Error('Invalid or excessively large layout.');
+  const pieces = rawPieces.map((value) => parsePiece(value, version));
+  if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
+    throw new Error('Duplicate piece identifiers.');
+  const boards = rawBoards.map((value, index) => parseBoard(value, version, index));
+  if (new Set(boards.map((b) => b.id)).size !== boards.length)
+    throw new Error('Duplicate baseboard identifiers.');
+  const roomId = raw['roomId'];
+  if (roomId !== undefined && version !== 5 && version !== 6)
+    throw new Error('Rooms require backup format 5.');
+  const layout: Layout = {
+    id: text(raw['id']),
+    name: text(raw['name']),
+    pieces,
+    boards,
+    ...(roomId === undefined ? {} : { roomId: text(roomId) }),
+    ...parsePowerMode(raw['powerMode'], version),
+  };
+  return layout;
+}
+
 export function parseState(json: string): PlannerState {
   if (json.length > 4_000_000) throw new Error('Backup exceeds the 4 MB import limit.');
   const data = record(JSON.parse(json));
-  if (data['version'] !== 1 && data['version'] !== 2)
+  if (
+    data['version'] !== 1 &&
+    data['version'] !== 2 &&
+    data['version'] !== 3 &&
+    data['version'] !== 4 &&
+    data['version'] !== 5 &&
+    data['version'] !== 6
+  )
     throw new Error('Unsupported backup version. Your original data has not been changed.');
   const rawInventory = record(data['inventory']);
   const inventory: Record<string, number> = {};
@@ -196,62 +439,65 @@ export function parseState(json: string): PlannerState {
   const rawLayouts = data['layouts'];
   if (!Array.isArray(rawLayouts) || !rawLayouts.length || rawLayouts.length > 100)
     throw new Error('Backup must contain between 1 and 100 layouts.');
-  const layouts = rawLayouts.map((value): Layout => {
-    const raw = record(value);
-    const rawPieces = raw['pieces'];
-    const rawBoards = raw['boards'];
-    if (
-      !Array.isArray(rawPieces) ||
-      rawPieces.length > 2000 ||
-      !Array.isArray(rawBoards) ||
-      rawBoards.length > 50
-    )
-      throw new Error('Invalid or excessively large layout.');
-    const pieces = rawPieces.map((value): Piece => {
-      const p = record(value);
-      const trackId = text(p['trackId']);
-      definition(trackId);
-      if (typeof p['flipped'] !== 'boolean') throw new Error('Invalid track orientation.');
-      if (p['locked'] !== undefined && typeof p['locked'] !== 'boolean')
-        throw new Error('Invalid piece lock in backup.');
-      return {
-        id: text(p['id']),
-        trackId,
-        x: number(p['x']),
-        y: number(p['y']),
-        angle: number(p['angle']),
-        flipped: p['flipped'],
-        ...(typeof p['locked'] === 'boolean' ? { locked: p['locked'] } : {}),
-      };
-    });
-    if (new Set(pieces.map((p) => p.id)).size !== pieces.length)
-      throw new Error('Duplicate piece identifiers.');
-    const boards = rawBoards.map((value) => {
-      const b = record(value);
-      const width = number(b['width']);
-      const height = number(b['height']);
-      if (width <= 0 || height <= 0) throw new Error('Baseboard dimensions must be positive.');
-      return { x: number(b['x']), y: number(b['y']), width, height };
-    });
-    if (!joinedBoards(boards))
-      throw new Error('Baseboard rectangles must share an edge or overlap.');
-    const layout = { id: text(raw['id']), name: text(raw['name']), pieces, boards };
-    return layout;
-  });
+  const layouts = rawLayouts.map((value) => parseLayout(value, data['version']));
   if (new Set(layouts.map((l) => l.id)).size !== layouts.length)
     throw new Error('Duplicate layout identifiers.');
   const state: PlannerState = {
-    version: 2,
+    version: 6,
+    rooms: [],
     inventory,
     layouts,
     activeLayoutId: text(data['activeLayoutId']),
   };
+  loadRooms(state, data);
   activeLayout(state);
   return state;
 }
 
+function loadRooms(state: PlannerState, data: Record<string, unknown>): void {
+  if (data['version'] !== 5 && data['version'] !== 6) {
+    if (data['rooms'] !== undefined) throw new Error('Rooms require backup format 5.');
+    return;
+  }
+  const rooms = data['rooms'];
+  if (!Array.isArray(rooms) || rooms.length > 50) throw new Error('Invalid rooms in backup.');
+  for (const value of rooms) {
+    const room = parseRoom(value, data['version']);
+    if (state.rooms.some((entry) => entry.id === room.id))
+      throw new Error('Duplicate room identifiers.');
+    state.rooms = putRoom(state, room).rooms;
+  }
+  for (const layout of state.layouts)
+    if (layout.roomId && !state.rooms.some((room) => room.id === layout.roomId))
+      throw new Error('Selected room does not exist.');
+}
+
+function parseRoom(value: unknown, version: unknown): Room {
+  const raw = record(value);
+  const shapes = raw['shapes'];
+  if (!Array.isArray(shapes) || shapes.length > 50)
+    throw new Error('Invalid room shapes in backup.');
+  return {
+    id: text(raw['id']),
+    name: text(raw['name']),
+    shapes: shapes.map((value) => {
+      const entry = record(value);
+      const role = entry['role'];
+      if (role !== 'outline' && role !== 'furniture') throw new Error('Invalid room shape role.');
+      return {
+        name: text(entry['name']),
+        role,
+        shape: parseBoard(entry['shape'], version, 0),
+      };
+    }),
+  };
+}
+
 export function layoutProblems(layout: Layout): string[] {
   return [
+    ...(!joinedBoards(layout.boards)
+      ? ['Baseboard shapes are disconnected. Snap or move them together.']
+      : []),
     ...new Set(
       layout.pieces.flatMap((piece, index) => {
         const problem = placementProblem(piece, layout.pieces.slice(0, index), layout.boards);
@@ -259,4 +505,61 @@ export function layoutProblems(layout: Layout): string[] {
       }),
     ),
   ];
+}
+
+function parseBoard(value: unknown, version: unknown, index: number): Board {
+  const raw = record(value);
+  if (version !== 4 && version !== 5 && version !== 6) {
+    const width = number(raw['width']),
+      height = number(raw['height']);
+    if (width <= 0 || height <= 0) throw new Error('Baseboard dimensions must be positive.');
+    const board = rectangleBoard(
+      `legacy-board-${index + 1}`,
+      number(raw['x']),
+      number(raw['y']),
+      width,
+      height,
+    );
+    validateBoard(board);
+    return board;
+  }
+  const pose = {
+    id: text(raw['id']),
+    x: number(raw['x']),
+    y: number(raw['y']),
+    angle: number(raw['angle']),
+  };
+  let board: Board;
+  switch (raw['kind']) {
+    case 'polygon': {
+      const points = raw['points'];
+      if (!Array.isArray(points) || points.length < 3 || points.length > 16)
+        throw new Error('Baseboard polygons need 3 to 16 finite corners.');
+      board = {
+        ...pose,
+        kind: 'polygon',
+        points: points.map((value) => {
+          const p = record(value);
+          return { x: number(p['x']), y: number(p['y']) };
+        }),
+      };
+      break;
+    }
+    case 'circle':
+      board = { ...pose, kind: 'circle', radius: number(raw['radius']) };
+      break;
+    case 'arc':
+      board = {
+        ...pose,
+        kind: 'arc',
+        radius: number(raw['radius']),
+        innerRadius: number(raw['innerRadius']),
+        sweep: number(raw['sweep']),
+      };
+      break;
+    default:
+      throw new Error('Unknown baseboard shape.');
+  }
+  validateBoard(board);
+  return board;
 }

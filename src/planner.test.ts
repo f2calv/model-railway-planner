@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { definition } from './catalog';
-import {
-  connected,
-  joinedBoards,
-  placementProblem,
-  ports,
-  routePose,
-  snapPiece,
-  snapGroup,
-} from './geometry';
+import { connected, placementProblem, ports, routePose, snapPiece, snapGroup } from './geometry';
 import {
   activeLayout,
   available,
@@ -24,6 +16,14 @@ import {
   removePieces,
   setPieceLocks,
   resetInventory,
+  setAccessory,
+  putBoard,
+  removeBoard,
+  layoutProblems,
+  assignedRoom,
+  assignRoom,
+  putRoom,
+  removeRoom,
 } from './state';
 import {
   createHistory,
@@ -34,7 +34,18 @@ import {
   type Activity,
 } from './history';
 import { loadState, saveState, storageKey } from './storage';
-import type { Piece, PlannerState } from './model';
+import type { Board, Piece, PlannerState, Room } from './model';
+import { roomProblems } from './rooms';
+import {
+  boardBounds,
+  boardPath,
+  containsBoard,
+  joinedBoards,
+  moveBoardCorner,
+  rectangleBoard,
+  snapBoard,
+  validateBoard,
+} from './baseboards';
 import { compatibleProfiles, manufacturerProfile } from './profiles';
 import { csvCell, csvExport, svgExport } from './exports';
 import { translate } from './i18n';
@@ -52,7 +63,366 @@ const piece = (id: string, x = 0, y = 0, angle = 0, trackId = straightId): Piece
 });
 const stock = (id = straightId, count = 10) => setInventory(emptyState('first'), id, count);
 
+describe('named rooms', () => {
+  const room: Room = {
+    id: 'room',
+    name: 'Example room',
+    shapes: [
+      { name: 'Room outline', role: 'outline', shape: rectangleBoard('floor', 0, 0, 4000, 3000) },
+      { name: 'Table', role: 'furniture', shape: rectangleBoard('table', 100, 100, 2000, 1000) },
+    ],
+  };
+  it('shares a named room between ideas without moving track or boards and deletes references atomically', () => {
+    const first = assignRoom(
+      putRoom(
+        putBoard(
+          putPiece(stock(), piece('track', 200, 200)),
+          rectangleBoard('board', 100, 100, 1000, 500),
+        ),
+        room,
+      ),
+      room.id,
+    );
+    const shared = {
+      ...first,
+      layouts: [...first.layouts, { ...activeLayout(first), id: 'other', name: 'Other idea' }],
+    };
+    const changed = putRoom(shared, {
+      ...room,
+      shapes: room.shapes.map((entry) => ({
+        ...entry,
+        shape: { ...entry.shape, x: entry.shape.x + 10 },
+      })),
+    });
+    expect(changed.layouts).toEqual(shared.layouts);
+    expect(assignedRoom({ ...changed, activeLayoutId: 'other' })?.shapes[1]?.shape.x).toBe(110);
+    expect(shared.rooms[0]?.shapes[1]?.shape.x).toBe(100);
+    const removed = removeRoom(changed, room.id);
+    expect(removed.layouts.every((layout) => layout.roomId === undefined)).toBe(true);
+    expect(removed.layouts[0]?.pieces).toEqual(first.layouts[0]?.pieces);
+    expect(removed.layouts[1]?.boards).toEqual(first.layouts[0]?.boards);
+    expect(undoHistory(recordHistory(createHistory(changed), removed)).current).toEqual(changed);
+    expect(parseState(JSON.stringify(changed))).toEqual(changed);
+  });
+  it('migrates format 4 geometry and rejects dangling rooms, duplicate outlines and malformed furniture', () => {
+    const initial = putBoard(emptyState('legacy'), rectangleBoard('board', 0, 0, 1000, 500));
+    expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 4 }))).toEqual(
+      initial,
+    );
+    expect(() =>
+      parseState(
+        JSON.stringify({ ...initial, layouts: [{ ...activeLayout(initial), roomId: 'missing' }] }),
+      ),
+    ).toThrow(/room/);
+    expect(() =>
+      putRoom(initial, {
+        ...room,
+        shapes: [
+          ...room.shapes,
+          {
+            name: 'Second outline',
+            role: 'outline',
+            shape: rectangleBoard('second', 0, 0, 100, 100),
+          },
+        ],
+      }),
+    ).toThrow(/one outline/);
+    const valid = putRoom(initial, room);
+    expect(() => parseState(JSON.stringify({ ...valid, rooms: [...valid.rooms, room] }))).toThrow(
+      /Duplicate room/,
+    );
+    expect(() =>
+      parseState(
+        JSON.stringify({
+          ...initial,
+          rooms: [
+            {
+              ...room,
+              shapes: [
+                {
+                  name: 'Bad furniture',
+                  role: 'furniture',
+                  shape: { id: 'bad', kind: 'circle', x: 0, y: 0, angle: 0, radius: -1 },
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/radius/);
+  });
+  it('warns about room boundaries without preventing reference furniture or board placement', () => {
+    const initial = putBoard(
+      putPiece(stock(), piece('track', 5000, 5000)),
+      rectangleBoard('outside', 5000, 5000, 500, 250),
+    );
+    const state = assignRoom(
+      putRoom(initial, {
+        ...room,
+        shapes: [
+          ...room.shapes,
+          {
+            name: 'Round table',
+            role: 'furniture',
+            shape: { id: 'round', kind: 'circle', x: 5000, y: 5000, angle: 0, radius: 200 },
+          },
+        ],
+      }),
+      room.id,
+    );
+    expect(roomProblems(state)).toEqual([
+      'Baseboard extends outside the selected room.',
+      'Track extends outside the selected room.',
+      'Furniture extends outside the room outline.',
+    ]);
+    expect(roomProblems(assignRoom(state, ''))).toEqual([]);
+    expect(activeLayout(state).pieces).toEqual(activeLayout(initial).pieces);
+  });
+  it('exports the selected room beneath boards and escapes furniture names', () => {
+    const initial = putBoard(
+      putPiece(stock(), piece('track', 200, 200)),
+      rectangleBoard('board', 100, 100, 1000, 500),
+    );
+    const table = room.shapes.find((entry) => entry.role === 'furniture');
+    const outline = room.shapes.find((entry) => entry.role === 'outline');
+    if (!table || !outline) throw new Error('Expected room and furniture.');
+    const selected = assignRoom(
+      putRoom(initial, { ...room, shapes: [{ ...table, name: 'Table <example>' }, outline] }),
+      room.id,
+    );
+    const drawing = svgExport(selected);
+    expect(drawing).toContain('width="4040mm" height="3040mm"');
+    expect(drawing.indexOf('data-room-shape="floor"')).toBeLessThan(
+      drawing.indexOf('data-room-shape="table"'),
+    );
+    expect(drawing.indexOf('data-room-shape="table"')).toBeLessThan(
+      drawing.indexOf('data-board="board"'),
+    );
+    expect(drawing).toContain('Table &lt;example&gt;');
+    expect(drawing).not.toContain('Table <example>');
+    expect(svgExport(assignRoom(selected, ''))).not.toContain('data-room-shape');
+  });
+});
+
+describe('geometric baseboards', () => {
+  it('contains rotated polygons and circular sectors without filling an arc strip hole', () => {
+    const polygon = { ...rectangleBoard('rotated', 100, 0, 200, 100), angle: 90 };
+    expect(containsBoard(polygon, { x: 50, y: 100 })).toBe(true);
+    expect(containsBoard(polygon, { x: 150, y: 100 })).toBe(false);
+    expect(boardBounds(polygon).width).toBeCloseTo(100);
+    expect(boardBounds(polygon).height).toBeCloseTo(200);
+    const arc: Board = {
+      id: 'arc',
+      kind: 'arc',
+      x: 0,
+      y: 0,
+      angle: 0,
+      radius: 500,
+      innerRadius: 250,
+      sweep: 90,
+    };
+    expect(containsBoard(arc, { x: 300, y: 300 })).toBe(true);
+    expect(containsBoard(arc, { x: 0, y: 0 })).toBe(false);
+    expect(containsBoard(arc, { x: -300, y: 300 })).toBe(false);
+    expect(containsBoard({ ...arc, angle: 90 }, { x: -300, y: 300 })).toBe(true);
+    const ring = { ...arc, sweep: 360 };
+    expect(containsBoard(ring, { x: -300, y: -300 })).toBe(true);
+    expect(boardPath(ring).match(/ A/g)).toHaveLength(4);
+    expect(placementProblem(piece('track', -84, 0), [], [ring])?.kind).toBe('board');
+  });
+
+  it('joins tangent circles and intersecting edges but reports genuine gaps and separate islands', () => {
+    const circle: Board = { id: 'one', kind: 'circle', x: 0, y: 0, angle: 0, radius: 100 };
+    const second = { ...circle, id: 'two', x: Math.SQRT2 * 100, y: Math.SQRT2 * 100 };
+    expect(joinedBoards([circle, second])).toBe(true);
+    expect(joinedBoards([circle, { ...second, x: second.x + 1 }])).toBe(false);
+    const ring: Board = { ...circle, kind: 'arc', innerRadius: 60, sweep: 360 };
+    expect(joinedBoards([ring, { ...circle, id: 'island', radius: 20 }])).toBe(false);
+    const angle = (33 * Math.PI) / 180;
+    for (const gap of [0, 0.05, 0.11]) {
+      const edge = {
+        ...rectangleBoard('edge', 0, 0, 20, 20),
+        x: (100 + gap) * Math.cos(angle) + 10 * Math.sin(angle),
+        y: (100 + gap) * Math.sin(angle) - 10 * Math.cos(angle),
+        angle: 33,
+      };
+      expect(joinedBoards([circle, edge]), `rotated edge gap ${gap} mm`).toBe(gap <= 0.1);
+    }
+    expect(
+      joinedBoards([
+        rectangleBoard('a', -200, -10, 400, 20),
+        rectangleBoard('b', -10, -200, 20, 400),
+      ]),
+    ).toBe(true);
+  });
+
+  it('snaps board edges in model units without rotating or changing dimensions', () => {
+    const base = rectangleBoard('base', 0, 0, 1000, 500);
+    const candidate = rectangleBoard('next', 1010, 0, 500, 500);
+    const result = snapBoard(candidate, [base], 15);
+    expect(result.x).toBe(1000);
+    expect(result.y).toBe(0);
+    expect(result.angle).toBe(candidate.angle);
+    expect(joinedBoards([base, result])).toBe(true);
+    expect(snapBoard(candidate, [base], 5)).toEqual(candidate);
+  });
+
+  it('turns a rectangle into a trapezoid while rejecting crossed or collapsed corners', () => {
+    const board = rectangleBoard('board', 0, 0, 100, 100);
+    const trapezoid = moveBoardCorner(board, 1, { x: 70, y: 0 });
+    expect(containsBoard(trapezoid, { x: 80, y: 10 })).toBe(false);
+    expect(containsBoard(trapezoid, { x: 80, y: 90 })).toBe(true);
+    expect(() => moveBoardCorner(board, 1, { x: -10, y: 110 })).toThrow(/convex|cross/);
+    expect(() => moveBoardCorner(board, 1, { x: 0, y: 0 })).toThrow(/convex/);
+    expect(() =>
+      validateBoard({
+        id: 'bad',
+        kind: 'arc',
+        x: 0,
+        y: 0,
+        angle: 0,
+        radius: 100,
+        innerRadius: 100,
+        sweep: 90,
+      }),
+    ).toThrow(/inner radius/);
+  });
+
+  it('lets board edits expose warnings without moving track, and restores the entire edit through history', () => {
+    const track = putPiece(stock(), piece('track', 50, 100));
+    const board = rectangleBoard('board', 0, 0, 500, 500);
+    const before = putBoard(track, board);
+    const next = putBoard(before, { ...board, x: 2000 });
+    expect(activeLayout(next).pieces).toEqual(activeLayout(before).pieces);
+    expect(layoutProblems(activeLayout(next))).toContain(
+      'Track footprint must stay inside the baseboard.',
+    );
+    const history = recordHistory(createHistory(before), next);
+    expect(undoHistory(history).current).toEqual(before);
+    expect(parseState(JSON.stringify(next))).toEqual(next);
+    expect(activeLayout(removeBoard(next, board.id)).pieces).toEqual(activeLayout(track).pieces);
+  });
+
+  it('migrates old rectangles to stable polygon IDs and rejects invalid new shape references', () => {
+    const state = emptyState('legacy');
+    for (const version of [1, 2, 3]) {
+      const migrated = parseState(
+        JSON.stringify({
+          ...state,
+          rooms: undefined,
+          version,
+          layouts: [{ ...activeLayout(state), boards: [{ x: 0, y: 0, width: 1000, height: 500 }] }],
+        }),
+      );
+      expect(activeLayout(migrated).boards).toEqual([
+        rectangleBoard('legacy-board-1', 0, 0, 1000, 500),
+      ]);
+      expect(parseState(JSON.stringify(migrated))).toEqual(migrated);
+    }
+    const board = rectangleBoard('same', 0, 0, 100, 100);
+    const invalid = { ...state, layouts: [{ ...activeLayout(state), boards: [board, board] }] };
+    expect(() => parseState(JSON.stringify(invalid))).toThrow(/Duplicate baseboard/);
+    expect(() =>
+      parseState(
+        JSON.stringify({
+          ...state,
+          layouts: [
+            {
+              ...activeLayout(state),
+              boards: [{ ...board, kind: 'unknown' }],
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/Unknown baseboard/);
+    expect(
+      svgExport(
+        putBoard(state, {
+          id: 'ring',
+          kind: 'arc',
+          x: 0,
+          y: 0,
+          angle: 20,
+          radius: 500,
+          innerRadius: 250,
+          sweep: 360,
+        }),
+      ),
+    ).toContain('fill-rule="evenodd"');
+  });
+});
+
 describe('group transactions and history', () => {
+  it('counts attached crossings separately and keeps them through moves, backups and undo', () => {
+    const accessoryId = 'hornby-oo-r645';
+    const initial = putPiece(stock(), piece('a'));
+    const attached = setAccessory(initial, 'a', accessoryId, true);
+    expect(activeLayout(attached).pieces).toHaveLength(1);
+    const host = activeLayout(attached).pieces[0];
+    if (!host) throw new Error('Expected the accessory host.');
+    expect(ports(host)).toHaveLength(2);
+    expect(shoppingList(attached)).toEqual([{ trackId: accessoryId, quantity: 1 }]);
+    const moved = transformPieces(attached, ['a'], (p) => ({ ...p, x: 200, angle: 90 }));
+    expect(parseState(JSON.stringify(moved))).toEqual(moved);
+    expect(activeLayout(moved).pieces[0]?.accessories).toEqual([accessoryId]);
+    const history = recordHistory(createHistory(initial), moved);
+    expect(undoHistory(history).current).toEqual(initial);
+    expect(redoHistory(undoHistory(history)).current).toEqual(moved);
+    expect(svgExport(moved)).toContain(`data-accessory="${accessoryId}"`);
+    expect(csvExport({ ...moved, inventory: {} }, true)).toContain(
+      '"R645","Single-track level crossing","0","1","1"',
+    );
+    const owned = setInventory(attached, accessoryId, 1);
+    expect(missingPieceIds(owned, accessoryId).size).toBe(0);
+    expect(missingPieceIds(attached, accessoryId).has('a')).toBe(true);
+    expect(shoppingList(setAccessory(owned, 'a', accessoryId, false))).toEqual([]);
+    expect(available(removePieces(owned, ['a']), accessoryId)).toBe(1);
+  });
+
+  it('rejects free-standing, incompatible, duplicated and locked accessory changes', () => {
+    const accessoryId = 'hornby-oo-r645';
+    const initial = putPiece(stock(), piece('a'));
+    expect(() => putPiece(initial, piece('accessory', 0, 300, 0, accessoryId))).toThrow(/attached/);
+    for (const trackId of [curveId, 'hornby-oo-r610', 'hornby-oo-r636']) {
+      const state = putPiece(emptyState('test'), piece('a', 0, 0, 0, trackId));
+      expect(() => setAccessory(state, 'a', accessoryId, true)).toThrow(/compatible/);
+    }
+    const locked = setPieceLocks(initial, ['a'], true);
+    expect(() => setAccessory(locked, 'a', accessoryId, true)).toThrow(/Unlock/);
+    const attached = setAccessory(initial, 'a', accessoryId, true);
+    const invalid = {
+      ...attached,
+      layouts: [
+        {
+          ...activeLayout(attached),
+          pieces: [{ ...piece('a'), accessories: [accessoryId, accessoryId] }],
+        },
+      ],
+    };
+    expect(() => parseState(JSON.stringify(invalid))).toThrow(/accessories/);
+    expect(() => parseState(JSON.stringify({ ...attached, version: 2 }))).toThrow(/format 3/);
+    expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 2 })).version).toBe(
+      6,
+    );
+  });
+
+  it('places a double-track crossing as one item with four usable connectors', () => {
+    const crossing = piece('crossing', 0, 0, 0, 'hornby-oo-r636');
+    expect(ports(crossing)).toEqual([
+      { x: 0, y: 0, angle: 180 },
+      { x: 0, y: 67, angle: 180 },
+      { x: 168, y: 0, angle: 0 },
+      { x: 168, y: 67, angle: 0 },
+    ]);
+    const state = putPieces(emptyState('test'), [crossing, piece('a', 168), piece('b', 168, 67)]);
+    expect(shoppingList(state).find((item) => item.trackId === crossing.trackId)?.quantity).toBe(1);
+    const power = piece('power', 170, 2, 0, 'hornby-oo-r8241');
+    const snapped = snapPiece(power, [crossing], 10);
+    expect(snapped?.piece.x).toBe(168);
+    expect(snapped?.piece.y).toBe(0);
+    expect(ports(power)[1]?.x).toBe(338);
+  });
+
   it('keeps the latest 300 local activity entries independently of document undo', () => {
     let entries: readonly Activity[] = [];
     for (let i = 0; i < 302; i++)
@@ -63,8 +433,10 @@ describe('group transactions and history', () => {
   });
   it('migrates legacy backups to a format older clients cannot overwrite while retaining their content', () => {
     const initial = putPiece(stock(), piece('a'));
-    expect(parseState(JSON.stringify({ ...initial, version: 1 }))).toEqual(initial);
-    expect(initial.version).toBe(2);
+    expect(parseState(JSON.stringify({ ...initial, rooms: undefined, version: 1 }))).toEqual(
+      initial,
+    );
+    expect(initial.version).toBe(6);
   });
   it('moves a connected group atomically past its original positions and rejects a collision', () => {
     const initial = putPieces(stock(), [piece('a'), piece('b', 168), piece('obstacle', 0, 300)]);
@@ -129,6 +501,8 @@ describe('group transactions and history', () => {
     it('translates dynamic quantities and geometry while rejecting malformed persisted preferences', () => {
       expect(translate('Place R600 Straight', 'de')).toBe('R600 Gerade platzieren');
       expect(translate('R438 mm / 22.5 degrees', 'fr')).toBe('R438 mm / 22.5 degrés');
+      expect(translate('Curves (3)', 'it')).toBe('Curve (3)');
+      expect(translate('Points (2)', 'de')).toBe('Weichen (2)');
       expect(translate('Removed: R600. Saved on this device.', 'it')).toBe(
         'Rimosso: R600. Salvato su questo dispositivo.',
       );
@@ -313,19 +687,16 @@ describe('clearance and baseboards', () => {
   );
 
   it('uses the union of joined rectangles without treating their shared seam as an edge', () => {
-    const boards = [
-      { x: 0, y: 0, width: 200, height: 200 },
-      { x: 200, y: 0, width: 200, height: 200 },
-    ];
+    const boards = [rectangleBoard('one', 0, 0, 200, 200), rectangleBoard('two', 200, 0, 200, 200)];
     expect(joinedBoards(boards)).toBe(true);
     expect(placementProblem(piece('a', 150, 100), [], boards)).toBeNull();
     expect(placementProblem(piece('a', 150, 5), [], boards)?.kind).toBe('board');
     expect(
       joinedBoards([
-        { x: 0, y: 0, width: 200, height: 200 },
-        { x: 200, y: 200, width: 200, height: 200 },
+        rectangleBoard('one', 0, 0, 200, 200),
+        rectangleBoard('two', 200, 200, 200, 200),
       ]),
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 
@@ -384,7 +755,7 @@ describe('inventory and durable documents', () => {
   it('validates imported nested references, stock, IDs, numbers and versions', () => {
     const state = putPiece(stock(), piece('a'));
     expect(parseState(JSON.stringify(state))).toEqual(state);
-    expect(() => parseState(JSON.stringify({ ...state, version: 3 }))).toThrow(/version/);
+    expect(() => parseState(JSON.stringify({ ...state, version: 7 }))).toThrow(/version/);
     const shortfall = parseState(JSON.stringify({ ...state, inventory: { [straightId]: 0 } }));
     expect(shoppingList(shortfall)).toEqual([{ trackId: straightId, quantity: 1 }]);
     expect(parseState(JSON.stringify({ ...state, inventory: {} })).layouts).toEqual(state.layouts);

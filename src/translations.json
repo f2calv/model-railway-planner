@@ -1,4 +1,1053 @@
 {
+  "Reset page settings": [
+    "Seiteneinstellungen zurücksetzen",
+    "Réinitialiser les réglages de la page",
+    "Restablecer ajustes de página",
+    "Ripristina impostazioni pagina"
+  ],
+  "Page settings stay on this device, separately from layouts and backups. Temporary selections and unapplied edits are not restored.": [
+    "Seiteneinstellungen bleiben auf diesem Gerät, getrennt von Gleisplänen und Backups. Temporäre Auswahlen und nicht übernommene Änderungen werden nicht wiederhergestellt.",
+    "Les réglages de la page restent sur cet appareil, séparément des réseaux et sauvegardes. Les sélections temporaires et modifications non appliquées ne sont pas restaurées.",
+    "Los ajustes de página permanecen en este dispositivo, separados de trazados y copias. No se restauran selecciones temporales ni cambios sin aplicar.",
+    "Le impostazioni pagina restano su questo dispositivo, separate da plastici e backup. Selezioni temporanee e modifiche non applicate non vengono ripristinate."
+  ],
+  "Page settings reset. Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen zurückgesetzt. Gleispläne und Bestand sind unverändert.",
+    "Réglages de la page réinitialisés. Réseaux et stock inchangés.",
+    "Ajustes de página restablecidos. Trazados e inventario sin cambios.",
+    "Impostazioni pagina ripristinate. Plastici e inventario invariati."
+  ],
+  "Could not read page settings: {reason} Use Reset page settings to recover. Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen konnten nicht gelesen werden: {reason} Zum Wiederherstellen Seiteneinstellungen zurücksetzen. Gleispläne und Bestand sind unverändert.",
+    "Lecture des réglages de la page impossible : {reason} Réinitialisez les réglages de la page pour récupérer. Réseaux et stock inchangés.",
+    "No se pudieron leer los ajustes de página: {reason} Restablézcalos para recuperar. Trazados e inventario sin cambios.",
+    "Impossibile leggere le impostazioni pagina: {reason} Ripristinale per recuperare. Plastici e inventario invariati."
+  ],
+  "Could not save page settings: {reason} Changes remain in this tab only. Use Reset page settings to retry. Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen konnten nicht gespeichert werden: {reason} Änderungen bleiben nur in diesem Tab. Zum erneuten Versuchen Seiteneinstellungen zurücksetzen. Gleispläne und Bestand sind unverändert.",
+    "Enregistrement des réglages de la page impossible : {reason} Les changements restent dans cet onglet seulement. Réinitialisez les réglages pour réessayer. Réseaux et stock inchangés.",
+    "No se pudieron guardar los ajustes de página: {reason} Los cambios permanecen solo en esta pestaña. Restablézcalos para reintentar. Trazados e inventario sin cambios.",
+    "Impossibile salvare le impostazioni pagina: {reason} Le modifiche restano solo in questa scheda. Ripristinale per riprovare. Plastici e inventario invariati."
+  ],
+  "Could not reset page settings: {reason} Layouts and inventory are unchanged.": [
+    "Seiteneinstellungen konnten nicht zurückgesetzt werden: {reason} Gleispläne und Bestand sind unverändert.",
+    "Réinitialisation des réglages de la page impossible : {reason} Réseaux et stock inchangés.",
+    "No se pudieron restablecer los ajustes de página: {reason} Trazados e inventario sin cambios.",
+    "Impossibile ripristinare le impostazioni pagina: {reason} Plastici e inventario invariati."
+  ],
+  "Switch to Pan": [
+    "Zum Verschieben wechseln",
+    "Passer au déplacement",
+    "Cambiar a desplazar",
+    "Passa a panoramica"
+  ],
+  "Switch to Select": [
+    "Zur Auswahl wechseln",
+    "Passer à la sélection",
+    "Cambiar a selección",
+    "Passa a selezione"
+  ],
+  "Fit railway": ["Gleise einpassen", "Cadrer les voies", "Ajustar vías", "Inquadra binari"],
+  "Fit baseboards": [
+    "Grundplatten einpassen",
+    "Cadrer les plateaux",
+    "Ajustar tableros",
+    "Inquadra basi"
+  ],
+  "Fit room": ["Raum einpassen", "Cadrer la pièce", "Ajustar habitación", "Inquadra stanza"],
+  "Planner": ["Planer", "Planificateur", "Planificador", "Pianificatore"],
+  "Track catalog": ["Gleiskatalog", "Catalogue des voies", "Catálogo de vías", "Catalogo binari"],
+  "Application pages": [
+    "Anwendungsseiten",
+    "Pages de l’application",
+    "Páginas de la aplicación",
+    "Pagine dell’applicazione"
+  ],
+  "Gauge": ["Spurweite", "Écartement", "Ancho de vía", "Scartamento"],
+  "Brand": ["Marke", "Marque", "Marca", "Marca"],
+  "All brands": ["Alle Marken", "Toutes les marques", "Todas las marcas", "Tutte le marche"],
+  "All {gauge} brands": [
+    "Alle {gauge}-Marken",
+    "Toutes les marques {gauge}",
+    "Todas las marcas {gauge}",
+    "Tutte le marche {gauge}"
+  ],
+  "Layout actions": [
+    "Gleisplan-Aktionen",
+    "Actions du réseau",
+    "Acciones del trazado",
+    "Azioni del plastico"
+  ],
+  "Room actions": [
+    "Raum-Aktionen",
+    "Actions de la pièce",
+    "Acciones de la habitación",
+    "Azioni della stanza"
+  ],
+  "All gauges": [
+    "Alle Spurweiten",
+    "Tous les écartements",
+    "Todos los anchos",
+    "Tutti gli scartamenti"
+  ],
+  "All registered pieces, not just owned stock. Filters do not change your layouts or inventory.": [
+    "Alle registrierten Teile, nicht nur der eigene Bestand. Filter ändern weder Gleispläne noch Bestand.",
+    "Toutes les pièces enregistrées, pas seulement celles possédées. Les filtres ne modifient ni réseaux ni stock.",
+    "Todas las piezas registradas, no solo las propias. Los filtros no cambian trazados ni inventario.",
+    "Tutti i pezzi registrati, non solo quelli posseduti. I filtri non modificano plastici o inventario."
+  ],
+  "Registered track pieces": [
+    "Registrierte Gleisstücke",
+    "Pièces de voie enregistrées",
+    "Piezas de vía registradas",
+    "Binari registrati"
+  ],
+  "No registered pieces match these filters.": [
+    "Keine registrierten Teile entsprechen den Filtern.",
+    "Aucune pièce ne correspond aux filtres.",
+    "Ninguna pieza coincide con los filtros.",
+    "Nessun pezzo corrisponde ai filtri."
+  ],
+  "{count} registered pieces": [
+    "{count} registrierte Teile",
+    "{count} pièces enregistrées",
+    "{count} piezas registradas",
+    "{count} pezzi registrati"
+  ],
+  "Code": ["Artikelnummer", "Référence", "Código", "Codice"],
+  "Scale / gauge": [
+    "Maßstab / Spurweite",
+    "Échelle / écartement",
+    "Escala / ancho",
+    "Scala / scartamento"
+  ],
+  "Description": ["Beschreibung", "Description", "Descripción", "Descrizione"],
+  "Dimensions": ["Abmessungen", "Dimensions", "Dimensiones", "Dimensioni"],
+  "Owned": ["Im Bestand", "Possédées", "Propias", "Posseduti"],
+  "Owned only": ["Nur im Bestand", "Possédées uniquement", "Solo propias", "Solo posseduti"],
+  "Preview": ["Vorschau", "Aperçu", "Vista previa", "Anteprima"],
+  "Schematic previews are individually scaled; accessories use a symbol, not a physical footprint.": [
+    "Schematische Vorschauen sind einzeln skaliert; Zubehör wird als Symbol ohne physische Grundfläche dargestellt.",
+    "Les aperçus schématiques sont mis à l'échelle individuellement ; les accessoires utilisent un symbole, pas une empreinte physique.",
+    "Las vistas esquemáticas se escalan individualmente; los accesorios usan un símbolo, no una huella física.",
+    "Le anteprime schematiche sono scalate singolarmente; gli accessori usano un simbolo, non un ingombro fisico."
+  ],
+  "Source": ["Quelle", "Source", "Fuente", "Fonte"],
+  "Product source": [
+    "Produktquelle",
+    "Source produit",
+    "Fuente del producto",
+    "Fonte del prodotto"
+  ],
+  "Standard curve": ["Standardkurve", "Courbe standard", "Curva estándar", "Curva standard"],
+  "Starter gauge catalog: track widths are schematic and parallel clearance is not verified. Check actual track and rolling-stock envelopes physically.": [
+    "Einstiegskatalog: Gleisbreiten sind schematisch und Parallelabstände ungeprüft. Tatsächliche Gleise und Fahrzeugfreiräume prüfen.",
+    "Catalogue initial : largeurs schématiques et dégagement parallèle non vérifié. Vérifiez physiquement voies et véhicules.",
+    "Catálogo inicial: anchuras esquemáticas y separación paralela sin verificar. Compruebe físicamente vías y vehículos.",
+    "Catalogo iniziale: larghezze schematiche e distanze parallele non verificate. Controlla fisicamente binari e veicoli."
+  ],
+  "Use Switch to Pan to drag the canvas without moving pieces; Switch to Select restores selection. Choosing a piece or shape returns to editing. Space + drag temporarily pans; scroll or pinch zooms. Fit railway, Fit baseboards and Fit room frame each layer independently.": [
+    "Mit Zum Verschieben wechseln die Zeichenfläche bewegen, ohne Teile zu verschieben. Zur Auswahl wechseln aktiviert die Auswahl. Eine Teile- oder Formwahl aktiviert Bearbeitung. Leertaste + Ziehen verschiebt vorübergehend; Scrollen oder Aufziehen zoomt. Gleise, Grundplatten und Raum lassen sich getrennt einpassen.",
+    "Passer au déplacement déplace la vue sans déplacer les pièces ; Passer à la sélection rétablit la sélection. Choisir une pièce ou forme réactive l’édition. Espace + glisser déplace temporairement ; défilement ou pincement zoome. Chaque couche dispose de son cadrage.",
+    "Cambiar a desplazar mueve el lienzo sin mover piezas; Cambiar a selección restaura la selección. Elegir pieza o forma activa la edición. Espacio + arrastrar desplaza temporalmente; rueda o pellizco amplía. Cada capa se ajusta por separado.",
+    "Passa a panoramica sposta la vista senza muovere i pezzi; Passa a selezione ripristina la selezione. Scegliere pezzi o forme riattiva la modifica. Spazio + trascina sposta temporaneamente; rotella o pizzico cambia zoom. Ogni livello si inquadra separatamente."
+  ],
+  "Track power": [
+    "Stromversorgung",
+    "Alimentation des voies",
+    "Alimentación de vías",
+    "Alimentazione dei binari"
+  ],
+  "Powered estimates assume all planned parts are fitted, including shopping-list items.": [
+    "Die Stromschätzung setzt alle geplanten Teile voraus, einschließlich der Einkaufsliste.",
+    "L’estimation suppose toutes les pièces prévues installées, y compris celles de la liste d’achats.",
+    "La estimación supone instaladas todas las piezas previstas, incluidas las de la lista de compras.",
+    "La stima presume installati tutti i componenti previsti, inclusi quelli della lista acquisti."
+  ],
+  "Track power updated": [
+    "Stromversorgung aktualisiert",
+    "Alimentation mise à jour",
+    "Alimentación actualizada",
+    "Alimentazione aggiornata"
+  ],
+  "Power system": [
+    "Stromsystem",
+    "Système d’alimentation",
+    "Sistema de alimentación",
+    "Sistema di alimentazione"
+  ],
+  "Not configured": ["Nicht konfiguriert", "Non configuré", "Sin configurar", "Non configurato"],
+  "DC (analogue)": ["DC (analog)", "DC (analogique)", "DC (analógico)", "DC (analogico)"],
+  "DCC (digital)": ["DCC (digital)", "DCC (numérique)", "DCC (digital)", "DCC (digitale)"],
+  "Show power overlay": [
+    "Stromversorgung anzeigen",
+    "Afficher l’alimentation",
+    "Mostrar alimentación",
+    "Mostra alimentazione"
+  ],
+  "Green: powered. Orange: unpowered. Yellow: partial. Purple: unverified.": [
+    "Grün: versorgt. Orange: stromlos. Gelb: teilweise. Violett: ungeprüft.",
+    "Vert : alimenté. Orange : non alimenté. Jaune : partiel. Violet : non vérifié.",
+    "Verde: alimentada. Naranja: sin alimentación. Amarillo: parcial. Morado: sin verificar.",
+    "Verde: alimentato. Arancione: non alimentato. Giallo: parziale. Viola: non verificato."
+  ],
+  "Planning estimate only: one controller, sound rail joints. No polarity, short-circuit or wiring certification.": [
+    "Nur Planungsschätzung: ein Regler, intakte Schienenverbindungen. Keine Prüfung von Polarität, Kurzschlüssen oder Verkabelung.",
+    "Estimation de planification : un contrôleur et des jonctions fiables. Aucune certification de polarité, de court-circuit ou de câblage.",
+    "Solo estimación: un controlador y uniones fiables. No certifica polaridad, cortocircuitos ni cableado.",
+    "Solo stima progettuale: un controller e giunzioni integre. Nessuna certificazione di polarità, cortocircuiti o cablaggio."
+  ],
+  "Select one unlocked track piece to edit its power settings.": [
+    "Ein entsperrtes Gleisstück auswählen, um seine Stromversorgung zu bearbeiten.",
+    "Sélectionnez une voie déverrouillée pour modifier son alimentation.",
+    "Seleccione una pieza desbloqueada para editar su alimentación.",
+    "Seleziona un binario sbloccato per modificarne l’alimentazione."
+  ],
+  "Selected track power": [
+    "Stromversorgung des gewählten Gleises",
+    "Alimentation de la voie sélectionnée",
+    "Alimentación de la vía seleccionada",
+    "Alimentazione del binario selezionato"
+  ],
+  "Feed type": [
+    "Einspeisungsart",
+    "Type d’alimentation",
+    "Tipo de alimentación",
+    "Tipo di alimentazione"
+  ],
+  "Feed connector": [
+    "Einspeisungsanschluss",
+    "Connecteur d’alimentation",
+    "Conector de alimentación",
+    "Connettore di alimentazione"
+  ],
+  "Connected to the selected controller": [
+    "Mit dem ausgewählten Regler verbunden",
+    "Connecté au contrôleur sélectionné",
+    "Conectado al controlador seleccionado",
+    "Collegato al controller selezionato"
+  ],
+  "Point position": [
+    "Weichenstellung",
+    "Position de l’aiguille",
+    "Posición del desvío",
+    "Posizione dello scambio"
+  ],
+  "Unknown position": [
+    "Unbekannte Stellung",
+    "Position inconnue",
+    "Posición desconocida",
+    "Posizione sconosciuta"
+  ],
+  "Route 1": ["Fahrweg 1", "Itinéraire 1", "Ruta 1", "Percorso 1"],
+  "Route 2": ["Fahrweg 2", "Itinéraire 2", "Ruta 2", "Percorso 2"],
+  "Point bypass": [
+    "Weichenüberbrückung",
+    "Pontage de l’aiguille",
+    "Puente del desvío",
+    "Ponticello dello scambio"
+  ],
+  "No bypass": ["Keine Überbrückung", "Aucun pontage", "Sin puente", "Nessun ponticello"],
+  "R8232 pair (2 clips)": [
+    "R8232-Paar (2 Clips)",
+    "Paire R8232 (2 clips)",
+    "Par R8232 (2 clips)",
+    "Coppia R8232 (2 clip)"
+  ],
+  "Soldered bypass": [
+    "Gelötete Überbrückung",
+    "Pontage soudé",
+    "Puente soldado",
+    "Ponticello saldato"
+  ],
+  "Apply power settings": [
+    "Stromeinstellungen anwenden",
+    "Appliquer l’alimentation",
+    "Aplicar alimentación",
+    "Applica alimentazione"
+  ],
+  "No feed": [
+    "Keine Einspeisung",
+    "Aucune alimentation",
+    "Sin alimentación",
+    "Nessuna alimentazione"
+  ],
+  "Native power track": [
+    "Gleis mit eingebauter Einspeisung",
+    "Voie d’alimentation intégrée",
+    "Vía de alimentación integrada",
+    "Binario con alimentazione integrata"
+  ],
+  "R602 DC clip": ["R602-DC-Clip", "Clip DC R602", "Clip DC R602", "Clip DC R602"],
+  "R8242 DCC clip": ["R8242-DCC-Clip", "Clip DCC R8242", "Clip DCC R8242", "Clip DCC R8242"],
+  "Manual feeder (operator declaration)": [
+    "Manuelle Einspeisung (eigene Angabe)",
+    "Alimentation manuelle (déclaration)",
+    "Alimentación manual (declaración)",
+    "Alimentazione manuale (dichiarazione)"
+  ],
+  "Connector {index}: {x}, {y} mm": [
+    "Anschluss {index}: {x}, {y} mm",
+    "Connecteur {index} : {x}, {y} mm",
+    "Conector {index}: {x}, {y} mm",
+    "Connettore {index}: {x}, {y} mm"
+  ],
+  "Power {code} route {index}: {state}": [
+    "Strom {code}, Fahrweg {index}: {state}",
+    "Alimentation {code}, itinéraire {index} : {state}",
+    "Alimentación {code}, ruta {index}: {state}",
+    "Alimentazione {code}, percorso {index}: {state}"
+  ],
+  "powered": ["versorgt", "alimenté", "alimentada", "alimentato"],
+  "unpowered": ["stromlos", "non alimenté", "sin alimentación", "non alimentato"],
+  "partial": ["teilweise versorgt", "partiel", "parcial", "parziale"],
+  "unverified": ["ungeprüft", "non vérifié", "sin verificar", "non verificato"],
+  "Power routes: {powered} powered / {unpowered} unpowered / {partial} partial / {unverified} unverified.": [
+    "Fahrwege: {powered} versorgt / {unpowered} stromlos / {partial} teilweise / {unverified} ungeprüft.",
+    "Itinéraires : {powered} alimentés / {unpowered} non alimentés / {partial} partiels / {unverified} non vérifiés.",
+    "Rutas: {powered} alimentadas / {unpowered} sin alimentación / {partial} parciales / {unverified} sin verificar.",
+    "Percorsi: {powered} alimentati / {unpowered} non alimentati / {partial} parziali / {unverified} non verificati."
+  ],
+  "Compatible connected feeds: {count}.": [
+    "Kompatible verbundene Einspeisungen: {count}.",
+    "Alimentations compatibles connectées : {count}.",
+    "Alimentaciones compatibles conectadas: {count}.",
+    "Alimentazioni compatibili collegate: {count}."
+  ],
+  "All modelled routes powered.": [
+    "Alle modellierten Fahrwege sind versorgt.",
+    "Tous les itinéraires modélisés sont alimentés.",
+    "Todas las rutas modeladas están alimentadas.",
+    "Tutti i percorsi modellati sono alimentati."
+  ],
+  "DC dead sidings may be intentional.": [
+    "Stromlose Abstellgleise können bei DC beabsichtigt sein.",
+    "Les voies de garage hors tension peuvent être intentionnelles en DC.",
+    "Las vías muertas sin alimentación pueden ser intencionales en DC.",
+    "I binari morti non alimentati possono essere intenzionali in DC."
+  ],
+  "Choose DC or DCC to check power connectivity.": [
+    "DC oder DCC wählen, um die Stromverbindungen zu prüfen.",
+    "Choisissez DC ou DCC pour vérifier la continuité.",
+    "Elija DC o DCC para comprobar la continuidad.",
+    "Scegli DC o DCC per verificare la continuità."
+  ],
+  "No compatible connected power feed is marked.": [
+    "Keine kompatible verbundene Einspeisung markiert.",
+    "Aucune alimentation compatible connectée n’est indiquée.",
+    "No hay alimentación compatible conectada indicada.",
+    "Nessuna alimentazione compatibile collegata è indicata."
+  ],
+  "Ambiguous connector joins prevent a reliable power result.": [
+    "Mehrdeutige Gleisverbindungen verhindern ein zuverlässiges Stromergebnis.",
+    "Des jonctions ambiguës empêchent un résultat fiable.",
+    "Las uniones ambiguas impiden un resultado fiable.",
+    "Giunzioni ambigue impediscono un risultato affidabile."
+  ],
+  "Factory R8206/R602 DC hardware is not DCC-compatible. Verify the actual hardware.": [
+    "Werkseitige R8206/R602-DC-Hardware ist nicht DCC-kompatibel. Tatsächliche Hardware prüfen.",
+    "Le matériel DC R8206/R602 d’origine n’est pas compatible DCC. Vérifiez le matériel réel.",
+    "El hardware DC R8206/R602 de fábrica no es compatible con DCC. Verifique el hardware real.",
+    "L’hardware DC R8206/R602 originale non è compatibile DCC. Verifica l’hardware effettivo."
+  ],
+  "A connected feed does not match the selected DC/DCC system and is ignored.": [
+    "Eine verbundene Einspeisung passt nicht zum DC/DCC-System und wird ignoriert.",
+    "Une alimentation connectée ne correspond pas au système DC/DCC et est ignorée.",
+    "Una alimentación conectada no coincide con el sistema DC/DCC y se ignora.",
+    "Un’alimentazione collegata non corrisponde al sistema DC/DCC e viene ignorata."
+  ],
+  "DCC has unpowered or partially powered routes. Check feeds, point positions and bypasses.": [
+    "DCC hat stromlose oder teilweise versorgte Fahrwege. Einspeisungen, Weichenstellungen und Überbrückungen prüfen.",
+    "DCC comporte des itinéraires non ou partiellement alimentés. Vérifiez les alimentations, aiguilles et pontages.",
+    "DCC tiene rutas sin alimentación o parciales. Compruebe alimentaciones, desvíos y puentes.",
+    "DCC presenta percorsi non alimentati o parziali. Verifica alimentazioni, scambi e ponticelli."
+  ],
+  "Some routes have unverified electrical continuity. This is not an all-powered result.": [
+    "Einige Fahrwege haben ungeprüfte elektrische Kontinuität. Das Ergebnis ist nicht vollständig versorgt.",
+    "La continuité de certains itinéraires n’est pas vérifiée. Ce n’est pas un résultat entièrement alimenté.",
+    "Algunas rutas tienen continuidad sin verificar. No es un resultado de alimentación completa.",
+    "La continuità di alcuni percorsi non è verificata. Non è un risultato completamente alimentato."
+  ],
+  "DC power connecting clip": [
+    "DC-Stromanschlussclip",
+    "Clip de connexion DC",
+    "Clip de conexión DC",
+    "Clip di collegamento DC"
+  ],
+  "DCC power connecting clip": [
+    "DCC-Stromanschlussclip",
+    "Clip de connexion DCC",
+    "Clip de conexión DCC",
+    "Clip di collegamento DCC"
+  ],
+  "DCC point clips (individual clips)": [
+    "DCC-Weichenclips (einzelne Clips)",
+    "Clips d’aiguille DCC (clips individuels)",
+    "Clips de desvío DCC (clips individuales)",
+    "Clip per scambi DCC (clip singole)"
+  ],
+  "Select one track piece.": [
+    "Ein Gleisstück auswählen.",
+    "Sélectionnez une voie.",
+    "Seleccione una pieza de vía.",
+    "Seleziona un binario."
+  ],
+  "Choose DC or DCC power.": [
+    "DC oder DCC wählen.",
+    "Choisissez DC ou DCC.",
+    "Elija DC o DCC.",
+    "Scegli DC o DCC."
+  ],
+  "Choose a valid power feed.": [
+    "Eine gültige Einspeisung wählen.",
+    "Choisissez une alimentation valide.",
+    "Elija una alimentación válida.",
+    "Scegli un’alimentazione valida."
+  ],
+  "Choose a supported point route.": [
+    "Einen unterstützten Weichenfahrweg wählen.",
+    "Choisissez un itinéraire d’aiguille pris en charge.",
+    "Elija una ruta de desvío compatible.",
+    "Scegli un percorso di scambio supportato."
+  ],
+  "Choose a supported point bypass.": [
+    "Eine unterstützte Weichenüberbrückung wählen.",
+    "Choisissez un pontage pris en charge.",
+    "Elija un puente compatible.",
+    "Scegli un ponticello supportato."
+  ],
+  "Power settings belong on track, not a free-standing accessory.": [
+    "Stromeinstellungen gehören zum Gleis, nicht zu einem separaten Zubehör.",
+    "L’alimentation appartient à la voie, pas à un accessoire séparé.",
+    "La alimentación pertenece a la vía, no a un accesorio separado.",
+    "L’alimentazione appartiene al binario, non a un accessorio separato."
+  ],
+  "Point bypasses require a supported Hornby point.": [
+    "Weichenüberbrückungen erfordern eine unterstützte Hornby-Weiche.",
+    "Les pontages nécessitent une aiguille Hornby prise en charge.",
+    "Los puentes requieren un desvío Hornby compatible.",
+    "I ponticelli richiedono uno scambio Hornby supportato."
+  ],
+  "Choose a valid power feed connector.": [
+    "Einen gültigen Einspeisungsanschluss wählen.",
+    "Choisissez un connecteur d’alimentation valide.",
+    "Elija un conector de alimentación válido.",
+    "Scegli un connettore di alimentazione valido."
+  ],
+  "Native feeds require R8206 or R8241 power track.": [
+    "Eingebaute Einspeisungen erfordern R8206 oder R8241.",
+    "Les alimentations intégrées nécessitent R8206 ou R8241.",
+    "Las alimentaciones integradas requieren R8206 o R8241.",
+    "Le alimentazioni integrate richiedono R8206 o R8241."
+  ],
+  "Clip placement is modelled on R600 and R601 only. Verify physical fit elsewhere and use a manual feed.": [
+    "Clips werden nur auf R600 und R601 modelliert. Bei anderen Gleisen die Passform prüfen und manuelle Einspeisung wählen.",
+    "Les clips sont modélisés uniquement sur R600 et R601. Vérifiez l’ajustement ailleurs et utilisez une alimentation manuelle.",
+    "Los clips solo se modelan en R600 y R601. Verifique el ajuste en otras vías y use alimentación manual.",
+    "Le clip sono modellate solo su R600 e R601. Verifica la compatibilità altrove e usa un’alimentazione manuale."
+  ],
+  "Unknown power accessory.": [
+    "Unbekanntes Stromzubehör.",
+    "Accessoire d’alimentation inconnu.",
+    "Accesorio de alimentación desconocido.",
+    "Accessorio di alimentazione sconosciuto."
+  ],
+  "Power settings require backup format 6.": [
+    "Stromeinstellungen erfordern Sicherungsformat 6.",
+    "L’alimentation nécessite le format de sauvegarde 6.",
+    "La alimentación requiere el formato de copia 6.",
+    "L’alimentazione richiede il formato di backup 6."
+  ],
+  "Invalid power feed connection flag.": [
+    "Ungültige Einspeisungsverbindung.",
+    "Indicateur de connexion invalide.",
+    "Indicador de conexión inválido.",
+    "Indicatore di connessione non valido."
+  ],
+  "Feature requests / bug reports": [
+    "Funktionswünsche / Fehlerberichte",
+    "Demandes de fonctionnalités / signalements de bugs",
+    "Solicitudes de funciones / informes de errores",
+    "Richieste di funzionalità / segnalazioni di errori"
+  ],
+  "Room": ["Raum", "Pièce", "Habitación", "Stanza"],
+  "No room": ["Kein Raum", "Aucune pièce", "Sin habitación", "Nessuna stanza"],
+  "Room for this layout": [
+    "Raum für diesen Gleisplan",
+    "Pièce pour ce réseau",
+    "Habitación para este trazado",
+    "Stanza per questo plastico"
+  ],
+  "Room & furniture": [
+    "Raum & Möbel",
+    "Pièce et mobilier",
+    "Habitación y muebles",
+    "Stanza e mobili"
+  ],
+  "New room": ["Neuer Raum", "Nouvelle pièce", "Nueva habitación", "Nuova stanza"],
+  "Rename room": [
+    "Raum umbenennen",
+    "Renommer la pièce",
+    "Renombrar habitación",
+    "Rinomina stanza"
+  ],
+  "Delete room": ["Raum löschen", "Supprimer la pièce", "Eliminar habitación", "Elimina stanza"],
+  "Room shape role": [
+    "Funktion der Raumform",
+    "Rôle de la forme",
+    "Función de la forma",
+    "Ruolo della forma"
+  ],
+  "Room outline": [
+    "Raumumriss",
+    "Contour de la pièce",
+    "Contorno de la habitación",
+    "Contorno della stanza"
+  ],
+  "Furniture": ["Möbel", "Mobilier", "Muebles", "Mobili"],
+  "Room shape name": [
+    "Name der Raumform",
+    "Nom de la forme",
+    "Nombre de la forma",
+    "Nome della forma"
+  ],
+  "Edit room shapes": [
+    "Raumformen bearbeiten",
+    "Modifier les formes de la pièce",
+    "Editar formas de la habitación",
+    "Modifica le forme della stanza"
+  ],
+  "Room shape": ["Raumform", "Forme de la pièce", "Forma de la habitación", "Forma della stanza"],
+  "Room shape {name}": [
+    "Raumform {name}",
+    "Forme de la pièce {name}",
+    "Forma de la habitación {name}",
+    "Forma della stanza {name}"
+  ],
+  "Select room shape": [
+    "Raumform auswählen",
+    "Sélectionner une forme de la pièce",
+    "Seleccionar forma de la habitación",
+    "Seleziona forma della stanza"
+  ],
+  "Select / pan room": [
+    "Raum auswählen / verschieben",
+    "Sélectionner / déplacer la pièce",
+    "Seleccionar / desplazar habitación",
+    "Seleziona / sposta stanza"
+  ],
+  "Shape angle (degrees)": [
+    "Formwinkel (Grad)",
+    "Angle de la forme (degrés)",
+    "Ángulo de la forma (grados)",
+    "Angolo della forma (gradi)"
+  ],
+  "Add room rectangle": [
+    "Raumrechteck hinzufügen",
+    "Ajouter un rectangle à la pièce",
+    "Añadir rectángulo a la habitación",
+    "Aggiungi rettangolo alla stanza"
+  ],
+  "Add room shape at coordinates": [
+    "Raumform an Koordinaten hinzufügen",
+    "Ajouter une forme aux coordonnées",
+    "Añadir forma de habitación en coordenadas",
+    "Aggiungi forma della stanza alle coordinate"
+  ],
+  "Apply room shape changes": [
+    "Raumformänderungen anwenden",
+    "Appliquer les modifications de la forme",
+    "Aplicar cambios de forma de habitación",
+    "Applica modifiche alla forma della stanza"
+  ],
+  "Remove room shape": [
+    "Raumform entfernen",
+    "Retirer la forme de la pièce",
+    "Eliminar forma de la habitación",
+    "Rimuovi forma della stanza"
+  ],
+  "Clear room shapes": [
+    "Raumformen leeren",
+    "Effacer les formes de la pièce",
+    "Borrar formas de la habitación",
+    "Cancella forme della stanza"
+  ],
+  "Room polygon corners": [
+    "Ecken des Raumpolygons",
+    "Sommets du polygone de la pièce",
+    "Vértices del polígono de habitación",
+    "Vertici del poligono della stanza"
+  ],
+  "Apply room corners": [
+    "Raumecken anwenden",
+    "Appliquer les sommets de la pièce",
+    "Aplicar vértices de habitación",
+    "Applica vertici della stanza"
+  ],
+  "Room updated": [
+    "Raum aktualisiert",
+    "Pièce mise à jour",
+    "Habitación actualizada",
+    "Stanza aggiornata"
+  ],
+  "Changed assigned room": [
+    "Zugewiesenen Raum geändert",
+    "Pièce associée modifiée",
+    "Habitación asignada cambiada",
+    "Stanza assegnata modificata"
+  ],
+  "Choose a named room first.": [
+    "Wähle zuerst einen benannten Raum.",
+    "Choisissez d’abord une pièce nommée.",
+    "Elige primero una habitación con nombre.",
+    "Scegli prima una stanza con nome."
+  ],
+  "Select a room shape.": [
+    "Wähle eine Raumform.",
+    "Sélectionnez une forme de la pièce.",
+    "Selecciona una forma de la habitación.",
+    "Seleziona una forma della stanza."
+  ],
+  "Selected room does not exist.": [
+    "Der ausgewählte Raum existiert nicht.",
+    "La pièce sélectionnée n’existe pas.",
+    "La habitación seleccionada no existe.",
+    "La stanza selezionata non esiste."
+  ],
+  "A room supports one outline and at most 50 shapes.": [
+    "Ein Raum unterstützt einen Umriss und höchstens 50 Formen.",
+    "Une pièce accepte un contour et au plus 50 formes.",
+    "Una habitación admite un contorno y hasta 50 formas.",
+    "Una stanza supporta un contorno e al massimo 50 forme."
+  ],
+  "Keep at most 50 named rooms.": [
+    "Behalte höchstens 50 benannte Räume.",
+    "Conservez au plus 50 pièces nommées.",
+    "Mantén como máximo 50 habitaciones con nombre.",
+    "Mantieni al massimo 50 stanze con nome."
+  ],
+  "Invalid room shape role.": [
+    "Ungültige Funktion der Raumform.",
+    "Rôle de forme invalide.",
+    "Función de forma no válida.",
+    "Ruolo della forma non valido."
+  ],
+  "Duplicate room shape identifiers.": [
+    "Doppelte Raumformkennungen.",
+    "Identifiants de formes en double.",
+    "Identificadores de forma duplicados.",
+    "Identificatori di forma duplicati."
+  ],
+  "Duplicate room identifiers.": [
+    "Doppelte Raumkennungen.",
+    "Identifiants de pièces en double.",
+    "Identificadores de habitación duplicados.",
+    "Identificatori di stanza duplicati."
+  ],
+  "Invalid rooms in backup.": [
+    "Ungültige Räume in der Sicherung.",
+    "Pièces invalides dans la sauvegarde.",
+    "Habitaciones no válidas en la copia.",
+    "Stanze non valide nel backup."
+  ],
+  "Invalid room shapes in backup.": [
+    "Ungültige Raumformen in der Sicherung.",
+    "Formes invalides dans la sauvegarde.",
+    "Formas de habitación no válidas en la copia.",
+    "Forme della stanza non valide nel backup."
+  ],
+  "Rooms require backup format 5.": [
+    "Räume benötigen Sicherungsformat 5.",
+    "Les pièces nécessitent le format de sauvegarde 5.",
+    "Las habitaciones requieren el formato de copia 5.",
+    "Le stanze richiedono il formato di backup 5."
+  ],
+  "The selected room has no outline. Add a room outline to check dimensions.": [
+    "Der Raum hat keinen Umriss. Ergänze einen Raumumriss zur Maßprüfung.",
+    "La pièce n’a pas de contour. Ajoutez-en un pour vérifier les dimensions.",
+    "La habitación no tiene contorno. Añádelo para comprobar dimensiones.",
+    "La stanza non ha un contorno. Aggiungilo per verificare le dimensioni."
+  ],
+  "Baseboard extends outside the selected room.": [
+    "Die Grundplatte ragt aus dem ausgewählten Raum.",
+    "Le plateau dépasse de la pièce sélectionnée.",
+    "El tablero sobresale de la habitación seleccionada.",
+    "La base supera il contorno della stanza selezionata."
+  ],
+  "Track extends outside the selected room.": [
+    "Das Gleis ragt aus dem ausgewählten Raum.",
+    "La voie dépasse de la pièce sélectionnée.",
+    "La vía sobresale de la habitación seleccionada.",
+    "Il binario supera il contorno della stanza selezionata."
+  ],
+  "Furniture extends outside the room outline.": [
+    "Möbel ragen aus dem Raumumriss.",
+    "Le mobilier dépasse du contour de la pièce.",
+    "Los muebles sobresalen del contorno de la habitación.",
+    "I mobili superano il contorno della stanza."
+  ],
+  "Place room shape: drag from the palette or tap the canvas.": [
+    "Raumform platzieren: aus der Palette ziehen oder die Fläche antippen.",
+    "Placez une forme : glissez-la depuis la palette ou touchez le canevas.",
+    "Coloca una forma: arrástrala desde la paleta o toca el lienzo.",
+    "Posiziona una forma: trascinala dalla tavolozza o tocca l’area."
+  ],
+  "Select a room shape to move, rotate or reshape it.": [
+    "Wähle eine Raumform zum Verschieben, Drehen oder Umformen.",
+    "Sélectionnez une forme pour la déplacer, tourner ou remodeler.",
+    "Selecciona una forma para moverla, girarla o cambiarla.",
+    "Seleziona una forma per spostarla, ruotarla o modificarla."
+  ],
+  "Choose a named room for this layout. Room shapes are shared by all layouts using that room; furniture is a visual reference only.": [
+    "Wähle einen benannten Raum für den Gleisplan. Seine Formen gelten für alle zugeordneten Pläne; Möbel dienen nur als visuelle Referenz.",
+    "Choisissez une pièce nommée pour ce réseau. Ses formes sont partagées par les réseaux associés ; le mobilier est une référence visuelle.",
+    "Elige una habitación para este trazado. Sus formas se comparten entre trazados asignados; los muebles son una referencia visual.",
+    "Scegli una stanza per questo plastico. Le forme sono condivise dai plastici assegnati; i mobili sono un riferimento visivo."
+  ],
+  "Edit the room outline and named furniture. Changes affect every layout assigned to this room.": [
+    "Bearbeite Raumumriss und benannte Möbel. Änderungen betreffen jeden zugewiesenen Gleisplan.",
+    "Modifiez le contour et le mobilier nommé. Les modifications affectent chaque réseau associé.",
+    "Edita el contorno y los muebles con nombre. Los cambios afectan a todos los trazados asignados.",
+    "Modifica contorno e mobili con nome. Le modifiche riguardano tutti i plastici assegnati."
+  ],
+  "Delete this room?": [
+    "Diesen Raum löschen?",
+    "Supprimer cette pièce ?",
+    "¿Eliminar esta habitación?",
+    "Eliminare questa stanza?"
+  ],
+  "This removes the room and furniture from every assigned layout, but keeps all baseboards and track. Undo can restore it.": [
+    "Entfernt Raum und Möbel aus allen zugeordneten Plänen, behält aber Grundplatten und Gleise. Rückgängig stellt alles wieder her.",
+    "Retire la pièce et le mobilier de tous les réseaux associés, sans retirer plateaux ni voies. L’annulation les restaure.",
+    "Elimina la habitación y muebles de todos los trazados asignados, pero conserva tableros y vías. Deshacer lo restaura.",
+    "Rimuove stanza e mobili da tutti i plastici assegnati, mantenendo basi e binari. Annulla ripristina tutto."
+  ],
+  "Edit baseboards": [
+    "Grundplatten bearbeiten",
+    "Modifier les plateaux",
+    "Editar tableros",
+    "Modifica piani di base"
+  ],
+  "Module presets": [
+    "Modulvorlagen",
+    "Modules prédéfinis",
+    "Módulos predefinidos",
+    "Moduli predefiniti"
+  ],
+  "Rectangle": ["Rechteck", "Rectangle", "Rectángulo", "Rettangolo"],
+  "Right triangle": [
+    "Rechtwinkliges Dreieck",
+    "Triangle rectangle",
+    "Triángulo rectángulo",
+    "Triangolo rettangolo"
+  ],
+  "Circle": ["Kreis", "Cercle", "Círculo", "Cerchio"],
+  "Semicircle": ["Halbkreis", "Demi-cercle", "Semicírculo", "Semicerchio"],
+  "Arc strip": ["Bogenstreifen", "Bande courbe", "Franja curva", "Fascia curva"],
+  "polygon": ["Polygon", "polygone", "polígono", "poligono"],
+  "circle": ["Kreis", "cercle", "círculo", "cerchio"],
+  "arc": ["Bogen", "arc", "arco", "arco"],
+  "Board {name}": [
+    "Grundplatte {name}",
+    "Plateau {name}",
+    "Tablero {name}",
+    "Piano di base {name}"
+  ],
+  "Select baseboard {shape}": [
+    "Grundplatte {shape} auswählen",
+    "Sélectionner le plateau {shape}",
+    "Seleccionar tablero {shape}",
+    "Seleziona piano di base {shape}"
+  ],
+  "Board {index}: {shape}": [
+    "Grundplatte {index}: {shape}",
+    "Plateau {index} : {shape}",
+    "Tablero {index}: {shape}",
+    "Piano di base {index}: {shape}"
+  ],
+  "250 mm right triangle": [
+    "250 mm rechtwinkliges Dreieck",
+    "Triangle rectangle de 250 mm",
+    "Triángulo rectángulo de 250 mm",
+    "Triangolo rettangolo da 250 mm"
+  ],
+  "Select / pan boards": [
+    "Grundplatten auswählen / verschieben",
+    "Sélectionner / déplacer la vue",
+    "Seleccionar / desplazar vista",
+    "Seleziona / sposta vista"
+  ],
+  "Baseboard shape": [
+    "Grundplattenform",
+    "Forme du plateau",
+    "Forma del tablero",
+    "Forma del piano di base"
+  ],
+  "Select baseboard shape": [
+    "Grundplattenform auswählen",
+    "Sélectionner la forme du plateau",
+    "Seleccionar forma del tablero",
+    "Seleziona forma del piano di base"
+  ],
+  "New shape": ["Neue Form", "Nouvelle forme", "Nueva forma", "Nuova forma"],
+  "Board angle (degrees)": [
+    "Grundplattenwinkel (Grad)",
+    "Angle du plateau (degrés)",
+    "Ángulo del tablero (grados)",
+    "Angolo del piano (gradi)"
+  ],
+  "Outer radius (mm)": [
+    "Außenradius (mm)",
+    "Rayon extérieur (mm)",
+    "Radio exterior (mm)",
+    "Raggio esterno (mm)"
+  ],
+  "Inner radius (mm)": [
+    "Innenradius (mm)",
+    "Rayon intérieur (mm)",
+    "Radio interior (mm)",
+    "Raggio interno (mm)"
+  ],
+  "Arc sweep (degrees)": [
+    "Bogenwinkel (Grad)",
+    "Angle de l'arc (degrés)",
+    "Ángulo del arco (grados)",
+    "Ampiezza dell'arco (gradi)"
+  ],
+  "Add shape at coordinates": [
+    "Form an Koordinaten hinzufügen",
+    "Ajouter la forme aux coordonnées",
+    "Añadir forma en coordenadas",
+    "Aggiungi forma alle coordinate"
+  ],
+  "Apply board changes": [
+    "Grundplattenänderungen anwenden",
+    "Appliquer les modifications du plateau",
+    "Aplicar cambios del tablero",
+    "Applica modifiche al piano"
+  ],
+  "Remove board shape": [
+    "Grundplattenform entfernen",
+    "Retirer la forme du plateau",
+    "Eliminar forma del tablero",
+    "Rimuovi forma del piano"
+  ],
+  "Polygon corners": [
+    "Polygonecken",
+    "Sommets du polygone",
+    "Vértices del polígono",
+    "Vertici del poligono"
+  ],
+  "Apply corners": [
+    "Ecken anwenden",
+    "Appliquer les sommets",
+    "Aplicar vértices",
+    "Applica vertici"
+  ],
+  "Corner {index} {axis} (mm)": [
+    "Ecke {index} {axis} (mm)",
+    "Sommet {index} {axis} (mm)",
+    "Vértice {index} {axis} (mm)",
+    "Vertice {index} {axis} (mm)"
+  ],
+  "Place board: drag from the palette or tap the canvas.": [
+    "Grundplatte platzieren: aus der Palette ziehen oder auf die Zeichenfläche tippen.",
+    "Placer le plateau : glissez depuis la palette ou touchez le plan.",
+    "Colocar tablero: arrastre desde la paleta o toque el plano.",
+    "Posiziona il piano: trascina dalla tavolozza o tocca il disegno."
+  ],
+  "Select a board to move, rotate or reshape it.": [
+    "Eine Grundplatte zum Verschieben, Drehen oder Umformen auswählen.",
+    "Sélectionnez un plateau pour le déplacer, le tourner ou le déformer.",
+    "Seleccione un tablero para moverlo, girarlo o modificar su forma.",
+    "Seleziona un piano per spostarlo, ruotarlo o modificarne la forma."
+  ],
+  "Choose shapes or module presets. Boards move independently of track; planning checks show gaps and track outside the board.": [
+    "Formen oder Modulvorlagen wählen. Grundplatten bewegen sich unabhängig vom Gleis; Prüfungen zeigen Lücken und Gleise außerhalb der Platte.",
+    "Choisissez des formes ou des modules. Les plateaux bougent indépendamment des voies ; les contrôles indiquent les écarts et les voies hors plateau.",
+    "Elija formas o módulos. Los tableros se mueven independientemente de las vías; las comprobaciones muestran huecos y vías fuera del tablero.",
+    "Scegli forme o moduli. I piani si muovono indipendentemente dai binari; i controlli mostrano spazi e binari fuori dal piano."
+  ],
+  "Tabletop dimensions from": [
+    "Plattenmaße von",
+    "Dimensions des plateaux de",
+    "Dimensiones de tableros de",
+    "Dimensioni dei piani di"
+  ],
+  ". Fixings and frame clearance are not modelled.": [
+    ". Befestigungen und Rahmenabstände werden nicht modelliert.",
+    ". Les fixations et le dégagement du cadre ne sont pas modélisés.",
+    ". No se modelan fijaciones ni espacio del bastidor.",
+    ". Fissaggi e spazio del telaio non sono modellati."
+  ],
+  "Drag a corner handle, or enter local corner coordinates. Keep the polygon convex and its edges uncrossed.": [
+    "Einen Eckgriff ziehen oder lokale Eckkoordinaten eingeben. Das Polygon muss konvex bleiben und seine Kanten dürfen sich nicht kreuzen.",
+    "Glissez un sommet ou saisissez ses coordonnées locales. Gardez le polygone convexe, sans croisement des côtés.",
+    "Arrastre un vértice o introduzca sus coordenadas locales. Mantenga el polígono convexo y sin cruces.",
+    "Trascina un vertice o inserisci le sue coordinate locali. Mantieni il poligono convesso e senza incroci."
+  ],
+  "Baseboard updated": [
+    "Grundplatte aktualisiert",
+    "Plateau mis à jour",
+    "Tablero actualizado",
+    "Piano di base aggiornato"
+  ],
+  "Baseboard shapes are disconnected. Snap or move them together.": [
+    "Grundplattenformen sind getrennt. Zusammenrasten lassen oder zusammenschieben.",
+    "Les plateaux sont séparés. Rapprochez-les ou utilisez l'aimantation.",
+    "Los tableros están separados. Únalos con ajuste o movimiento.",
+    "I piani sono separati. Uniscili con aggancio o movimento."
+  ],
+  "Select a baseboard shape.": [
+    "Eine Grundplattenform auswählen.",
+    "Sélectionnez une forme de plateau.",
+    "Seleccione una forma de tablero.",
+    "Seleziona una forma del piano."
+  ],
+  "Choose a baseboard shape first.": [
+    "Zuerst eine Grundplattenform wählen.",
+    "Choisissez d'abord une forme de plateau.",
+    "Elija primero una forma de tablero.",
+    "Scegli prima una forma del piano."
+  ],
+  "Select a polygon corner.": [
+    "Eine Polygonecke auswählen.",
+    "Sélectionnez un sommet du polygone.",
+    "Seleccione un vértice del polígono.",
+    "Seleziona un vertice del poligono."
+  ],
+  "Enter finite baseboard dimensions and coordinates.": [
+    "Endliche Grundplattenmaße und Koordinaten eingeben.",
+    "Saisissez des dimensions et coordonnées finies.",
+    "Introduzca dimensiones y coordenadas finitas.",
+    "Inserisci dimensioni e coordinate finite."
+  ],
+  "Invalid baseboard identifier or position.": [
+    "Ungültige Grundplattenkennung oder Position.",
+    "Identifiant ou position de plateau invalide.",
+    "Identificador o posición del tablero no válido.",
+    "Identificatore o posizione del piano non valido."
+  ],
+  "Baseboard radius must be between 1 and 100000 mm.": [
+    "Der Grundplattenradius muss zwischen 1 und 100000 mm liegen.",
+    "Le rayon doit être compris entre 1 et 100000 mm.",
+    "El radio debe estar entre 1 y 100000 mm.",
+    "Il raggio deve essere tra 1 e 100000 mm."
+  ],
+  "Arc needs an inner radius below its outer radius and a sweep from 1 to 360 degrees.": [
+    "Ein Bogen braucht einen kleineren Innenradius und einen Winkel von 1 bis 360 Grad.",
+    "L'arc nécessite un rayon intérieur inférieur au rayon extérieur et un angle de 1 à 360 degrés.",
+    "El arco necesita un radio interior menor que el exterior y un ángulo de 1 a 360 grados.",
+    "L'arco richiede un raggio interno inferiore all'esterno e un angolo da 1 a 360 gradi."
+  ],
+  "Baseboard polygons need 3 to 16 finite corners.": [
+    "Grundplattenpolygone benötigen 3 bis 16 endliche Eckpunkte.",
+    "Les polygones nécessitent de 3 à 16 sommets finis.",
+    "Los polígonos necesitan de 3 a 16 vértices finitos.",
+    "I poligoni richiedono da 3 a 16 vertici finiti."
+  ],
+  "Baseboard corners must form a non-collapsed convex polygon.": [
+    "Die Ecken müssen ein nicht entartetes konvexes Polygon bilden.",
+    "Les sommets doivent former un polygone convexe non dégénéré.",
+    "Los vértices deben formar un polígono convexo no degenerado.",
+    "I vertici devono formare un poligono convesso non degenere."
+  ],
+  "Baseboard edges cannot cross.": [
+    "Grundplattenkanten dürfen sich nicht kreuzen.",
+    "Les côtés du plateau ne peuvent pas se croiser.",
+    "Los bordes del tablero no pueden cruzarse.",
+    "I bordi del piano non possono incrociarsi."
+  ],
+  "A layout can contain at most 50 baseboard shapes.": [
+    "Ein Plan kann höchstens 50 Grundplattenformen enthalten.",
+    "Un plan peut contenir au maximum 50 plateaux.",
+    "Un plano puede contener como máximo 50 tableros.",
+    "Un disegno può contenere al massimo 50 piani."
+  ],
+  "Duplicate baseboard identifiers.": [
+    "Doppelte Grundplattenkennungen.",
+    "Identifiants de plateau en double.",
+    "Identificadores de tablero duplicados.",
+    "Identificatori di piano duplicati."
+  ],
+  "Unknown baseboard shape.": [
+    "Unbekannte Grundplattenform.",
+    "Forme de plateau inconnue.",
+    "Forma de tablero desconocida.",
+    "Forma del piano sconosciuta."
+  ],
+  "Attach {code} {name}": [
+    "{code} {name} anbringen",
+    "Fixer {code} {name}",
+    "Acoplar {code} {name}",
+    "Collega {code} {name}"
+  ],
+  "Digital power track": [
+    "Digitales Anschlussgleis",
+    "Rail d'alimentation numérique",
+    "Vía de alimentación digital",
+    "Binario di alimentazione digitale"
+  ],
+  "Single-track level crossing": [
+    "Eingleisiger Bahnübergang",
+    "Passage à niveau à voie unique",
+    "Paso a nivel de vía única",
+    "Passaggio a livello a binario singolo"
+  ],
+  "Double-track level crossing": [
+    "Zweigleisiger Bahnübergang",
+    "Passage à niveau à double voie",
+    "Paso a nivel de doble vía",
+    "Passaggio a livello a doppio binario"
+  ],
+  "Accessory only; track not included": [
+    "Nur Zubehör; Gleis nicht enthalten",
+    "Accessoire seul ; rail non inclus",
+    "Solo accesorio; vía no incluida",
+    "Solo accessorio; binario non incluso"
+  ],
+  "Remove R645 accessory": [
+    "R645-Zubehör entfernen",
+    "Retirer l'accessoire R645",
+    "Retirar accesorio R645",
+    "Rimuovi accessorio R645"
+  ],
+  "Select one compatible Hornby straight at least 168 mm long.": [
+    "Ein passendes gerades Hornby-Gleis mit mindestens 168 mm Länge auswählen.",
+    "Sélectionnez un rail droit Hornby compatible d'au moins 168 mm.",
+    "Seleccione una recta Hornby compatible de al menos 168 mm.",
+    "Seleziona un rettilineo Hornby compatibile lungo almeno 168 mm."
+  ],
+  "Schematic accessory; verify road and gate clearance physically.": [
+    "Schematisches Zubehör; Straßen- und Torabstände am Modell prüfen.",
+    "Accessoire schématique ; vérifiez les dégagements de la route et des barrières sur la maquette.",
+    "Accesorio esquemático; compruebe físicamente el espacio de carretera y barreras.",
+    "Accessorio schematico; verifica fisicamente lo spazio per strada e barriere."
+  ],
+  "Changed track accessories": [
+    "Gleiszubehör geändert",
+    "Accessoires de voie modifiés",
+    "Accesorios de vía modificados",
+    "Accessori del binario modificati"
+  ],
+  "Accessories must be attached to a compatible straight.": [
+    "Zubehör muss an einem passenden geraden Gleis angebracht werden.",
+    "Les accessoires doivent être fixés à un rail droit compatible.",
+    "Los accesorios deben acoplarse a una recta compatible.",
+    "Gli accessori devono essere collegati a un rettilineo compatibile."
+  ],
+  "Invalid accessories in backup.": [
+    "Ungültiges Zubehör in der Sicherung.",
+    "Accessoires invalides dans la sauvegarde.",
+    "Accesorios no validos en la copia de seguridad.",
+    "Accessori non validi nel backup."
+  ],
+  "Accessories require backup format 3 or newer.": [
+    "Zubehör erfordert Sicherungsformat 3 oder neuer.",
+    "Les accessoires nécessitent le format de sauvegarde 3 ou plus récent.",
+    "Los accesorios requieren el formato de copia 3 o más reciente.",
+    "Gli accessori richiedono il formato di backup 3 o successivo."
+  ],
   "Locked {description}": [
     "Gesperrt {description}",
     "Verrouillé {description}",
@@ -329,7 +1378,7 @@
     "Trazados guardados",
     "Plastici salvati"
   ],
-  "New idea": ["Neue Idee", "Nouvelle idée", "Nueva idea", "Nuova idea"],
+  "New layout": ["Neuer Gleisplan", "Nouveau réseau", "Nuevo trazado", "Nuovo plastico"],
   "Duplicate": ["Duplizieren", "Dupliquer", "Duplicar", "Duplica"],
   "Rename": ["Umbenennen", "Renommer", "Renombrar", "Rinomina"],
   "Delete layout": [
@@ -371,12 +1420,17 @@
     "Planifica con cualquier pieza. Las piezas que faltan aparecen en la lista de compras de esta idea.",
     "Progetta con qualsiasi pezzo. I pezzi mancanti compaiono nella lista della spesa di questa idea."
   ],
-  "Find a piece": ["Gleis suchen", "Rechercher une pièce", "Buscar una pieza", "Cerca un pezzo"],
-  "Code or track type...": [
-    "Artikelnummer oder Gleisart...",
-    "Référence ou type de voie...",
-    "Código o tipo de vía...",
-    "Codice o tipo di binario..."
+  "Wildcard filter": [
+    "Platzhalterfilter",
+    "Filtre à jokers",
+    "Filtro con comodines",
+    "Filtro con caratteri jolly"
+  ],
+  "Code or type; * any text, ? one character": [
+    "Nummer oder Typ; * beliebiger Text, ? ein Zeichen",
+    "Référence ou type ; * tout texte, ? un caractère",
+    "Código o tipo; * cualquier texto, ? un carácter",
+    "Codice o tipo; * qualsiasi testo, ? un carattere"
   ],
   "Manufacturer / scale": [
     "Hersteller / Maßstab",
@@ -705,11 +1759,11 @@
     "¿Reemplazar los datos de este dispositivo?",
     "Sostituire i dati di questo dispositivo?"
   ],
-  "This replaces all inventory and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.": [
-    "Ersetzt Bestand und alle Gleispläne. Exportiere zuerst eine Sicherung. Importierte Geometrie wird geprüft; Probleme werden angezeigt.",
-    "Remplace tous les stocks et réseaux. Exportez d’abord une sauvegarde. La géométrie importée sera vérifiée et les problèmes affichés.",
-    "Reemplaza todo el inventario y los trazados. Exporta antes una copia. Se comprobará la geometría y se mostrarán los problemas.",
-    "Sostituisce tutto l’inventario e i plastici. Esporta prima un backup. La geometria importata sarà verificata e i problemi mostrati."
+  "This replaces all inventory, rooms and layouts. Export a backup first. Imported geometry will be checked and any placement issues shown.": [
+    "Ersetzt Bestand, Räume und alle Gleispläne. Exportiere zuerst eine Sicherung. Importierte Geometrie wird geprüft; Probleme werden angezeigt.",
+    "Remplace tous les stocks, pièces et réseaux. Exportez d’abord une sauvegarde. La géométrie importée sera vérifiée et les problèmes affichés.",
+    "Reemplaza todo el inventario, habitaciones y trazados. Exporta antes una copia. Se comprobará la geometría y se mostrarán los problemas.",
+    "Sostituisce tutto l’inventario, le stanze e i plastici. Esporta prima un backup. La geometria importata sarà verificata e i problemi mostrati."
   ],
   "Unexpected problem": [
     "Unerwartetes Problem",
@@ -736,6 +1790,8 @@
     "Errore imprevisto. Esporta un backup prima di ricaricare."
   ],
   "Straight": ["Gerade", "Droit", "Recta", "Dritto"],
+  "Curve": ["Kurve", "Courbe", "Curva", "Curva"],
+  "Point": ["Weiche", "Aiguillage", "Desvío", "Scambio"],
   "Double straight": ["Doppelte Gerade", "Double droit", "Recta doble", "Dritto doppio"],
   "Long straight": ["Lange Gerade", "Long droit", "Recta larga", "Dritto lungo"],
   "Quarter straight": ["Viertelgerade", "Quart de droit", "Cuarto de recta", "Quarto di dritto"],
@@ -812,29 +1868,20 @@
     "Cruce derecho",
     "Incrocio destro"
   ],
-  "Straights ({count})": [
-    "Geraden ({count})",
-    "Droits ({count})",
-    "Rectas ({count})",
-    "Dritti ({count})"
+  "Straights": ["Geraden", "Droits", "Rectas", "Dritti"],
+  "Curves": ["Kurven", "Courbes", "Curvas", "Curve"],
+  "Points": ["Weichen", "Aiguillages", "Desvíos", "Scambi"],
+  "Misc / crossings": [
+    "Sonstiges / Kreuzungen",
+    "Divers / croisements",
+    "Varios / cruces",
+    "Varie / incroci"
   ],
-  "Curves ({count})": [
-    "Kurven ({count})",
-    "Courbes ({count})",
-    "Curvas ({count})",
-    "Curve ({count})"
-  ],
-  "Points ({count})": [
-    "Weichen ({count})",
-    "Aiguillages ({count})",
-    "Desvíos ({count})",
-    "Scambi ({count})"
-  ],
-  "Misc / crossings ({count})": [
-    "Sonstiges / Kreuzungen ({count})",
-    "Divers / croisements ({count})",
-    "Varios / cruces ({count})",
-    "Varie / incroci ({count})"
+  "{category} ({count})": [
+    "{category} ({count})",
+    "{category} ({count})",
+    "{category} ({count})",
+    "{category} ({count})"
   ],
   "Place {code} {name}": [
     "{code} {name} platzieren",

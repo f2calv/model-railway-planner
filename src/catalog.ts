@@ -1,5 +1,13 @@
 import type { Route, TrackCategory, TrackDefinition } from './model';
-import { manufacturerProfile, scaleProfile } from './profiles';
+import { gaugeGroups, manufacturerProfile, manufacturerProfiles, scaleProfile } from './profiles';
+import { translationsFor } from './i18n';
+
+export const catalogCategories = [
+  { id: 'straights', label: 'Straights', singular: 'Straight' },
+  { id: 'curves', label: 'Curves', singular: 'Curve' },
+  { id: 'points', label: 'Points', singular: 'Point' },
+  { id: 'misc', label: 'Misc / crossings', singular: 'Misc / crossings' },
+] as const satisfies readonly { id: TrackCategory; label: string; singular: string }[];
 
 function track(
   code: string,
@@ -23,6 +31,46 @@ function track(
 // TODO: Add R460/R462/R463/R464 furniture after verified widths and curved footprints are available.
 // Product lengths alone cannot support reliable placement or train-clearance checks.
 export const catalog: readonly TrackDefinition[] = [
+  profileTrack(
+    'marklin-z',
+    '8500',
+    'Straight',
+    [{ kind: 'straight', length: 110 }],
+    'https://www.marklin.com/products/details/article/8500',
+    'straights',
+  ),
+  profileTrack(
+    'peco-setrack-n',
+    'ST-1',
+    'Straight',
+    [{ kind: 'straight', length: 87 }],
+    'https://peco-uk.com/products/st1-peco-setrack-n-track-c80-standard-straight',
+    'straights',
+  ),
+  profileTrack(
+    'hornby-tt',
+    'TT8002',
+    'Straight',
+    [{ kind: 'straight', length: 166 }],
+    'https://uk.hornby.com/products/straight-track-tt8002',
+    'straights',
+  ),
+  profileTrack(
+    'peco-setrack-o',
+    'ST-700',
+    'Straight',
+    [{ kind: 'straight', length: 394 }],
+    'https://peco-uk.com/products/st700-peco-setrack-o-track-bh-c124-standard-straight',
+    'straights',
+  ),
+  profileTrack(
+    'peco-setrack-g45',
+    'ST-905',
+    'Standard curve',
+    [{ kind: 'arc', radius: 600, angle: 30 }],
+    'https://peco-uk.com/products/st905-peco-setrack-g45-track-c250-standard-curve',
+    'curves',
+  ),
   track('R600', 'Straight', [{ kind: 'straight', length: 168 }], 'straight-track', 'straights'),
   track(
     'R601',
@@ -47,6 +95,59 @@ export const catalog: readonly TrackDefinition[] = [
     'straights',
   ),
   track('R8206', 'Power track', [{ kind: 'straight', length: 168 }], 'power-track', 'straights'),
+  track(
+    'R8241',
+    'Digital power track',
+    [{ kind: 'straight', length: 168 }],
+    'digital-power-track',
+    'straights',
+  ),
+  track(
+    'R636',
+    'Double-track level crossing',
+    [
+      { kind: 'straight', length: 168 },
+      { kind: 'straight', length: 168, start: { x: 0, y: 67, angle: 0 } },
+    ],
+    'level-crossing-double-track',
+    'misc',
+    'Two 168 mm tracks at standard 67 mm centres. Road, gates and barriers are not included in clearance checks.',
+  ),
+  {
+    ...track(
+      'R645',
+      'Single-track level crossing',
+      [],
+      'level-crossing-single-track',
+      'misc',
+      'Accessory only; track not included. Centred schematic marker, not a road or gate clearance footprint.',
+    ),
+    attachment: { minLengthMm: 168 },
+  },
+  ...[
+    {
+      code: 'R602',
+      name: 'DC power connecting clip',
+      slug: 'power-connecting-clip',
+      accessory: 'dc-feed' as const,
+    },
+    {
+      code: 'R8242',
+      name: 'DCC power connecting clip',
+      slug: 'digital-power-connecting-clip',
+      accessory: 'dcc-feed' as const,
+    },
+    {
+      code: 'R8232',
+      name: 'DCC point clips (individual clips)',
+      slug: 'digital-electric-point-clips-pack-20',
+      accessory: 'point-clips' as const,
+    },
+  ].map((item) => ({
+    ...track(item.code, item.name, [], item.slug, 'misc'),
+    attachment: { minLengthMm: 0 },
+    electrical: { behavior: 'unverified' as const, accessory: item.accessory },
+  })),
   ...[
     { code: 'R604', radius: 371, angle: 22.5, name: '1st radius', slug: 'curve-1st-radius' },
     {
@@ -276,6 +377,89 @@ export const catalog: readonly TrackDefinition[] = [
   ),
 ];
 
+export interface CatalogFilter {
+  gauge?: string;
+  profileId?: string;
+  brand?: string;
+  query?: string;
+}
+
+export function matchesCatalogQuery(entry: TrackDefinition, query: string): boolean {
+  const search = query.trim().normalize('NFC').toLowerCase();
+  if (!search) return true;
+  const category = catalogCategories.find((category) => category.id === entry.category);
+  if (!category) throw new Error('Unknown catalog category.');
+  const text = [
+    entry.brand,
+    entry.code,
+    entry.scale,
+    ...translationsFor(entry.name),
+    ...translationsFor(category.singular),
+    ...translationsFor(category.label),
+  ]
+    .join(' ')
+    .normalize('NFC')
+    .toLowerCase();
+  const pattern = `*${search}*`;
+  let position = 0,
+    token = 0,
+    star = -1,
+    retry = 0;
+  while (position < text.length) {
+    if (pattern[token] === '*') {
+      star = token++;
+      retry = position;
+    } else if (pattern[token] === '?' || pattern[token] === text[position]) {
+      position++;
+      token++;
+    } else if (star >= 0) {
+      token = star + 1;
+      position = ++retry;
+    } else return false;
+  }
+  while (pattern[token] === '*') token++;
+  return token === pattern.length;
+}
+
+export function filterCatalog(filter: CatalogFilter = {}): readonly TrackDefinition[] {
+  const gauge = filter.gauge ? gaugeGroups.find((group) => group.id === filter.gauge) : undefined;
+  if (filter.gauge && !gauge) throw new Error('Unknown catalog gauge.');
+  const query = filter.query?.trim().toLowerCase() ?? '';
+  return catalog.filter(
+    (entry) =>
+      (!gauge || entry.gaugeMm === gauge.gaugeMm) &&
+      (!filter.profileId || entry.profileId === filter.profileId) &&
+      (!filter.brand || entry.brand === filter.brand) &&
+      matchesCatalogQuery(entry, query),
+  );
+}
+
+export function catalogManufacturers(gauge = '') {
+  const ids = new Set(filterCatalog({ gauge }).map((entry) => entry.profileId));
+  return manufacturerProfiles.filter((profile) => ids.has(profile.id));
+}
+
+export function catalogBrands(gauge = ''): readonly string[] {
+  return [...new Set(catalogManufacturers(gauge).map((profile) => profile.brand))];
+}
+
+function trackElectricalBehavior(
+  profileId: string,
+  code: string,
+  category: TrackCategory,
+  routes: readonly Route[],
+): NonNullable<TrackDefinition['electrical']>['behavior'] {
+  if (code === 'R618') return 'isolating';
+  if (category === 'points')
+    return profileId === 'hornby-oo' && /^R807[2-8]$/.test(code) && routes.length === 2
+      ? 'turnout'
+      : 'unverified';
+  if (routes.length === 1) return 'continuous';
+  return routes.length === 2 && profileId === 'hornby-oo' && ['R636', 'R614', 'R615'].includes(code)
+    ? 'independent'
+    : 'unverified';
+}
+
 function profileTrack(
   profileId: string,
   code: string,
@@ -299,17 +483,40 @@ function profileTrack(
     routes,
     source,
     category,
+    electrical: {
+      behavior: trackElectricalBehavior(profileId, code, category, routes),
+      ...(code === 'R8206'
+        ? { nativeFeed: 'dc' as const }
+        : code === 'R8241'
+          ? { nativeFeed: 'dcc' as const }
+          : {}),
+    },
     ...(geometryNote ? { geometryNote } : {}),
   };
 }
 
 export function trackSize(entry: TrackDefinition): string {
+  if (entry.attachment) return 'Accessory only; track not included';
   const segmentSize = (route: Route): string => {
     if (route.kind === 'straight') return `${Math.round(route.length * 10) / 10} mm`;
     if (route.kind === 'arc') return `R${route.radius} mm / ${Math.abs(route.angle)} degrees`;
     return route.segments.map(segmentSize).join(' + ');
   };
   return entry.routes.map(segmentSize).join(' | ');
+}
+
+export function accessoryFits(hostId: string, accessoryId: string): boolean {
+  const host = definition(hostId);
+  const accessory = definition(accessoryId);
+  const route = host.routes[0];
+  return (
+    !!accessory.attachment &&
+    !accessory.electrical?.accessory &&
+    host.profileId === accessory.profileId &&
+    host.routes.length === 1 &&
+    route?.kind === 'straight' &&
+    route.length >= accessory.attachment.minLengthMm
+  );
 }
 
 export function definition(id: string): TrackDefinition {
