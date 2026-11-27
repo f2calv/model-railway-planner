@@ -884,8 +884,8 @@ test('room actions beside the selector create and rename rooms independently of 
   await rooms.getByRole('button', { name: 'New room', exact: true }).click();
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Example room');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(rooms.locator('#layout-room')).not.toHaveValue('');
   const roomId = await rooms.locator('#layout-room').inputValue();
-  expect(roomId).not.toBe('');
   await rooms.getByRole('button', { name: 'Rename room', exact: true }).click();
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Renamed room');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
