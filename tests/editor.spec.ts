@@ -1531,11 +1531,11 @@ test('compact inventory counts leave space for track names and retain four-digit
         const style = getComputedStyle(input);
         const context = document.createElement('canvas').getContext('2d');
         if (!context) throw new Error('Missing text measurement context.');
-        context.font = `${style.fontSize} ${style.fontFamily}`;
+        context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
         return {
           inputWidth: input.getBoundingClientRect().width,
-          digitsFit:
-            context.measureText(input.value).width <=
+          digitsWidth: context.measureText(input.value).width,
+          inputContentWidth:
             input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
           remainingFits: remaining.scrollWidth <= remaining.clientWidth,
           nameWidth: name.getBoundingClientRect().width,
@@ -1544,7 +1544,10 @@ test('compact inventory counts leave space for track names and retain four-digit
         };
       });
     expect(dimensions.inputWidth).toBeLessThanOrEqual(36);
-    expect(dimensions.digitsFit).toBe(true);
+    expect(
+      dimensions.digitsWidth,
+      `${width}px viewport: ${JSON.stringify(dimensions)}`,
+    ).toBeLessThanOrEqual(dimensions.inputContentWidth);
     expect(dimensions.remainingFits).toBe(true);
     expect(dimensions.rowFits).toBe(true);
     expect(dimensions.nameWidth).toBeGreaterThanOrEqual(dimensions.rowWidth - 116);
@@ -1565,7 +1568,7 @@ test('grouped palette is compact and searchable; dark mode persists', async ({ p
     'Straights (16)',
     'Curves (17)',
     'Points (7)',
-    'Misc / crossings (4)',
+    'Misc / crossings (7)',
   ]);
   const height = await page
     .locator('.catalog-row')
@@ -1615,19 +1618,19 @@ test('group selection supports Ctrl, enclosing marquee, rigid moves and a single
     'translate(0,0) rotate(0) scale(1,1)',
   );
   await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
-  const canvas = await page.locator('#canvas').boundingBox();
-  if (!canvas) throw new Error('Missing test canvas.');
-  await page.mouse.move(canvas.x + 65, canvas.y + 75);
+  const marqueeStart = await boardScreenPoint(page, -20, -20);
+  const marqueeEnd = await boardScreenPoint(page, 356, 20);
+  await page.mouse.move(marqueeStart.x, marqueeStart.y);
   await page.mouse.down();
-  await page.mouse.move(canvas.x + 315, canvas.y + 150, { steps: 8 });
+  await page.mouse.move(marqueeEnd.x, marqueeEnd.y, { steps: 8 });
   await expect(page.locator('#marquee')).toBeVisible();
   await page.mouse.up();
   await expect(page.locator('#tracks > .selected')).toHaveCount(2);
-  const rail = await page.locator('#tracks > g').first().boundingBox();
-  if (!rail) throw new Error('Missing test track.');
-  await page.mouse.move(rail.x + rail.width / 2, rail.y + rail.height / 2);
+  const dragStart = await boardScreenPoint(page, 84, 0);
+  const dragEnd = await boardScreenPoint(page, 84, 100);
+  await page.mouse.move(dragStart.x, dragStart.y);
   await page.mouse.down();
-  await page.mouse.move(rail.x + rail.width / 2, rail.y + rail.height / 2 + 60, { steps: 5 });
+  await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 5 });
   await page.mouse.up();
   const moved = await page.locator('#tracks > g').evaluateAll((groups) =>
     groups.slice(0, 2).map((group) =>
